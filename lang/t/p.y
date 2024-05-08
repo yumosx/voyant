@@ -17,3 +17,8 @@ probe sys:execute /pid() == 1/
 {
     print(comm());
 }
+
+probe sys:execute:enter /pid() == 2/
+{
+
+}

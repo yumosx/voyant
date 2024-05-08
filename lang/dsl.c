@@ -745,7 +745,6 @@ int tracepoint_setup(ebpf_t* e, int id) {
 }
 
 void get_annot(node_t* n, ebpf_t* e) {
- 
      switch(n->type) {
         case NODE_INT:
             n->annot.type = NODE_INT;
@@ -756,6 +755,12 @@ void get_annot(node_t* n, ebpf_t* e) {
             n->annot.size = _ALIGNED(strlen(n->name) + 1);
             n->annot.addr = symtable_reserve(e->st, n->annot.size);
             break; 
+        case NODE_ASSIGN:
+            symtable_transfer(e->st, n->assign.expr);
+            n->assign.lval->annot.type = n->assign.expr->annot.type;
+            n->assign.lval->annot.size = n->assign.expr->annot.size;
+            symtable_add(e->st, n->assign.lval);
+            break;
         default:
             break;
     }
@@ -804,27 +809,56 @@ int get_tracepoint_id(char* name) {
 }
 
 
+void node_walk(node_t* n, ebpf_t* e);
+
+void node_probe_walk(node_t* p, ebpf_t* e) {
+    node_t* stmts = p->probe.stmts;
+    node_t* n;
+    
+    for (n = stmts; n != NULL; n = n->next) {
+        node_walk(n, e); 
+    }
+}
+
+void node_assign_walk(node_t* a, ebpf_t* e) {
+    get_annot(a, e);
+    
+    node_t* expr = a->assign.expr;
+    node_walk(expr, e);
+    
+    reg_t* dst = ebpf_reg_get(e);
+    ebpf_reg_load(e, dst, expr);
+    ebpf_reg_bind(e, dst, a->assign.lval);
+}
+
+
+void node_call_walk(node_t* c, ebpf_t* e) {
+    node_t* args = c->call.args;
+    node_t* n;
+    
+    for (n = args; n != NULL; n = n->next) {
+        node_walk(n, e);
+    }
+    
+    compile_call_(c, e);
+}
+
 void node_walk(node_t* n, ebpf_t* e) {
-    switch (n->type) {
+    switch(n->type) {
         case NODE_PROBE:
-            if (n->probe.mode == PROBE_SYS) {
-                int traceid = get_tracepoint_id(n->probe.ident->name);            
-                printf("%s\n", n->probe.ident->name);
-                node_walk(n->probe.stmts, e);
-                
-                tracepoint_setup(e, traceid); 
-            }                               
+            node_probe_walk(n, e);
+            break;
+        case NODE_ASSIGN:
+            node_assign_walk(n, e);  
+            break;
+        case NODE_CALL:
+            node_call_walk(n, e);
             break;
         case NODE_STRING:
-            printf("%s\n", n->name);
             get_annot(n, e);
             compile_str(e, n);
             break;
-        case NODE_CALL:
-            for (node_t* n = n->call.args; n != NULL; n = n->next) {
-                node_walk(n, e);
-            }
-            compile_call_(n, e);
+        default:
             break;
     }
 }
@@ -862,17 +896,4 @@ char* read_file(const char* filename) {
     fclose(f);
 
     return input;
-}
-
-void run_script(const char* input){
-    lexer_t* lexer = lexer_init(input);
-    parser_t* parser  = parser_init(lexer);
-    node_t* node = parse_program(parser);
-
-    if (node == NULL) {
-        err(EXIT_FAILURE, "not match any node");        
-    }
-
-    ebpf_t* e = ebpf_new();
-    node_walk(node, e);    
 }

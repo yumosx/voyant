@@ -13,18 +13,19 @@ There are three aspectes that can account for my option;
 
 ## syntax
 
-## example1:
+## hello, world
 
 ```y
 probe sys:execute:enter {
-    print("Hello, Wolrd!");
+    print("Hello, World!");
 }
 ```
 
-### example2
+### variable
 
 ```y
 probe sys:execute:enter {
-    print("%d", _pid());
+    a = pid();
+    print("%d", a());
 }
 ```

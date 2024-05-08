@@ -74,8 +74,22 @@ void test_sym() {
     tracepoint_setup(e, 595);
 }
 
+void test_node_iter() {
+    char* input = "probe sys:execute{ a = pid(); print(\"pid: %d\", a);}";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_program(p);
+    ebpf_t* e = ebpf_new();
+    e->st = symtable_new();
+    node_walk(n, e);
+    tracepoint_setup(e, 595); 
+}
+
+
+
 int main() {
-    test_sym();
+    test_node_iter();
+    //test_sym();
     //test_program();
     PRINT_ANS();
     return 0;

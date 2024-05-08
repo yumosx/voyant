@@ -182,6 +182,8 @@ node_t* parse_program(parser_t* p);
 node_t* parse_let_stmts(parser_t* p);
 int get_tracepoint_id(char* name);
 
+void node_walk(node_t* n, ebpf_t* e);
+
 void compile_str(ebpf_t* e, node_t* n);
 int compile_pid_call(ebpf_t* e, node_t* n);
 void get_annot(node_t* n, ebpf_t* e);

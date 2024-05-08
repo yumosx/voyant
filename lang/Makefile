@@ -9,7 +9,7 @@ OBJS = $(SRCS:.c=.o)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 all: $(OBJS)
-	$(CC) -o program $(OBJS) $(LDFLAGS)
+	$(CC) -o voyant $(OBJS) $(LDFLAGS)
 
 clean:
-	rm -f $(OBJS) program
+	rm -f $(OBJS) voyant

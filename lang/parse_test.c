@@ -191,12 +191,8 @@ void test_parse_probe_all() {
     EXPECT_EQ_STR("pid", n->probe.stmts->call.args->next->name);
 }
 
-void test_node_walk() {
-    char* input = "probe sys:execute { print();}";
-}
-
 void test_new_let_stmts() {
-     char* input = "let pid = 1;";
+    char* input = "let pid = 1;";
     lexer_t* l = lexer_init(input);
     parser_t* p = parser_init(l);
     node_t* s = parse_program(p);
@@ -204,6 +200,8 @@ void test_new_let_stmts() {
     EXPECT_EQ_STR("pid", s->name);
     EXPECT_EQ_INT(1, s->let_stmts.expr->integer);
 }
+
+
 /*
 int main() {
     test_parse_assign_right_expr();
