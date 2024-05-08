@@ -26,6 +26,6 @@ probe sys:execute:enter {
 ```y
 probe sys:execute:enter {
     a = pid();
-    print("%d", a());
+    print("%d", a);
 }
 ```
