@@ -7,7 +7,9 @@
 #include <sys/ioctl.h>
 #include <stdint.h>
 #include <sched.h>
+#include <fcntl.h>
 #include <sys/syscall.h>
+#include <sys/resource.h>
 #include <linux/bpf.h>
 #include <linux/version.h>
 #include <linux/perf_event.h>
@@ -18,10 +20,11 @@
 char bpf_log_buf[LOG_BUF_SIZE];
 
 static const char* node_type_str[] = {
-    "TYPE_SCRIPT",
+    "TYE_SCRIPT",
     "TYPE_PROBE",
     "TYPE_EXPR",
     "TYPE_VAR",
+    "TYPE_MAP",
     "TYPE_LET",
     "TYPE_ASSIGN",
     "TYPE_CALL",
@@ -127,6 +130,9 @@ static seq_t get_token_seq(token_type t) {
     case LEFT_PAREN:
         return CALL;
         break;
+    case TOKEN_LEFT_BRACKET:
+        return INDEX;
+        break;
     case TOKEN_ASSIGN:
         return ASSIGN;
         break;
@@ -203,6 +209,27 @@ node_t* parse_call_args(parser_t* p) {
     return head;
 }
 
+node_t* parse_map_args(parser_t* p) {
+    node_t* n, *head;
+    
+    n = parse_expr(p, LOWEST);
+    head = n;
+    
+    while (next_tok_is(p, TOKEN_COMMA)) {
+        p_next_tok(p);
+        p_next_tok(p);
+        n->next = parse_expr(p, LOWEST);
+        n = n->next;
+    }
+
+    if (!expect_peek(p, TOKEN_RIGHT_BRACKET)) {
+        return NULL;
+    }
+
+    return head;
+}
+
+
 node_t* parse_call_expr(parser_t* p, node_t* left) {
     left->type = NODE_CALL;
     left->call.args = parse_call_args(p);
@@ -225,6 +252,12 @@ node_t* parse_assign_expr(parser_t* p, node_t* left) {
     return n;
 }
 
+node_t* parse_map_expr(parser_t* p, node_t* left) {
+    left->type = NODE_MAP;
+    p_next_tok(p);
+    left->map.args = parse_map_args(p);
+    return left;
+}
 
 node_t* parse_expr(parser_t* p, seq_t s) {    
     node_t* left;
@@ -242,6 +275,7 @@ node_t* parse_expr(parser_t* p, seq_t s) {
         default:
             return NULL;
     }
+    
     while (!next_tok_is(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
         switch (p->next_tok->type) {
         case TOKEN_ASSIGN:
@@ -256,6 +290,10 @@ node_t* parse_expr(parser_t* p, seq_t s) {
         case LEFT_PAREN:
             p_next_tok(p);
             left = parse_call_expr(p, left);
+            break;
+        case TOKEN_LEFT_BRACKET:
+            p_next_tok(p);
+            left = parse_map_expr(p, left);
             break;
         default:
             break;
@@ -461,6 +499,15 @@ int symtable_transfer(symtable_t* st, node_t* n) {
     return 0;
 }
 
+int symtable_map_transfer(symtable_t* st, node_t* m) {
+    node_t* n, *head = m->map.args;
+    
+    for (n = head; n != NULL; n = n->next) {
+        symtable_transfer(st, n);
+    }    
+    
+    return 0; 
+}
 
 void symtable_add(struct symtable_t* st, node_t* n) {
    sym_t* sym;
@@ -584,9 +631,8 @@ void ebpf_reg_put(ebpf_t* e, reg_t* r) {
         return;
 }
 
-
 static inline int node_is_sym(node_t* n) {
-    return n->type == NODE_VAR;
+    return n->type == NODE_VAR || n->type == NODE_MAP;
 }
 
 int ebpf_reg_bind(ebpf_t* e, reg_t* r, node_t* n) {
@@ -628,9 +674,9 @@ void compile_call(ebpf_t* e, node_t* n) {
     ebpf_reg_load(e, &r[reg++], fmtlen);
     ebpf_reg_load(e, &r[reg++], args->next); 
     ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
-    
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
+ 
 }
 
 
@@ -697,6 +743,29 @@ long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int g
     return ret;    
 }
 
+#define DEBUGFS "/sys/kernal/debug/tracing"
+
+void read_trace_pipe(void) {
+    int trace_fd;
+    trace_fd = open(DEBUGFS, "trace_pipe", O_RDONLY, 0);
+    
+    if (trace_fd < 0)
+        printf("error"); 
+    
+    while (1) {
+        static char buf[4096];
+        ssize_t sz;
+        
+        sz = read(trace_fd, buf, sizeof(buf) - 1);
+        if (sz > 0) {
+            buf[sz] = 0;
+            puts(buf);
+        }
+    }
+}
+
+
+
 int tracepoint_setup(ebpf_t* e, int id) {
     struct perf_event_attr attr = {};
     
@@ -733,13 +802,18 @@ int tracepoint_setup(ebpf_t* e, int id) {
         perror("perf attach");
         return 1;
      } 
-
-
+    
+    
+    read_trace_pipe();        
+        
+ 
+    /*
     while (1) {
         system("cat /sys/kernel/debug/tracing/trace_pipe");
         getchar(); 
   
     }
+    */
 
     return 0;
 }
@@ -853,6 +927,9 @@ void node_walk(node_t* n, ebpf_t* e) {
             break;
         case NODE_CALL:
             node_call_walk(n, e);
+            break;
+        case NODE_INT:
+            get_annot(n, e);
             break;
         case NODE_STRING:
             get_annot(n, e);

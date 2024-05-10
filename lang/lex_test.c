@@ -3,7 +3,7 @@
 #include "testbase.h"
 
 static void test_lexer() {
-    char* input = "probe sys:execute{let a = 1; print();}";
+    char* input = "probe sys:execute{let a = 1; print(); a[];}";
    
     token_t toks [] = {
         {"probe", TOKEN_PROBE},
@@ -20,6 +20,10 @@ static void test_lexer() {
         {"(", LEFT_PAREN},
         {")", RIGHT_PAREN},
         {";", TOKEN_SEMICOLON},
+        {"a", TOKEN_IDENT},
+        {"[", TOKEN_LEFT_BRACKET},
+        {"]", TOKEN_RIGHT_BRACKET},
+        {";", TOKEN_SEMICOLON},
         {"}", TOKEN_RIGHT_BLOCK},
     };
 
@@ -28,6 +32,14 @@ static void test_lexer() {
 
     for (int i = 0; i < sizeof toks / sizeof toks[0]; i++) {
         t = lexer_next_token(lexer);
-        EXPECT_EQ_STR(toks[i].literal, t->literal)
+        EXPECT_EQ_STR(toks[i].literal, t->literal);
     }
 }
+
+/*
+int main() {
+    test_lexer();
+    PRINT_ANS();
+    return 0;
+}
+*/

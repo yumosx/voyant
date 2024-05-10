@@ -14,6 +14,8 @@ const char* tok_type_str[] = {
     "SLASH"
     "COLON",
     "COMMA",
+    "LEFT_BRACKET",
+    "RIGHT_BRACKET",
     "LEFT_BLOCK",
     "RIGHT_BLOCK",
     "UNDERLINE",
@@ -167,6 +169,13 @@ token_t* lexer_next_token(lexer_t* l) {
                 t->literal = strdup(",");
                 read_char(l);
                 break;
+            
+            case '/':
+                t->type = TOKEN_SLASH;
+                t->literal = strdup("/");
+                read_char(l);
+                break;
+            
 
             case '(':
                 t->type = LEFT_PAREN;
@@ -180,12 +189,18 @@ token_t* lexer_next_token(lexer_t* l) {
                 read_char(l);
                 break;
             
-            case '/':
-                t->type = TOKEN_SLASH;
-                t->literal = strdup("/");
+            case '[':
+                t->type = TOKEN_LEFT_BRACKET;
+                t->literal = strdup("[");
+                read_char(l);
+                break; 
+            
+            case ']':
+                t->type = TOKEN_RIGHT_BRACKET;
+                t->literal = strdup("]");
                 read_char(l);
                 break;
-            
+
             case '{':
                 t->type = TOKEN_LEFT_BLOCK;
                 t->literal = strdup("{");

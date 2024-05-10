@@ -19,6 +19,7 @@ typedef enum {
     PRODUCT,        //*
     PREFIX,         //!1
     CALL,
+    INDEX,
 } seq_t;
 
 
@@ -29,6 +30,7 @@ typedef enum node_type_t {
     NODE_INFIX_EXPR,
     NODE_EXPR,
     NODE_VAR,
+    NODE_MAP,
     NODE_LET,
     NODE_ASSIGN,
     NODE_CALL,
@@ -95,6 +97,11 @@ typedef struct let_stmts {
 } let_stmts_t;
 
 
+typedef struct map_t {
+    node_t* args; 
+} map_t;
+
+
 typedef struct node_t{
     node_type_t type;
     node_t* prev, *next;
@@ -107,6 +114,7 @@ typedef struct node_t{
         infix_t infix_expr;
         prefix_t prefix_expr;
         call_t call;
+        map_t map;
         let_stmts_t let_stmts; 
         assign_t assign;
         size_t integer;

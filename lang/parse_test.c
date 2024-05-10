@@ -2,6 +2,7 @@
 #include "testbase.h"
 #include "dsl.h"
 
+
 void test_parse_int() {
     char* input = "123";
     lexer_t* l = lexer_init(input);
@@ -201,9 +202,20 @@ void test_new_let_stmts() {
     EXPECT_EQ_INT(1, s->let_stmts.expr->integer);
 }
 
+void test_parse_map() {
+    char* input = "execute[1, pid()];";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_expr(p, LOWEST);
+    
+    EXPECT_EQ_INT(NODE_MAP, n->type);    
+    EXPECT_EQ_STR("execute", n->name);
+    EXPECT_EQ_INT(1, n->map.args->integer);
+    EXPECT_EQ_STR("pid", n->map.args->next->name ); 
+}
 
-/*
 int main() {
+    test_parse_map();
     test_parse_assign_right_expr();
     test_parse_assign_expr();
     test_parse_probe_all();
@@ -222,4 +234,3 @@ int main() {
     test_parse_program();
     PRINT_ANS();
 }
-*/

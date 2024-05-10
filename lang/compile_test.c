@@ -85,8 +85,7 @@ void test_node_iter() {
     tracepoint_setup(e, 595); 
 }
 
-
-
+/*
 int main() {
     test_node_iter();
     //test_sym();
@@ -94,3 +93,4 @@ int main() {
     PRINT_ANS();
     return 0;
 }
+*/

@@ -1,11 +1,19 @@
-probe sys:socket 
+probe sys:execute 
 {  
     print("%d", pid());
 }
 
+
+probe sys:execute
+{
+    execute[pid(), comm()]++;
+    printf(execute[pid()]);
+}
+
+
 probe sys:execute 
 {
-    let a = pid();
+    a = pid();
     if (a == 2) {
         print("%s", "pid is 2");
     } else {
@@ -13,12 +21,8 @@ probe sys:execute
     }
 }
 
+
 probe sys:execute /pid() == 1/
 {
     print(comm());
-}
-
-probe sys:execute:enter /pid() == 2/
-{
-
 }
