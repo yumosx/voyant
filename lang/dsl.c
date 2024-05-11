@@ -238,9 +238,9 @@ node_t* parse_call_expr(parser_t* p, node_t* left) {
 
 
 node_t* parse_assign_expr(parser_t* p, node_t* left) {
-    if (left->type != NODE_VAR) {
-        err(EXIT_FAILURE, "Parsing error: invalid assigment left-hand side");
-    }
+    //if (left->type != NODE_VAR || left->type != NODE_MAP) {
+    //    err(EXIT_FAILURE, "Parsing error: invalid assigment left-hand side");
+    //}
 
     node_t* n = node_new(NODE_ASSIGN);
 
@@ -511,17 +511,21 @@ int symtable_map_transfer(symtable_t* st, node_t* m) {
 
 void symtable_add(struct symtable_t* st, node_t* n) {
    sym_t* sym;
-   
+    //TODO: if define 
    if ( st->len == st->cap ) {
         st->cap += 16;
         st->table = realloc(st->table, st->cap * sizeof(*st->table));
         memset(&st->table[st->len], 0, 16 * sizeof(*st->table));
    }
-
+   
    sym = &st->table[st->len++];
    sym->name = n->name;
    sym->annot = n->annot;
    sym->size = n->annot.size; 
+   
+   if (n->type == NODE_MAP) {
+      sym->size += n->annot.keysize;
+   }
    sym->addr = symtable_reserve(st, sym->size);
 }
 
@@ -552,7 +556,7 @@ reg_t* ebpf_reg_find(ebpf_t* e, node_t* n) {
    void* obj = n;
    int type = REG_NODE;
 
-   if (n->type == NODE_VAR) {
+   if (n->type == NODE_VAR || n->type == NODE_MAP) {
         type = REG_SYM;
         obj = symtable_get(e->st, n->name);
    }
@@ -573,7 +577,7 @@ void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {
         r->type = REG_NODE;
         r->n = n;
         ebpf_emit(e, MOV_IMM(r->reg, n->integer));
-    } else if (n->type == NODE_VAR){
+    } else if (n->type == NODE_VAR || n->type == NODE_MAP){
         sym_t* sym;
         sym = symtable_get(e->st, n->name);
         
@@ -676,7 +680,6 @@ void compile_call(ebpf_t* e, node_t* n) {
     ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
- 
 }
 
 
@@ -736,6 +739,20 @@ int bpf_prog_load(const struct bpf_insn* insns, int insn_cnt) {
     return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
 }
 
+int bpf_map_create(enum bpf_map_type type, int key_sz, int val_sz, int entries) {
+    union bpf_attr attr = {
+       .map_type = type,
+       .key_size = key_sz,
+       .value_size = val_sz,
+       .max_entries = entries,
+    };
+
+    return syscall(__NR_bpf, BPF_MAP_CREATE, &attr, sizeof(attr));
+}
+
+
+int bpf_map_close(){
+}
 
 long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
     int ret;
@@ -818,6 +835,30 @@ int tracepoint_setup(ebpf_t* e, int id) {
     return 0;
 }
 
+void assign_assign(node_t* n, ebpf_t* e) {
+    
+}
+
+void annot_map(node_t* n, ebpf_t* e) {
+   symtable_transfer(e->st, n->assign.expr);
+   
+   n->assign.lval->annot.type = n->assign.expr->annot.type;
+   n->assign.lval->annot.size = n->assign.expr->annot.size;
+   
+    if (n->assign.lval->type == NODE_MAP) {
+        node_t* head, *args = n->assign.lval->map.args;
+        ssize_t ksize = 0; 
+        
+        for (head = args; head != NULL; head = head->next) {
+            get_annot(head, e);
+            ksize += head->annot.size;
+        }
+        n->assign.lval->annot.keysize = ksize;
+   }
+    
+   symtable_add(e->st, n->assign.lval);     
+}
+
 void get_annot(node_t* n, ebpf_t* e) {
      switch(n->type) {
         case NODE_INT:
@@ -828,12 +869,19 @@ void get_annot(node_t* n, ebpf_t* e) {
             n->annot.type = NODE_STRING;
             n->annot.size = _ALIGNED(strlen(n->name) + 1);
             n->annot.addr = symtable_reserve(e->st, n->annot.size);
-            break; 
+            break;
+        case NODE_CALL:
+            n->annot.type = NODE_INT;
+            n->annot.size = 8;
+            break;
         case NODE_ASSIGN:
+            annot_map(n, e);
+            /*
             symtable_transfer(e->st, n->assign.expr);
             n->assign.lval->annot.type = n->assign.expr->annot.type;
             n->assign.lval->annot.size = n->assign.expr->annot.size;
             symtable_add(e->st, n->assign.lval);
+            */
             break;
         default:
             break;
@@ -844,6 +892,7 @@ void get_annot(node_t* n, ebpf_t* e) {
 void compile_str(ebpf_t* e, node_t* n) {
     ebpf_push(e, n->annot.addr, n->name, n->annot.size);
 }
+
 
 void compile_call_(node_t* n, ebpf_t* e) {
     if (!strcmp(n->name, "pid")) {
@@ -959,9 +1008,8 @@ char* read_file(const char* filename) {
 
     while ( (read = fread(input, sizeof(char), BUFSIZ, f)) > 0) {
         size += read;
-        
-
-       if (read > BUFSIZ) {
+       
+        if (read > BUFSIZ) {
             input = (char*) realloc(input, size+BUFSIZ);
             if (input == NULL) {
                 err(EXIT_FAILURE, "remalloc failed");

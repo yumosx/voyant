@@ -41,11 +41,12 @@ typedef enum node_type_t {
 
 #define get_node_name(n) node_str[n->type]
 
-
 typedef struct annot_t {
     node_type_t type;
     loc_t loc;
     int reg;
+    int mapid;
+    size_t keysize;
     ssize_t size;
     ssize_t addr;
 } annot_t;
@@ -197,13 +198,14 @@ int compile_pid_call(ebpf_t* e, node_t* n);
 void get_annot(node_t* n, ebpf_t* e);
 void compile_call_(node_t* n, ebpf_t* e);
 void compile_call(ebpf_t* e, node_t* n);
-int tracepoint_setup(ebpf_t* e, int id);
 
-ebpf_t* ebpf_new();
+int tracepoint_setup(ebpf_t* e, int id);
+int bpf_map_create(enum bpf_map_type type, int key_sz, int val_sz, int entries); 
 reg_t* ebpf_reg_get(ebpf_t* e);
 void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n);
 int ebpf_reg_bind(ebpf_t* e, reg_t* r, node_t* n);
 
+ebpf_t* ebpf_new();
 symtable_t* symtable_new();
 
 int symtable_transfer(symtable_t* s, node_t* n);

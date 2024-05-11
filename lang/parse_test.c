@@ -214,7 +214,35 @@ void test_parse_map() {
     EXPECT_EQ_STR("pid", n->map.args->next->name ); 
 }
 
+void test_parse_map_assign() {
+    char* input = "execute[pid(), comm()] = 1;";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_expr(p, LOWEST);
+    EXPECT_EQ_INT(NODE_ASSIGN, n->type);
+    EXPECT_EQ_STR("execute", n->assign.lval->name);
+    EXPECT_EQ_STR("pid", n->assign.lval->map.args->name);
+    EXPECT_EQ_STR("comm", n->assign.lval->map.args->next->name);
+    EXPECT_EQ_INT(1, n->assign.expr->integer);
+    
+    ebpf_t* e = ebpf_new();
+    e->st = symtable_new();
+    
+    get_annot(n->assign.expr, e);
+    get_annot(n, e);
+    
+    EXPECT_EQ_INT(16, n->assign.lval->annot.keysize);
+    EXPECT_EQ_INT(8, n->assign.lval->annot.size);
+
+    int fd = bpf_map_create(BPF_MAP_TYPE_HASH, n->assign.lval->annot.keysize, n->assign.lval->annot.size, 1024);
+    printf("%d\n", fd);
+}
+
+
+
+
 int main() {
+    test_parse_map_assign();
     test_parse_map();
     test_parse_assign_right_expr();
     test_parse_assign_expr();
