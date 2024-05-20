@@ -189,6 +189,7 @@ node_t* parse_expr(parser_t* p, seq_t s);
 node_t* parse_int_expr(char* name);
 node_t* parse_program(parser_t* p);
 node_t* parse_let_stmts(parser_t* p);
+
 int get_tracepoint_id(char* name);
 
 void node_walk(node_t* n, ebpf_t* e);
@@ -196,11 +197,16 @@ void node_walk(node_t* n, ebpf_t* e);
 void compile_str(ebpf_t* e, node_t* n);
 int compile_pid_call(ebpf_t* e, node_t* n);
 void get_annot(node_t* n, ebpf_t* e);
+
+void compile_map_load(node_t* n, ebpf_t* e);
 void compile_call_(node_t* n, ebpf_t* e);
 void compile_call(ebpf_t* e, node_t* n);
 
+void emit_ld_mapfd(ebpf_t* e, int reg, int fd); 
+
 int tracepoint_setup(ebpf_t* e, int id);
 int bpf_map_create(enum bpf_map_type type, int key_sz, int val_sz, int entries); 
+void compile_map(node_t* a, ebpf_t* e); 
 reg_t* ebpf_reg_get(ebpf_t* e);
 void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n);
 int ebpf_reg_bind(ebpf_t* e, reg_t* r, node_t* n);

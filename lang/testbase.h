@@ -2,6 +2,7 @@
 #define TEST_BASE
 
 #include <stdio.h>
+
 #include "lexer.h"
 
 static int main_ret = 0;

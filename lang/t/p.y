@@ -3,13 +3,11 @@ probe sys:execute
     print("%d", pid());
 }
 
-
 probe sys:execute
 {
     execute[pid(), comm()]++;
     printf(execute[pid()]);
 }
-
 
 probe sys:execute 
 {
@@ -20,7 +18,6 @@ probe sys:execute
         print("%s", "pid is other");
     }
 }
-
 
 probe sys:execute /pid() == 1/
 {

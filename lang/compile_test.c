@@ -85,12 +85,59 @@ void test_node_iter() {
     tracepoint_setup(e, 595); 
 }
 
-/*
+void test_node() {
+    char* input = "execute[pid()] = 1; print("%d", execute[pid()]);";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_expr(p, LOWEST);    
+    ebpf_t* e = ebpf_new();
+    e->st = symtable_new();
+    
+    EXPECT_EQ_INT(NODE_ASSIGN, n->type);
+    EXPECT_EQ_STR("execute", n->assign.lval->name);
+    EXPECT_EQ_STR("pid", n->assign.lval->map.args->name);
+    
+    EXPECT_EQ_INT(NODE_MAP, n->assign.lval->type);
+    
+    get_annot(n->assign.expr, e);    
+    annot_map(n, e);
+    
+    EXPECT_EQ_INT(n->assign.lval->annot.size, 8);
+    EXPECT_EQ_INT(n->assign.lval->annot.keysize, 8);
+    
+    int fd = bpf_map_create(BPF_MAP_TYPE_HASH, n->assign.lval->annot.keysize, n->assign.lval->annot.size, 1024);
+    n->assign.lval->annot.mapid = fd;
+    
+    compile_call_(n->assign.lval->map.args, e);
+    compile_map_load(n->assign.lval, e);
+            
+        
+    //from the stack
+    ebpf_emit(e, LDXDW(BPF_REG_0, n->assign.lval->annot.addr, BPF_REG_10));
+    ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, n->assign.expr->integer));
+    ebpf_emit(e, STXDW(BPF_REG_10, n->assign.lval->annot.addr, BPF_REG_0));
+    
+    emit_ld_mapfd(e, BPF_REG_1, fd);
+    ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
+    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, n->assign.lval->annot.addr + n->assign.lval->annot.size));
+        
+    ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_10));
+    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_3, n->assign.lval->annot.addr));
+        
+    ebpf_emit(e, MOV_IMM(BPF_REG_4, 0)); 
+    ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
+    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
+    ebpf_emit(e, EXIT);
+    
+    tracepoint_setup(e, 595);
+}
+
+
 int main() {
-    test_node_iter();
+    test_node();
+    //test_node_iter();
     //test_sym();
     //test_program();
     PRINT_ANS();
     return 0;
 }
-*/

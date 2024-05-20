@@ -239,8 +239,7 @@ void test_parse_map_assign() {
 }
 
 
-
-
+/*
 int main() {
     test_parse_map_assign();
     test_parse_map();
@@ -262,3 +261,4 @@ int main() {
     test_parse_program();
     PRINT_ANS();
 }
+*/
