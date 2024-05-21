@@ -196,13 +196,20 @@ void node_walk(node_t* n, ebpf_t* e);
 
 void compile_str(ebpf_t* e, node_t* n);
 int compile_pid_call(ebpf_t* e, node_t* n);
+
+
 void get_annot(node_t* n, ebpf_t* e);
 
 void compile_map_load(node_t* n, ebpf_t* e);
 void compile_call_(node_t* n, ebpf_t* e);
 void compile_call(ebpf_t* e, node_t* n);
 
+
+void ebpf_emit(ebpf_t* e, struct bpf_insn insn); 
 void emit_ld_mapfd(ebpf_t* e, int reg, int fd); 
+void compile_map_assign(node_t* n, ebpf_t* e);
+
+
 
 int tracepoint_setup(ebpf_t* e, int id);
 int bpf_map_create(enum bpf_map_type type, int key_sz, int val_sz, int entries); 

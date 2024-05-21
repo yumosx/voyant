@@ -85,8 +85,33 @@ void test_node_iter() {
     tracepoint_setup(e, 595); 
 }
 
+void compile_print(ebpf_t* e, node_t* n) {
+    node_t* args, *fmtlen;
+     
+    reg_t* r = e->st->reg;
+    
+    int reg;
+    
+    reg = BPF_REG_1;
+
+    args = n->call.args;
+
+    ebpf_reg_load(e, &r[reg++], args);
+
+    fmtlen = node_new(NODE_INT);
+        
+    fmtlen->integer = strlen(args->name) + 1;
+
+    ebpf_reg_load(e, &r[reg++], fmtlen);
+    ebpf_reg_load(e, &r[reg++], args->next); 
+    ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
+    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
+    ebpf_emit(e, EXIT);
+}
+
+
 void test_node() {
-    char* input = "execute[pid()] = 1; print("%d", execute[pid()]);";
+    char* input = "execute[pid()] = 2;";
     lexer_t* l = lexer_init(input);
     parser_t* p = parser_init(l);
     node_t* n = parse_expr(p, LOWEST);    
@@ -109,11 +134,33 @@ void test_node() {
     n->assign.lval->annot.mapid = fd;
     
     compile_call_(n->assign.lval->map.args, e);
-    compile_map_load(n->assign.lval, e);
-            
+    compile_map_assign(n, e);
+    //compile_map_load(n->assign.lval, e);       
+    
+    input = "print(\"%d\", execute[pid()]);";
+    l = lexer_init(input);
+    p = parser_init(l);
+    node_t* n1 = parse_expr(p, LOWEST);
+    get_annot(n1->call.args, e);
+    
+    EXPECT_EQ_STR("print", n1->name);    
+    EXPECT_EQ_STR("execute", n1->call.args->next->name); 
         
+    get_annot(n1->call.args->name, e);
+    compile_str(e, n1->call.args);
+    compile_map_load(n->assign.lval, e); 
+    ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
+    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, n1->call.args->annot.addr));
+    ebpf_emit(e, MOV_IMM(BPF_REG_2, strlen(n1->call.args->name) + 1));   
+    ebpf_emit(e, LDXDW(BPF_REG_3, n->assign.lval->annot.addr, BPF_REG_10));    
+    ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
+
+
+ 
     //from the stack
-    ebpf_emit(e, LDXDW(BPF_REG_0, n->assign.lval->annot.addr, BPF_REG_10));
+    //ebpf_emit(e, LDXDW(BPF_REG_0, n->assign.lval->annot.addr, BPF_REG_10));
+    
+    /*
     ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, n->assign.expr->integer));
     ebpf_emit(e, STXDW(BPF_REG_10, n->assign.lval->annot.addr, BPF_REG_0));
     
@@ -126,10 +173,14 @@ void test_node() {
         
     ebpf_emit(e, MOV_IMM(BPF_REG_4, 0)); 
     ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
+    */
+    
+
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
-    
+        
     tracepoint_setup(e, 595);
+
 }
 
 

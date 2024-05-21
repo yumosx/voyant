@@ -759,7 +759,8 @@ int bpf_map_create(enum bpf_map_type type, int key_sz, int val_sz, int entries) 
 }
 
 
-int bpf_map_close(){
+int bpf_map_close(int fd){
+    close(fd);
 }
 
 long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
@@ -951,26 +952,6 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
     }
 }
 
-/*
-void compile_map(node_t* a, ebpf_t* e) {
-    int fd = bpf_map_create(BPF_MAP_TYPE_HASH, a->assign.lval->annot.keysize, a->assign.lval->annot.size, 1024);
-    a->assign.expr->annot.mapid = fd;    
- 
-    compile_map_load(a->assign.expr, e);
-
-    ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
-    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, a->assign.lval->annot.addr + a->assign.lval->annot.size));
-        
-    ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_10));
-    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_3, a->assign.lval->annot.addr));
-        
-    ebpf_emit(e, MOV_IMM(BPF_REG_4, 0)); 
-    ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
-    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], a);
-    ebpf_emit(e, EXIT);
-}
-*/
-
 
 void compile_map_load(node_t* head, ebpf_t* e) {
 
@@ -993,7 +974,7 @@ void compile_map_load(node_t* head, ebpf_t* e) {
     ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_0));
     
     ebpf_emit(e, CALL(BPF_FUNC_probe_read));
-    ebpf_emit(e, JMP_IMM(JUMP_JA, 0, 0, head->annot.size / 4));
+    //ebpf_emit(e, JMP_IMM(JUMP_JA, 0, 0, head->annot.size / 4));
 
     for (int i = 0; i < (ssize_t)head->annot.size; i += 4) {
         ebpf_emit(e, STW_IMM(BPF_REG_10, head->annot.addr + i, 0));
@@ -1001,30 +982,35 @@ void compile_map_load(node_t* head, ebpf_t* e) {
 }
 
 
+void compile_map_assign(node_t* n, ebpf_t* e) {
+   emit_ld_mapfd(e, BPF_REG_1, n->assign.lval->annot.mapid);
+   
+   //we get the value
+   if (n->assign.expr->annot.type == NODE_INT) {
+       ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, n->assign.expr->integer));       
+       ebpf_emit(e, STXDW(BPF_REG_10, n->assign.lval->annot.addr, BPF_REG_0));   
+   }
+    
+   emit_ld_mapfd(e, BPF_REG_1, n->assign.lval->annot.mapid);
+   ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
+   ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, n->assign.lval->annot.addr + n->assign.lval->annot.size));
+   
+   ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_10));
+   ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_3, n->assign.lval->annot.addr));
+
+   ebpf_emit(e, MOV_IMM(BPF_REG_4, 0));
+   ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
+}
+
+
+
 void node_assign_walk(node_t* a, ebpf_t* e) {
     get_annot(a, e);
     
     node_t* expr = a->assign.expr;
     node_walk(expr, e);
-   
     
     if (a->assign.lval->type == NODE_MAP) {
-        int fd = bpf_map_create(BPF_MAP_TYPE_HASH, a->assign.lval->annot.keysize, a->assign.lval->annot.size, 1024);
-        a->assign.lval->annot.mapid = fd;
-        
-        node_walk(a->assign.lval->map.args, e);
-
-        //emit_ld_mapfd(e, BPF_REG_1, fd); 
-        compile_map_load(a->assign.lval, e);
-
-        ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
-        ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, a->assign.lval->annot.addr + a->assign.lval->annot.size));
-        
-        ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_10));
-        ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_3, a->assign.lval->annot.addr));
-        
-        ebpf_emit(e, MOV_IMM(BPF_REG_4, 0)); 
-        ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
         ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], a);
         ebpf_emit(e, EXIT);
     } else {    
