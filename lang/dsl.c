@@ -16,6 +16,7 @@
 
 #include "dsl.h"
 #include "tracepoint.h"
+#include "parser.h"
 
 char bpf_log_buf[LOG_BUF_SIZE];
 
@@ -36,46 +37,6 @@ static const char* mode_str[] = {
     "PROBE_USER",
     "PROBE_SYS"
 };
-
-void p_next_tok(parser_t* p) {    
-    p->this_tok = p->next_tok;
-    p->next_tok = lexer_next_token(p->lexer);
-}
-
-parser_t* parser_init(lexer_t* l) {
-    parser_t* p = malloc(sizeof(*p));
-
-    if (p == NULL) {
-        err(EXIT_FAILURE, "parser malloc failed");
-    }
-    
-    p->lexer = l;
-    p->this_tok = NULL;
-    p->next_tok = NULL;
-
-    p_next_tok(p);
-    p_next_tok(p);
-
-    return p;
-}
-
-
-int this_tok_is(parser_t* p, token_type type) {
-    return p->this_tok->type == type;
-}
-
-int next_tok_is(parser_t* p, token_type type) {
-    return p->next_tok->type == type;
-}
-
-int expect_peek(parser_t* p, token_type t) {
-    if (next_tok_is(p, t)) {
-        p_next_tok(p);
-        return 1;
-    } else {
-        return 0;
-    }
-}
 
 node_t* node_new(node_type_t t) {
     node_t* n = malloc(sizeof(*n));
@@ -238,10 +199,6 @@ node_t* parse_call_expr(parser_t* p, node_t* left) {
 
 
 node_t* parse_assign_expr(parser_t* p, node_t* left) {
-    //if (left->type != NODE_VAR || left->type != NODE_MAP) {
-    //    err(EXIT_FAILURE, "Parsing error: invalid assigment left-hand side");
-    //}
-
     node_t* n = node_new(NODE_ASSIGN);
 
     n->assign.op = OP_MOV;
@@ -493,7 +450,7 @@ int symtable_transfer(symtable_t* st, node_t* n) {
     }
     
     sym = symtable_get(st, n->name);
-
+    
     n->annot = sym->annot;
 
     return 0;
@@ -526,6 +483,7 @@ void symtable_add(struct symtable_t* st, node_t* n) {
    if (n->type == NODE_MAP) {
       sym->size += n->annot.keysize;
    }
+
    sym->addr = symtable_reserve(st, sym->size);
 }
 
@@ -591,7 +549,6 @@ void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {
             r->sym = sym;
             ebpf_emit(e, LDXDW(r->reg, sym->addr, BPF_REG_10));
         }
-        
     } else {
         reg_t* src;
         src = ebpf_reg_find(e, n);
@@ -647,6 +604,7 @@ static inline int node_is_sym(node_t* n) {
     return n->type == NODE_VAR || n->type == NODE_MAP;
 }
 
+
 int ebpf_reg_bind(ebpf_t* e, reg_t* r, node_t* n) {
     if (node_is_sym(n)) {
         sym_t* sym;
@@ -666,6 +624,49 @@ int ebpf_reg_bind(ebpf_t* e, reg_t* r, node_t* n) {
     return 0;
 }
 
+
+/*
+1. pid() -> reg0 -> reg2
+2. map value -> stack
+3. "sss" -> stack
+*/
+void generic_load_args(node_t* arg, ebpf_t* e, int* reg) {
+    switch (arg->annot.type) {
+    case NODE_INT:
+        if (arg->annot.loc == LOC_STACK){
+           ebpf_emit(e, LDXDW(*reg, arg->annot.addr, BPF_REG_10));
+        } else {
+           ebpf_emit(e, MOV_IMM(*reg, arg->integer));
+        }
+        break;                  
+    case NODE_STRING:
+        compile_str(e, arg);
+        ebpf_emit(e,  MOV(*reg, BPF_REG_10));
+        ebpf_emit(e, ALU_IMM(OP_ADD, *reg, arg->annot.addr));
+        (*reg)++;
+        ebpf_emit(e, MOV_IMM(*reg, strlen(arg->name) + 1)); 
+        break;
+    default:
+        ebpf_emit(e, MOV(*reg, ebpf_reg_find(e, arg)->reg)); 
+        break;
+    }
+}
+
+
+void compile_print(node_t* n, ebpf_t* e) {
+    node_t* head;
+    int reg = BPF_REG_1;
+       
+    for (head = n->call.args; head != NULL; head = head->next) {
+        generic_load_args(head, e, &reg);
+        reg++;
+    }
+
+    ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
+}
+
+
+
 void compile_call(ebpf_t* e, node_t* n) {
     node_t* args, *fmtlen;
      
@@ -676,6 +677,7 @@ void compile_call(ebpf_t* e, node_t* n) {
     reg = BPF_REG_1;
 
     args = n->call.args;
+
 
     ebpf_reg_load(e, &r[reg++], args);
 
@@ -692,6 +694,8 @@ void compile_call(ebpf_t* e, node_t* n) {
 
 
 int int32_void_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
+    n->annot.type = LOC_REG;
+
     reg_t* dst;
     
     ebpf_emit(e, CALL(func));
@@ -714,8 +718,8 @@ int int32_void_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n
     
     ebpf_emit(e, MOV(dst->reg, 0));
     ebpf_reg_bind(e, dst, n);
-
-    return 0; 
+    
+   return 0; 
 }
 
 
@@ -842,17 +846,26 @@ int tracepoint_setup(ebpf_t* e, int id) {
     return 0;
 }
 
-void assign_assign(node_t* n, ebpf_t* e) {
-    
+void annot_assign(node_t* n, ebpf_t* e) {
+    if (n->assign.lval->type == NODE_MAP) {
+        annot_map(n, e);
+    } else {
+        return ;
+    }
 }
 
 void annot_map(node_t* n, ebpf_t* e) {
-   symtable_transfer(e->st, n->assign.expr);
+    
+    if (n->assign.expr->type == NODE_VAR) {
+        symtable_transfer(e->st, n->assign.expr);  
+    } else {
+        get_annot(n->assign.expr, e);
+    }
    
    n->assign.lval->annot.type = n->assign.expr->annot.type;
    n->assign.lval->annot.size = n->assign.expr->annot.size;
    
-    if (n->assign.lval->type == NODE_MAP) {
+   if (n->assign.lval->type == NODE_MAP) {
         node_t* head, *args = n->assign.lval->map.args;
         ssize_t ksize = 0; 
         
@@ -862,10 +875,16 @@ void annot_map(node_t* n, ebpf_t* e) {
         }
         n->assign.lval->annot.keysize = ksize;
         n->assign.lval->annot.addr -= ksize + n->assign.lval->annot.size;
-    }
+        
+        int fd = bpf_map_create(BPF_MAP_TYPE_HASH, n->assign.lval->annot.keysize, n->assign.lval->annot.size, 1024);
+        n->assign.lval->annot.mapid = fd;
+
+     }
     
-   symtable_add(e->st, n->assign.lval);     
+    symtable_add(e->st, n->assign.lval);     
 }
+
+
 
 void get_annot(node_t* n, ebpf_t* e) {
      switch(n->type) {
@@ -877,20 +896,16 @@ void get_annot(node_t* n, ebpf_t* e) {
             n->annot.type = NODE_STRING;
             n->annot.size = _ALIGNED(strlen(n->name) + 1);
             n->annot.addr = symtable_reserve(e->st, n->annot.size);
+            n->annot.loc  = LOC_STACK; 
             break;
         case NODE_CALL:
             n->annot.type = NODE_INT;
             n->annot.size = 8;
-            n->annot.reg = 0;
+            n->annot.reg = BPF_REG_0;
+            n->annot.reg = LOC_REG;
             break;
         case NODE_ASSIGN:
             annot_map(n, e);
-            /*
-            symtable_transfer(e->st, n->assign.expr);
-            n->assign.lval->annot.type = n->assign.expr->annot.type;
-            n->assign.lval->annot.size = n->assign.expr->annot.size;
-            symtable_add(e->st, n->assign.lval);
-            */
             break;
         default:
             break;
@@ -908,6 +923,8 @@ void compile_call_(node_t* n, ebpf_t* e) {
         compile_pid_call(e, n);
     } else if (!strcmp(n->name, "print")) {
         compile_call(e, n);
+    } else if (!strcmp(n->name, "printf")) {
+        compile_print(n, e);
     } else {
         err(EXIT_FAILURE, "not match the function");
     }
@@ -954,10 +971,13 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
 
 
 void compile_map_load(node_t* head, ebpf_t* e) {
+    sym_t* sym = symtable_get(e->st, head->name);    
+
+    head->annot = sym->annot;
 
     int at = head->annot.addr + head->annot.size; 
     
-    //just has one args
+    //TODO: just has one args
     ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
 
     emit_ld_mapfd(e, BPF_REG_1, head->annot.mapid);
@@ -979,7 +999,10 @@ void compile_map_load(node_t* head, ebpf_t* e) {
     for (int i = 0; i < (ssize_t)head->annot.size; i += 4) {
         ebpf_emit(e, STW_IMM(BPF_REG_10, head->annot.addr + i, 0));
     }
+
+    head->annot.loc = LOC_STACK;
 }
+
 
 
 void compile_map_assign(node_t* n, ebpf_t* e) {
@@ -1003,7 +1026,6 @@ void compile_map_assign(node_t* n, ebpf_t* e) {
 }
 
 
-
 void node_assign_walk(node_t* a, ebpf_t* e) {
     get_annot(a, e);
     
@@ -1011,8 +1033,9 @@ void node_assign_walk(node_t* a, ebpf_t* e) {
     node_walk(expr, e);
     
     if (a->assign.lval->type == NODE_MAP) {
-        ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], a);
-        ebpf_emit(e, EXIT);
+        compile_map_assign(a, e);
+        //ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], a);
+        //ebpf_emit(e, EXIT);
     } else {    
         reg_t* dst = ebpf_reg_get(e);
         ebpf_reg_load(e, dst, expr);
@@ -1026,7 +1049,8 @@ void node_call_walk(node_t* c, ebpf_t* e) {
     node_t* n;
     
     for (n = args; n != NULL; n = n->next) {
-        node_walk(n, e);
+         
+         node_walk(n, e);
     }
     
     compile_call_(c, e);
@@ -1041,10 +1065,14 @@ void node_walk(node_t* n, ebpf_t* e) {
             node_assign_walk(n, e);  
             break;
         case NODE_CALL:
+            get_annot(n, e);
             node_call_walk(n, e);
             break;
         case NODE_INT:
             get_annot(n, e);
+            break;
+        case NODE_MAP:
+            compile_map_load(n ,e);
             break;
         case NODE_STRING:
             get_annot(n, e);

@@ -75,7 +75,7 @@ void test_sym() {
 }
 
 void test_node_iter() {
-    char* input = "probe sys:execute{ a = pid(); print(\"pid: %d\", a);}";
+    char* input = "probe sys:execute{ a = \"a\"; print(\"pid: %s\", a);}";
     lexer_t* l = lexer_init(input);
     parser_t* p = parser_init(l);
     node_t* n = parse_program(p);
@@ -83,30 +83,6 @@ void test_node_iter() {
     e->st = symtable_new();
     node_walk(n, e);
     tracepoint_setup(e, 595); 
-}
-
-void compile_print(ebpf_t* e, node_t* n) {
-    node_t* args, *fmtlen;
-     
-    reg_t* r = e->st->reg;
-    
-    int reg;
-    
-    reg = BPF_REG_1;
-
-    args = n->call.args;
-
-    ebpf_reg_load(e, &r[reg++], args);
-
-    fmtlen = node_new(NODE_INT);
-        
-    fmtlen->integer = strlen(args->name) + 1;
-
-    ebpf_reg_load(e, &r[reg++], fmtlen);
-    ebpf_reg_load(e, &r[reg++], args->next); 
-    ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
-    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
-    ebpf_emit(e, EXIT);
 }
 
 
@@ -155,27 +131,6 @@ void test_node() {
     ebpf_emit(e, LDXDW(BPF_REG_3, n->assign.lval->annot.addr, BPF_REG_10));    
     ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
 
-
- 
-    //from the stack
-    //ebpf_emit(e, LDXDW(BPF_REG_0, n->assign.lval->annot.addr, BPF_REG_10));
-    
-    /*
-    ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, n->assign.expr->integer));
-    ebpf_emit(e, STXDW(BPF_REG_10, n->assign.lval->annot.addr, BPF_REG_0));
-    
-    emit_ld_mapfd(e, BPF_REG_1, fd);
-    ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
-    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, n->assign.lval->annot.addr + n->assign.lval->annot.size));
-        
-    ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_10));
-    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_3, n->assign.lval->annot.addr));
-        
-    ebpf_emit(e, MOV_IMM(BPF_REG_4, 0)); 
-    ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
-    */
-    
-
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
         
@@ -183,9 +138,77 @@ void test_node() {
 
 }
 
+void test_node_map() {
+    char* input = "execute[pid()] = 2;";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_expr(p, LOWEST);    
+    ebpf_t* e = ebpf_new();
+    e->st = symtable_new();
+    
+    get_annot(n, e);
+    EXPECT_EQ_INT(8, n->assign.lval->annot.size);
+    EXPECT_EQ_INT(8, n->assign.lval->annot.keysize);
+    
+    int fd = bpf_map_create(BPF_MAP_TYPE_HASH, n->assign.lval->annot.keysize, n->assign.lval->annot.size, 1024);
+    n->assign.lval->annot.mapid = fd;
+
+    compile_call_(n->assign.lval->map.args, e);
+    compile_map_assign(n, e);
+
+    input = "print(\"%d\", execute[pid()]);";
+    l = lexer_init(input);
+    p = parser_init(l);
+    node_t* n1 = parse_expr(p, LOWEST);
+    
+    get_annot(n1->call.args, e);
+    
+    EXPECT_EQ_INT(NODE_STRING, n1->call.args->annot.type);
+    EXPECT_EQ_INT(LOC_STACK, n1->call.args->annot.loc);
+    
+    //TODO: like variable     
+    n1->call.args->next = n->assign.lval;
+
+    compile_str(e, n1->call.args);
+    compile_map_load(n1->call.args->next, e);
+    EXPECT_EQ_INT(NODE_INT, n1->call.args->next->annot.type);    
+    EXPECT_EQ_INT(LOC_STACK, n1->call.args->next->annot.loc);
+    
+    compile_print(n1, e);
+    
+    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
+    ebpf_emit(e, EXIT);
+
+    tracepoint_setup(e, 595);
+}
+
+/*
+0. create the map
+1. compile the map
+2. compile the map index
+*/
+
+void test_node_map_2() {
+    char* input = "probe sys:execute{ a = \"wyz\"; printf(\"%s\", a);}";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_program(p);
+    ebpf_t* e = ebpf_new();
+    e->st = symtable_new();
+    node_walk(n, e);
+    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
+    ebpf_emit(e, EXIT);
+
+   
+    tracepoint_setup(e, 595);    
+}
+
+
 
 int main() {
-    test_node();
+    //test_node_map_2();
+    test_node_map();
+    //test_node();
     //test_node_iter();
     //test_sym();
     //test_program();

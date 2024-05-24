@@ -6,22 +6,11 @@
 
 #include "lexer.h"
 #include "insn.h"
+#include "parser.h"
+
 
 typedef struct node_t node_t;
 typedef struct probe_t probe_t;
-
-typedef enum {
-    LOWEST = 1,
-    ASSIGN,
-    EQUALS,          //==
-    LESSGREATERA,    //> or <
-    SUM,            //+
-    PRODUCT,        //*
-    PREFIX,         //!1
-    CALL,
-    INDEX,
-} seq_t;
-
 
 typedef enum node_type_t {
     NODE_SCRIPT,
@@ -176,12 +165,6 @@ typedef struct ebpf_t {
 }ebpf_t;
 
 
-typedef struct parser_t {
-    lexer_t* lexer;
-    token_t* this_tok;
-    token_t* next_tok;
-} parser_t;
-
 parser_t* parser_init(lexer_t* l);
 node_t* parse_block_stmts(parser_t* p);
 node_t* parse_probe(parser_t* p);
@@ -203,20 +186,21 @@ void get_annot(node_t* n, ebpf_t* e);
 void compile_map_load(node_t* n, ebpf_t* e);
 void compile_call_(node_t* n, ebpf_t* e);
 void compile_call(ebpf_t* e, node_t* n);
-
+void compile_print(node_t* n, ebpf_t* e);
+ 
+void compile_map_assign(node_t* n, ebpf_t* e);
+void compile_map(node_t* a, ebpf_t* e); 
 
 void ebpf_emit(ebpf_t* e, struct bpf_insn insn); 
-void emit_ld_mapfd(ebpf_t* e, int reg, int fd); 
-void compile_map_assign(node_t* n, ebpf_t* e);
-
-
-
-int tracepoint_setup(ebpf_t* e, int id);
 int bpf_map_create(enum bpf_map_type type, int key_sz, int val_sz, int entries); 
-void compile_map(node_t* a, ebpf_t* e); 
+void emit_ld_mapfd(ebpf_t* e, int reg, int fd); 
+
+
 reg_t* ebpf_reg_get(ebpf_t* e);
 void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n);
 int ebpf_reg_bind(ebpf_t* e, reg_t* r, node_t* n);
+
+int tracepoint_setup(ebpf_t* e, int id);
 
 ebpf_t* ebpf_new();
 symtable_t* symtable_new();

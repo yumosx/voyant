@@ -1,4 +1,7 @@
-probe sys:execute 
+
+let map = %{};
+
+probe sys_execute 
 {  
     print("%d", pid());
 }

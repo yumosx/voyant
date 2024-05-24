@@ -1,6 +1,7 @@
 .PHONY: all clean
-HEADERS = lexer.h insn.h tracepoint.h dsl.h testbase.h
-SRCS = lexer.c dsl.c lex_test.c parse_test.c compile_test.c
+HEADERS = lexer.h insn.h  parser.h tracepoint.h dsl.h testbase.h
+SRCS = lexer.c parser.c dsl.c lex_test.c parse_test.c compile_test.c
+
 CFLAGS = -Wall -g
 
 OBJS = $(SRCS:.c=.o)
