@@ -15,6 +15,7 @@ typedef struct probe_t probe_t;
 typedef enum node_type_t {
     NODE_SCRIPT,
     NODE_PROBE,
+    NODE_PROBE_PRED,
     NODE_PREFIX_EXPR,
     NODE_INFIX_EXPR,
     NODE_EXPR,
@@ -68,6 +69,7 @@ typedef struct call_t {
 
 typedef struct infix_t {
     op_t op;
+    jump_t jump;
     node_t* left, *right;
 } infix_t;
 
@@ -87,6 +89,13 @@ typedef struct let_stmts {
 } let_stmts_t;
 
 
+typedef struct pred_s {
+    jump_t jump;
+    node_t* left;
+    node_t* right;
+} pred_t;
+
+
 typedef struct map_t {
     node_t* args; 
 } map_t;
@@ -101,6 +110,7 @@ typedef struct node_t{
     union {
         script_t script;
         probe_t probe;
+        pred_t pred;
         infix_t infix_expr;
         prefix_t prefix_expr;
         call_t call;
@@ -172,6 +182,10 @@ node_t* parse_expr(parser_t* p, seq_t s);
 node_t* parse_int_expr(char* name);
 node_t* parse_program(parser_t* p);
 node_t* parse_let_stmts(parser_t* p);
+node_t* parse_probe_pred(parser_t* p);
+
+
+
 
 int get_tracepoint_id(char* name);
 

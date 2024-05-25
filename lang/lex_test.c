@@ -3,15 +3,19 @@
 #include "testbase.h"
 
 static void test_lexer() {
-    char* input = "probe sys:execute{let a = 1; print(); a[];}";
+    char* input = "probe sys:execute /a == 1/ {a = 1; print(); a[];}";
    
     token_t toks [] = {
         {"probe", TOKEN_PROBE},
         {"sys", TOKEN_IDENT},
         {":", TOKEN_COLON},
         {"execute", TOKEN_IDENT},
+        {"/", TOKEN_SLASH},
+        {"a", TOKEN_IDENT},
+        {"==", TOKEN_EQ},
+        {"1", TOKEN_INT},
+        {"/", TOKEN_SLASH},
         {"{", TOKEN_LEFT_BLOCK},
-        {"let", TOKEN_LET},
         {"a", TOKEN_IDENT},
         {"=", TOKEN_ASSIGN},
         {"1", TOKEN_INT},

@@ -82,6 +82,9 @@ node_t* node_str_new(char* str) {
 
 static seq_t get_token_seq(token_type t) {
     switch (t) {
+    case TOKEN_EQ:
+        return EQUALS;  
+        break;
     case TOKEN_PLUS:
         return SUM;
         break;
@@ -132,10 +135,12 @@ op_t get_op(token_type t) {
     }
 }
 
+
 node_t* parse_infix_expr(parser_t* p, node_t* left) {
     node_t* n = node_new(NODE_INFIX_EXPR);
     n->infix_expr.left = left;
     n->infix_expr.op = get_op(p->this_tok->type);
+
     seq_t seq = get_token_seq(p->this_tok->type);
     p_next_tok(p);
     n->infix_expr.right = parse_expr(p, seq);
@@ -239,6 +244,7 @@ node_t* parse_expr(parser_t* p, seq_t s) {
             p_next_tok(p);
             left = parse_assign_expr(p, left);
             break;
+        case TOKEN_EQ:
         case TOKEN_STAR:
         case TOKEN_PLUS:
             p_next_tok(p);
@@ -298,14 +304,14 @@ node_t* parse_stmts(parser_t* p) {
 node_t* parse_block_stmts(parser_t* p) {
     node_t* n, *head;
     p_next_tok(p);
-    n = parse_stmts(p);
-    
+
+    n = parse_expr(p, LOWEST);
     head = n;
     
     p_next_tok(p);
     
     while (!next_tok_is(p, TOKEN_RIGHT_BLOCK) && !next_tok_is(p, END_OF_FILE)) {
-        node_t* stmts = parse_stmts(p);
+        node_t* stmts = parse_expr(p, LOWEST);
 
         if (stmts != NULL) {
             n->next = stmts;
@@ -317,6 +323,17 @@ node_t* parse_block_stmts(parser_t* p) {
 
     return head;
 }
+
+node_t* parse_probe_pred(parser_t* p) {
+    p_next_tok(p);
+    node_t* node = parse_expr(p, LOWEST);
+    node->pred.jump = JUMP_JEQ; 
+    
+    node->pred.left = node->infix_expr.left;
+    node->pred.right = node->infix_expr.right;
+    return node;
+}
+
 
 
 node_t* parse_probe(parser_t* p) {
@@ -344,6 +361,14 @@ node_t* parse_probe(parser_t* p) {
     
     node->probe.ident = node_new_var(p->this_tok->literal);
     p_next_tok(p); 
+    
+    if (p->this_tok->type == TOKEN_SLASH) {
+        p_next_tok(p);
+        node->next = parse_expr(p, LOWEST);
+        p_next_tok(p);
+        p_next_tok(p);
+    }
+    
     node->probe.stmts = parse_block_stmts(p); 
 
     return node;

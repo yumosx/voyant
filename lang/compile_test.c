@@ -204,10 +204,10 @@ void test_node_map_2() {
 }
 
 
-
+/*
 int main() {
-    //test_node_map_2();
-    test_node_map();
+    test_node_map_2();
+    //test_node_map();
     //test_node();
     //test_node_iter();
     //test_sym();
@@ -215,3 +215,4 @@ int main() {
     PRINT_ANS();
     return 0;
 }
+*/

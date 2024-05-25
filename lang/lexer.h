@@ -25,6 +25,7 @@ typedef enum token_type{
     LEFT_PAREN,
     RIGHT_PAREN,
     TOKEN_ASSIGN,
+    TOKEN_EQ,
     TOKEN_SEMICOLON,
     TOKEN_IF,
     TOKEN_UNROLL,

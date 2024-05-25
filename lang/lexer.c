@@ -22,6 +22,7 @@ const char* tok_type_str[] = {
     "LEFT_PAREN",
     "RIGHT_PAREN",
     "ASSIGN",
+    "EQ",
     "SEMMICONON",
     "IF",
     "UNROLL",
@@ -175,7 +176,6 @@ token_t* lexer_next_token(lexer_t* l) {
                 t->literal = strdup("/");
                 read_char(l);
                 break;
-            
 
             case '(':
                 t->type = LEFT_PAREN;
@@ -220,6 +220,14 @@ token_t* lexer_next_token(lexer_t* l) {
                 break;
             
             case '=':
+                  if (l->input[l->read_pos] == '=') {
+                    t->type = TOKEN_EQ;
+                    t->literal = strdup("==");
+                    read_char(l);
+                    read_char(l);
+                    break;
+                  }                  
+
                   t->type = TOKEN_ASSIGN;
                   t->literal = strdup("=");
                   read_char(l);

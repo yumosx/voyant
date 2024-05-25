@@ -240,6 +240,39 @@ void test_parse_map_assign() {
 }
 
 
+void test_parse_eq_expr() {
+    char* input = "/comm() == \"zsh\"/";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_probe_pred(p);
+   
+    EXPECT_EQ_STR("comm", n->pred.left->name);
+    EXPECT_EQ_STR("zsh", n->pred.right->name); 
+}
+
+void test_parse_probe_pred() {
+    char* input = "probe sys:execute/a == 1/ { c = 2;}";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_probe(p);
+
+    EXPECT_EQ_STR("a", n->next->infix_expr.left->name);
+    EXPECT_EQ_INT(1, n->next->infix_expr.right->integer);
+
+    EXPECT_EQ_STR("c", n->probe.stmts->assign.lval->name);
+    
+}
+
+
+int main() {
+    //test_parse_eq_expr();
+    test_parse_probe_pred();
+    
+    PRINT_ANS();
+    return 0;
+}
+
+
 
 
 /*
