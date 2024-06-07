@@ -204,9 +204,24 @@ void test_node_map_2() {
 }
 
 
-/*
+
+void test_node_pred() {
+    char* input = "probe execute{ printf(\"%s\", comm());}";
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_program(p);
+    ebpf_t* e = ebpf_new();
+    e->st = symtable_new();
+
+    node_walk(n, e);
+    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
+    ebpf_emit(e, EXIT);
+    
+    tracepoint_setup(e, 595);    
+}
+
 int main() {
-    test_node_map_2();
+    test_node_pred();
     //test_node_map();
     //test_node();
     //test_node_iter();
@@ -215,4 +230,3 @@ int main() {
     PRINT_ANS();
     return 0;
 }
-*/

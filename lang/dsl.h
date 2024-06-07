@@ -7,10 +7,11 @@
 #include "lexer.h"
 #include "insn.h"
 #include "parser.h"
-
+#include "ast.h"
 
 typedef struct node_t node_t;
 typedef struct probe_t probe_t;
+
 
 typedef enum node_type_t {
     NODE_SCRIPT,
@@ -28,6 +29,44 @@ typedef enum node_type_t {
     NODE_INT,
 } node_type_t;
 
+typedef enum mode_type_t {
+   PROBE_USER,
+   PROBE_SYS,
+} mode_type_t;
+
+
+typedef struct probe_t {
+    char* name;
+    node_t* ident;
+    node_t* stmts;
+}probe_t;
+
+
+typedef struct call_t {
+   node_t* args; 
+} call_t;
+
+
+typedef struct infix_t {
+    int opcode;
+    node_t* left, *right;
+} infix_t;
+
+
+typedef struct prefix_t {
+    int opcode;
+    node_t* right;
+} prefix_t;
+
+
+typedef struct assign_t {
+    op_t op;
+    node_t* lval, *expr;
+} assign_t;
+
+typedef struct map_t {
+    node_t* args;
+} map_t;
 
 #define get_node_name(n) node_str[n->type]
 
@@ -41,66 +80,6 @@ typedef struct annot_t {
     ssize_t addr;
 } annot_t;
 
-
-typedef enum mode_type_t {
-   PROBE_USER,
-   PROBE_SYS,
-} mode_type_t;
-
-
-#define get_mode_name(probe)  mode_str[probe.mode]
-
-typedef struct script_t{
-    node_t* probes;
-} script_t;
-
-
-typedef struct probe_t {
-    mode_type_t mode;
-    node_t* ident;
-    node_t* stmts;
-}probe_t;
-
-
-typedef struct call_t {
-   node_t* args; 
-} call_t;
-
-
-typedef struct infix_t {
-    op_t op;
-    jump_t jump;
-    node_t* left, *right;
-} infix_t;
-
-typedef struct prefix_t {
-    op_t op;
-    node_t* right;
-} prefix_t;
-
-
-typedef struct assign_t {
-    op_t op;
-    node_t* lval, *expr;
-} assign_t;
-
-typedef struct let_stmts {
-    node_t* expr;
-} let_stmts_t;
-
-
-typedef struct pred_s {
-    jump_t jump;
-    node_t* left;
-    node_t* right;
-} pred_t;
-
-
-typedef struct map_t {
-    node_t* args; 
-} map_t;
-
-
 typedef struct node_t{
     node_type_t type;
     node_t* prev, *next;
@@ -108,14 +87,11 @@ typedef struct node_t{
     char* name;
 
     union {
-        script_t script;
         probe_t probe;
-        pred_t pred;
         infix_t infix_expr;
         prefix_t prefix_expr;
         call_t call;
         map_t map;
-        let_stmts_t let_stmts; 
         assign_t assign;
         size_t integer;
     };
@@ -124,10 +100,7 @@ typedef struct node_t{
 } node_t;
 
 
-typedef struct program_t {
-    node_t* node;
-} program_t;
-
+#define get_mode_name(probe)  mode_str[probe.mode]
 
 typedef struct sym_t sym_t;
 
@@ -181,27 +154,24 @@ node_t* parse_probe(parser_t* p);
 node_t* parse_expr(parser_t* p, seq_t s);
 node_t* parse_int_expr(char* name);
 node_t* parse_program(parser_t* p);
-node_t* parse_let_stmts(parser_t* p);
 node_t* parse_probe_pred(parser_t* p);
 
 
-
+void node_walk(node_t* n, ebpf_t* e);
 
 int get_tracepoint_id(char* name);
 
-void node_walk(node_t* n, ebpf_t* e);
 
 void compile_str(ebpf_t* e, node_t* n);
 int compile_pid_call(ebpf_t* e, node_t* n);
 
-
 void get_annot(node_t* n, ebpf_t* e);
+void annot_comm(node_t* n);
 
 void compile_map_load(node_t* n, ebpf_t* e);
 void compile_call_(node_t* n, ebpf_t* e);
 void compile_call(ebpf_t* e, node_t* n);
 void compile_print(node_t* n, ebpf_t* e);
- 
 void compile_map_assign(node_t* n, ebpf_t* e);
 void compile_map(node_t* a, ebpf_t* e); 
 

@@ -55,15 +55,8 @@ node_t* int_new(int64_t val) {
     return n;
 }
 
-
 node_t* node_new_var(char* name) {
     node_t* n = node_new(NODE_VAR);
-    n->name = name;
-    return n;
-}
-
-node_t* node_new_let(char* name) {
-    node_t* n = node_new(NODE_LET);
     n->name = name;
     return n;
 }
@@ -119,7 +112,7 @@ node_t* parse_int_expr(char* name) {
     return expr;
 }
 
-op_t get_op(token_type t) {
+int get_op(token_type t) {
     switch (t)
     {
     case TOKEN_ASSIGN:
@@ -130,6 +123,9 @@ op_t get_op(token_type t) {
 
     case TOKEN_PLUS:
         return OP_ADD;
+    
+    case TOKEN_EQ:
+        return JUMP_JEQ;
     default:
         break;
     }
@@ -139,7 +135,8 @@ op_t get_op(token_type t) {
 node_t* parse_infix_expr(parser_t* p, node_t* left) {
     node_t* n = node_new(NODE_INFIX_EXPR);
     n->infix_expr.left = left;
-    n->infix_expr.op = get_op(p->this_tok->type);
+    //TODO: should repair
+    n->infix_expr.opcode = get_op(p->this_tok->type);
 
     seq_t seq = get_token_seq(p->this_tok->type);
     p_next_tok(p);
@@ -268,39 +265,6 @@ node_t* parse_expr(parser_t* p, seq_t s) {
 }
 
 
-node_t* parse_let_stmts(parser_t* p) {
-    node_t* n;
-    
-    if (!expect_peek(p, TOKEN_IDENT)) {
-       return NULL; 
-    }
-    
-    n = node_new_let(p->this_tok->literal);
-
-    if (!expect_peek(p, TOKEN_ASSIGN)) {
-        return NULL;
-    }
-
-    while (!this_tok_is(p, TOKEN_SEMICOLON)) {
-        p_next_tok(p);
-    }
-
-    free_token(p->this_tok);
-
-    return n;
-}
-
-
-node_t* parse_stmts(parser_t* p) {
-    switch (p->this_tok->type) {
-    case TOKEN_LET:
-        return parse_let_stmts(p);    
-    default:
-        return parse_expr(p, LOWEST);
-    }
-}
-
-
 node_t* parse_block_stmts(parser_t* p) {
     node_t* n, *head;
     p_next_tok(p);
@@ -324,54 +288,27 @@ node_t* parse_block_stmts(parser_t* p) {
     return head;
 }
 
-node_t* parse_probe_pred(parser_t* p) {
-    p_next_tok(p);
-    node_t* node = parse_expr(p, LOWEST);
-    node->pred.jump = JUMP_JEQ; 
-    
-    node->pred.left = node->infix_expr.left;
-    node->pred.right = node->infix_expr.right;
-    return node;
-}
-
-
 
 node_t* parse_probe(parser_t* p) {
     node_t* node = node_new(NODE_PROBE);
-
-    if (!expect_peek(p, TOKEN_IDENT)) {
-        free(node);
-        return NULL;
-    }
-
-    if (strcmp(p->this_tok->literal, "sys") == 0) {
-        node->probe.mode = PROBE_SYS;
-        free_token(p->this_tok);
-    }
-
-    if (!expect_peek(p, TOKEN_COLON)) {
-       free(node);
-       return NULL;
-    }
     
     if (!expect_peek(p, TOKEN_IDENT)) {
-        free(node);
         return NULL;
     }
     
-    node->probe.ident = node_new_var(p->this_tok->literal);
-    p_next_tok(p); 
+    node->probe.name = p->this_tok->literal;
+    p_next_tok(p);
     
     if (p->this_tok->type == TOKEN_SLASH) {
         p_next_tok(p);
-        node->next = parse_expr(p, LOWEST);
+        node->prev = parse_expr(p, LOWEST);
         p_next_tok(p);
         p_next_tok(p);
     }
     
-    node->probe.stmts = parse_block_stmts(p); 
-
-    return node;
+    node->probe.stmts = parse_block_stmts(p);
+    
+    return node;     
 }
 
 
@@ -381,10 +318,6 @@ node_t* parse_program(parser_t* p) {
     if (p->this_tok->type != END_OF_FILE) {
         switch (p->this_tok->type)
         {
-        case TOKEN_LET:
-            n = parse_let_stmts(p);
-            p_next_tok(p);
-            break;
         case TOKEN_PROBE:
             n = parse_probe(p);
             p_next_tok(p);
@@ -398,11 +331,7 @@ node_t* parse_program(parser_t* p) {
    
 
     while (p->this_tok->type != END_OF_FILE) {
-        if (p->this_tok->type == TOKEN_LET) {
-            n->next = parse_let_stmts(p);
-            p_next_tok(p);
-            n = n->next;
-        } else if (p->this_tok->type == TOKEN_PROBE) {
+        if (p->this_tok->type == TOKEN_PROBE) {
             n->next = parse_probe(p);
             p_next_tok(p);
             n = n->next;
@@ -665,10 +594,20 @@ void generic_load_args(node_t* arg, ebpf_t* e, int* reg) {
         }
         break;                  
     case NODE_STRING:
+        if (arg->type == NODE_CALL) {
+            ebpf_emit(e, MOV(*reg, BPF_REG_10));
+            ebpf_emit(e, ALU_IMM(OP_ADD, *reg, arg->annot.addr));
+            return;
+        }
+
         compile_str(e, arg);
         ebpf_emit(e,  MOV(*reg, BPF_REG_10));
         ebpf_emit(e, ALU_IMM(OP_ADD, *reg, arg->annot.addr));
         (*reg)++;
+        
+        //if (arg->type == NODE_CALL) {
+        //    break;
+        //}
         ebpf_emit(e, MOV_IMM(*reg, strlen(arg->name) + 1)); 
         break;
     default:
@@ -690,6 +629,47 @@ void compile_print(node_t* n, ebpf_t* e) {
     ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
 }
 
+/*
+set a default value
+*/
+
+void compile_comm(node_t* n, ebpf_t* e) {
+    size_t i;
+    
+    for (i = 0; i < n->annot.size; i += 4) {
+        ebpf_emit(e, STW_IMM(BPF_REG_10, n->annot.addr + i, 0));
+    }
+    
+    ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
+    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, n->annot.addr));
+    ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
+    ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
+}
+
+
+void compile_strcmp(ebpf_t* e, node_t* n) {
+   node_t* s1 = n->infix_expr.left, *s2 = n->infix_expr.right;
+   ssize_t i, l;
+   l = s1->annot.size < s2->annot.size ? s1->annot.size : s2->annot.size;
+   
+    for (i = 0; l; i++, l--) {
+        ebpf_emit(e, LDXB(BPF_REG_0, s1->annot.addr + i, BPF_REG_10));
+        ebpf_emit(e, LDXB(BPF_REG_1, s1->annot.addr + i, BPF_REG_10));
+        
+        ebpf_emit(e, ALU(OP_SUB, BPF_REG_0, BPF_REG_1));
+        ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 1) + 1));
+        ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 1) + 0));
+    }
+}
+
+
+void compile_pred(ebpf_t* e, node_t* n) {
+
+    compile_strcmp(e, n);
+    ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 2));
+    ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
+    ebpf_emit(e, EXIT);
+}
 
 
 void compile_call(ebpf_t* e, node_t* n) {
@@ -819,6 +799,36 @@ void read_trace_pipe(void) {
     }
 }
 
+void get_id(char* name) {
+    char* buffer = (char*)malloc(256);
+    if (buffer == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return 1;
+    }
+
+    sprintf(buffer, "/sys/kernel/debug/tracing/events/syscalls/%s/id", name);
+
+    FILE* fp = fopen(buffer, "r");
+    
+    if (fp == NULL) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    int number;
+
+    if (fscanf(fp, "%d", &number) != 1) {
+        fprintf(stderr, "Error reading number from file\n");
+        fclose(fp);
+        return 1;
+    }
+    
+    printf("[%d]\n", number);
+    
+    free(buffer);
+}
+
+
 
 
 int tracepoint_setup(ebpf_t* e, int id) {
@@ -910,6 +920,13 @@ void annot_map(node_t* n, ebpf_t* e) {
 }
 
 
+void comm_annot(node_t* n, ebpf_t* e) {
+    n->annot.type = NODE_STRING;
+    n->annot.size = _ALIGNED(16);
+    n->annot.addr = symtable_reserve(e->st, n->annot.size);
+    n->annot.loc = LOC_STACK;
+}
+
 
 void get_annot(node_t* n, ebpf_t* e) {
      switch(n->type) {
@@ -924,12 +941,16 @@ void get_annot(node_t* n, ebpf_t* e) {
             n->annot.loc  = LOC_STACK; 
             break;
         case NODE_CALL:
+            if (!strcmp("comm", n->name)) {
+                comm_annot(n, e);
+                break;
+            }
             n->annot.type = NODE_INT;
             n->annot.size = 8;
             n->annot.reg = BPF_REG_0;
             n->annot.reg = LOC_REG;
             break;
-        case NODE_ASSIGN:
+       case NODE_ASSIGN:
             annot_map(n, e);
             break;
         default:
@@ -950,6 +971,8 @@ void compile_call_(node_t* n, ebpf_t* e) {
         compile_call(e, n);
     } else if (!strcmp(n->name, "printf")) {
         compile_print(n, e);
+    } else if (!strcmp(n->name, "comm")) {
+        compile_comm(n, e);
     } else {
         err(EXIT_FAILURE, "not match the function");
     }
@@ -971,24 +994,20 @@ void compile(node_t* n, ebpf_t* _e) {
 
 
 int get_tracepoint_id(char* name) {
-    if (!strcmp(name, "execute")) {
-        return 711;
-    } else if (!strcmp(name, "socket")) {
-        return 1439;
-    } else if (!strcmp(name, "openat")) {
-        return 633; 
-    } else {
-        err(EXIT_FAILURE, "do not have this trace id");
-    }
 }
-
 
 void node_walk(node_t* n, ebpf_t* e);
 
 void node_probe_walk(node_t* p, ebpf_t* e) {
+    if (p->prev != NULL) {
+        //get_annot(p->prev->infix_expr.left, e);
+        //get_annot(p->prev->infix_expr.right, e);
+        //compile_pred(e, p->prev);
+    }
+
     node_t* stmts = p->probe.stmts;
     node_t* n;
-    
+ 
     for (n = stmts; n != NULL; n = n->next) {
         node_walk(n, e); 
     }
@@ -1059,10 +1078,18 @@ void node_assign_walk(node_t* a, ebpf_t* e) {
     
     if (a->assign.lval->type == NODE_MAP) {
         compile_map_assign(a, e);
-        //ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], a);
-        //ebpf_emit(e, EXIT);
     } else {    
         reg_t* dst = ebpf_reg_get(e);
+        //TODO: the bug of get the call        
+        if (expr->type == NODE_CALL && expr->annot.type == NODE_STRING) {
+            dst->type = REG_NODE;
+            dst->n = expr; 
+            ebpf_emit(e, MOV(dst->reg, BPF_REG_10));
+            ebpf_emit(e, ALU_IMM(OP_ADD, dst->reg, expr->annot.addr));
+            
+            ebpf_reg_bind(e, dst, expr);
+            return;
+        }
         ebpf_reg_load(e, dst, expr);
         ebpf_reg_bind(e, dst, a->assign.lval);
     }
@@ -1074,12 +1101,12 @@ void node_call_walk(node_t* c, ebpf_t* e) {
     node_t* n;
     
     for (n = args; n != NULL; n = n->next) {
-         
          node_walk(n, e);
     }
     
     compile_call_(c, e);
 }
+
 
 void node_walk(node_t* n, ebpf_t* e) {
     switch(n->type) {
@@ -1107,7 +1134,6 @@ void node_walk(node_t* n, ebpf_t* e) {
             break;
     }
 }
-
 
 char* read_file(const char* filename) {
     char* input = calloc(BUFSIZ, sizeof(char));
