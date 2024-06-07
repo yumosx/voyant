@@ -33,11 +33,6 @@ static const char* node_type_str[] = {
     "TYPE_INT"
 };
 
-static const char* mode_str[] = {
-    "PROBE_USER",
-    "PROBE_SYS"
-};
-
 node_t* node_new(node_type_t t) {
     node_t* n = malloc(sizeof(*n));
 
@@ -258,7 +253,6 @@ node_t* parse_expr(parser_t* p, seq_t s) {
         default:
             break;
         }
-    
     }
 
     return left;
@@ -664,39 +658,11 @@ void compile_strcmp(ebpf_t* e, node_t* n) {
 
 
 void compile_pred(ebpf_t* e, node_t* n) {
-
     compile_strcmp(e, n);
     ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 2));
     ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
     ebpf_emit(e, EXIT);
 }
-
-
-void compile_call(ebpf_t* e, node_t* n) {
-    node_t* args, *fmtlen;
-     
-    reg_t* r = e->st->reg;
-    
-    int reg;
-    
-    reg = BPF_REG_1;
-
-    args = n->call.args;
-
-
-    ebpf_reg_load(e, &r[reg++], args);
-
-    fmtlen = node_new(NODE_INT);
-        
-    fmtlen->integer = strlen(args->name) + 1;
-
-    ebpf_reg_load(e, &r[reg++], fmtlen);
-    ebpf_reg_load(e, &r[reg++], args->next); 
-    ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
-    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
-    ebpf_emit(e, EXIT);
-}
-
 
 int int32_void_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
     n->annot.type = LOC_REG;
@@ -799,8 +765,9 @@ void read_trace_pipe(void) {
     }
 }
 
-void get_id(char* name) {
+int get_id(char* name) {
     char* buffer = (char*)malloc(256);
+    
     if (buffer == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         return 1;
@@ -823,12 +790,10 @@ void get_id(char* name) {
         return 1;
     }
     
-    printf("[%d]\n", number);
-    
     free(buffer);
+    
+    return number;
 }
-
-
 
 
 int tracepoint_setup(ebpf_t* e, int id) {
@@ -967,8 +932,6 @@ void compile_str(ebpf_t* e, node_t* n) {
 void compile_call_(node_t* n, ebpf_t* e) {
     if (!strcmp(n->name, "pid")) {
         compile_pid_call(e, n);
-    } else if (!strcmp(n->name, "print")) {
-        compile_call(e, n);
     } else if (!strcmp(n->name, "printf")) {
         compile_print(n, e);
     } else if (!strcmp(n->name, "comm")) {
@@ -986,25 +949,30 @@ void compile(node_t* n, ebpf_t* _e) {
        case NODE_STRING:
             compile_str(e, n);
             break;
-       case NODE_CALL:
-            compile_call(e, n);
-            break;
     }
 }
 
-
-int get_tracepoint_id(char* name) {
-}
 
 void node_walk(node_t* n, ebpf_t* e);
 
-void node_probe_walk(node_t* p, ebpf_t* e) {
-    if (p->prev != NULL) {
-        //get_annot(p->prev->infix_expr.left, e);
-        //get_annot(p->prev->infix_expr.right, e);
-        //compile_pred(e, p->prev);
-    }
 
+void node_probe_walk(node_t* p, ebpf_t* e) {
+    int id = get_id(p->probe.name);
+    p->probe.traceid = id;    
+    
+    printf("attach the [%d]\n", id);    
+   
+    if (p->prev) {
+        
+        node_walk(p->prev->infix_expr.right, e);
+        node_walk(p->prev->infix_expr.left, e);
+        compile_strcmp(e, p->prev);
+        ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 2));
+        ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
+        ebpf_emit(e, EXIT);
+    }
+ 
+ 
     node_t* stmts = p->probe.stmts;
     node_t* n;
  

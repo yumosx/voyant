@@ -37,6 +37,7 @@ typedef enum mode_type_t {
 
 typedef struct probe_t {
     char* name;
+    int traceid;
     node_t* ident;
     node_t* stmts;
 }probe_t;
@@ -79,6 +80,7 @@ typedef struct annot_t {
     ssize_t size;
     ssize_t addr;
 } annot_t;
+
 
 typedef struct node_t{
     node_type_t type;
