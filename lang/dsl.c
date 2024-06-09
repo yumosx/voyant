@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <assert.h>
 #include <ctype.h>
 #include <err.h>
 #include <string.h>
@@ -261,18 +262,10 @@ reg_t* ebpf_reg_get(ebpf_t* e) {
 
 }
 
-void ebpf_reg_put(ebpf_t* e, reg_t* r) {
-    if (!r)
-        return;
-}
-
-
 void emit_ld_mapfd(ebpf_t* e, int reg, int fd) {
     ebpf_emit(e, INSN(BPF_LD|BPF_DW|BPF_IMM, reg, BPF_PSEUDO_MAP_FD, 0, fd));
     ebpf_emit(e, INSN(0, 0, 0, 0, 0));
 }
-
-
 
 static inline int node_is_sym(node_t* n) {
     return n->type == NODE_VAR || n->type == NODE_MAP;
@@ -366,29 +359,49 @@ void compile_comm(node_t* n, ebpf_t* e) {
     ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
 
+void compile_strcmp(node_t* n, ebpf_t* e) {
+   node_t* s1 = n->call.args, *s2 = n->call.args->next;
+   ssize_t i, l;
+   l = s1->annot.size < s2->annot.size ? s1->annot.size : s2->annot.size;
+   
+    for (i = 0; l; i++, l--) {
+		ebpf_emit(e, LDXB(BPF_REG_0, s1->annot.addr + i, BPF_REG_10));
+		ebpf_emit(e, LDXB(BPF_REG_1, s2->annot.addr + i, BPF_REG_10));
 
-void compile_strcmp(ebpf_t* e, node_t* n) {
+		ebpf_emit(e, ALU(OP_SUB, BPF_REG_0, BPF_REG_1));
+		ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 1) + 1));
+		ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 1) + 0));
+	}
+ 
+    reg_t* dst = ebpf_reg_get(e); 
+    
+    if (!dst)
+        err(EXIT_FAILURE, "malloc failed");
+    
+    ebpf_emit(e, MOV(dst->reg, 0));
+    ebpf_reg_bind(e, dst, n);
+}
+
+
+void compile_pred(ebpf_t* e, node_t* n) {
    node_t* s1 = n->infix_expr.left, *s2 = n->infix_expr.right;
    ssize_t i, l;
    l = s1->annot.size < s2->annot.size ? s1->annot.size : s2->annot.size;
    
     for (i = 0; l; i++, l--) {
-        ebpf_emit(e, LDXB(BPF_REG_0, s1->annot.addr + i, BPF_REG_10));
-        ebpf_emit(e, LDXB(BPF_REG_1, s1->annot.addr + i, BPF_REG_10));
-        
-        ebpf_emit(e, ALU(OP_SUB, BPF_REG_0, BPF_REG_1));
-        ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 1) + 1));
-        ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 1) + 0));
-    }
-}
+		ebpf_emit(e, LDXB(BPF_REG_0, s1->annot.addr + i, BPF_REG_10));
+		ebpf_emit(e, LDXB(BPF_REG_1, s2->annot.addr + i, BPF_REG_10));
 
-
-void compile_pred(ebpf_t* e, node_t* n) {
-    compile_strcmp(e, n);
-    ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 2));
+		ebpf_emit(e, ALU(OP_SUB, BPF_REG_0, BPF_REG_1));
+		ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 1) + 1));
+		ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 1) + 0));
+	}
+ 
+    ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_0, 0, 2));
     ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
     ebpf_emit(e, EXIT);
 }
+
 
 int int32_void_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
     n->annot.type = LOC_REG;
@@ -632,10 +645,6 @@ void get_annot(node_t* n, ebpf_t* e) {
                 comm_annot(n, e);
                 break;
             }
-            n->annot.type = NODE_INT;
-            n->annot.size = 8;
-            n->annot.reg = BPF_REG_0;
-            n->annot.reg = LOC_REG;
             break;
        case NODE_ASSIGN:
             annot_map(n, e);
@@ -658,6 +667,8 @@ void compile_call_(node_t* n, ebpf_t* e) {
         compile_print(n, e);
     } else if (!strcmp(n->name, "comm")) {
         compile_comm(n, e);
+    }else if (!strcmp(n->name, "strcmp")){
+        compile_strcmp(n, e);
     } else {
         err(EXIT_FAILURE, "not match the function");
     }
@@ -682,19 +693,15 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
     int id = get_id(p->probe.name);
     p->probe.traceid = id;    
     
-    printf("attach the [%d]\n", id);    
-   
+    printf("attach the [%s]\n", p->probe.name);    
+    
     if (p->prev) {
-        
-        node_walk(p->prev->infix_expr.right, e);
-        node_walk(p->prev->infix_expr.left, e);
-        compile_strcmp(e, p->prev);
-        ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 2));
-        ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
-        ebpf_emit(e, EXIT);
+        node_t* n1 = p->prev->infix_expr.left, *n2 = p->prev->infix_expr.right;
+        node_walk(n1, e);
+        node_walk(n2, e);
+        compile_pred(e, p->prev);
     }
- 
- 
+
     node_t* stmts = p->probe.stmts;
     node_t* n;
  
@@ -825,35 +832,61 @@ void node_walk(node_t* n, ebpf_t* e) {
     }
 }
 
-char* read_file(const char* filename) {
-    char* input = calloc(BUFSIZ, sizeof(char));
-    if (input != NULL) {
-        err(EXIT_FAILURE, "malloc failed");            
-    }
 
+
+char* read_file(const char *filename) {
+    char *input = (char *) calloc(BUFSIZ, sizeof(char));
+    assert(input != NULL);
     uint32_t size = 0;
 
-    FILE* f = fopen(filename, "r");
-    
+    FILE *f = fopen(filename, "r");
     if (!f) {
-        err(EXIT_FAILURE, "open file error");
-    }
-    
-    uint32_t read = 0;
+        printf("Could not open \"%s\" for reading", filename);
+        exit(1);
+    }   
 
+    uint32_t read = 0;
     while ( (read = fread(input, sizeof(char), BUFSIZ, f)) > 0) {
         size += read;
-       
-        if (read > BUFSIZ) {
-            input = (char*) realloc(input, size+BUFSIZ);
-            if (input == NULL) {
-                err(EXIT_FAILURE, "remalloc failed");
-            }    
-        }
-    }
 
+        if (read >= BUFSIZ) {
+            input = (char*) realloc(input, size + BUFSIZ);
+            assert(input != NULL);
+        }   
+    }   
     input[size] = '\0';
-    fclose(f);
 
+    fclose(f);
     return input;
 }
+
+    
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        return 0;
+    }   
+    
+    char* filename = argv[1];
+
+    char* input = read_file(filename);
+      
+    if (!input) {
+        printf("readfile error\n");
+        return 0;
+    }
+    
+    lexer_t* l = lexer_init(input);
+    parser_t* p = parser_init(l);
+    node_t* n = parse_program(p);
+    ebpf_t* e = ebpf_new();
+    e->st = symtable_new();
+
+    node_walk(n, e);
+    ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
+    ebpf_emit(e, EXIT);
+    
+    tracepoint_setup(e, n->probe.traceid);   
+    return 0;
+}
+

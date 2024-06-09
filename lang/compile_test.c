@@ -179,7 +179,7 @@ void test_node_pred() {
     
     tracepoint_setup(e, n->probe.traceid);    
 }
-
+/*
 int main() {
     test_node_pred();
     //test_node_map();
@@ -190,3 +190,4 @@ int main() {
     PRINT_ANS();
     return 0;
 }
+*/

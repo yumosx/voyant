@@ -39,3 +39,12 @@ probe sys_enter_execve {
     printf("%d", map[pid()]);
 }
 ```
+
+
+### pred expression
+
+```y
+probe sys_enter_execve /comm() == "bash"/{
+    printf("%s", comm());
+}
+```
