@@ -16,16 +16,26 @@ There are three aspectes that can account for my option;
 ## hello, world
 
 ```y
-probe sys:execute:enter {
-    print("Hello, World!");
+probe sys_enter_execve {
+    printf("Hello, World!");
 }
 ```
 
 ### variable
 
 ```y
-probe sys:execute:enter {
+probe sys_enter_execve {
     a = pid();
-    print("%d", a);
+    printf("%d", a);
+}
+```
+
+
+### bpf map
+
+```y
+probe sys_enter_execve {
+    map[pid()] = 2;
+    printf("%d", map[pid()]);
 }
 ```

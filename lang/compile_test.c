@@ -166,7 +166,7 @@ void test_node_map_2() {
 
 
 void test_node_pred() {
-    char* input = "probe sys_enter_execve{ printf(\"%s\", comm());}";
+    char* input = "probe sys_enter_execve{ printf(\"yes\");}";
     lexer_t* l = lexer_init(input);
     parser_t* p = parser_init(l);
     node_t* n = parse_program(p);
