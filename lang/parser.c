@@ -1,8 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
+
 #include "parser.h"
 
 void p_next_tok(parser_t* p) {    
+    if (p->this_tok) {
+        free_token(p->this_tok);
+    }
     p->this_tok = p->next_tok;
     p->next_tok = lexer_next_token(p->lexer);
 }
@@ -68,8 +72,7 @@ static seq_t get_token_seq(token_type t) {
 }
 
 int get_op(token_type t) {
-    switch (t)
-    {
+    switch (t) {
     case TOKEN_ASSIGN:
         return OP_MOV;
 
@@ -119,8 +122,6 @@ node_t* parse_call_args(parser_t* p) {
     node_t* n, *head;
     
     if (next_tok_is(p, RIGHT_PAREN)) {
-        //this tok is )
-        //next tok is ;
         p_next_tok(p);
         return NULL;
     }
@@ -165,6 +166,7 @@ node_t* parse_map_args(parser_t* p) {
     }
 
     if (!expect_peek(p, TOKEN_RIGHT_BRACKET)) {
+        err(EXIT_FAILURE, "Expected a right backet but encountered a different token");
         return NULL;
     }
 
@@ -236,6 +238,8 @@ node_t* parse_expr(parser_t* p, seq_t s) {
 
 node_t* parse_block_stmts(parser_t* p) {
     node_t* n, *head;
+    
+    //free the {
     p_next_tok(p);
 
     n = parse_expr(p, LOWEST);
@@ -261,13 +265,16 @@ node_t* parse_probe(parser_t* p) {
     node_t* node = node_new(NODE_PROBE);
     
     if (!expect_peek(p, TOKEN_IDENT)) {
+        free(node);
         return NULL;
     }
     
-    node->probe.name = p->this_tok->literal;
+    node->probe.name = strdup(p->this_tok->literal);
+    //this_tok: { | /
+    //next_tok: expr
     p_next_tok(p);
     
-    if (p->this_tok->type == TOKEN_SLASH) {
+    if ( p->this_tok->type == TOKEN_SLASH ) {
         p_next_tok(p);
         node->prev = parse_expr(p, LOWEST);
         p_next_tok(p);
@@ -277,4 +284,41 @@ node_t* parse_probe(parser_t* p) {
     node->probe.stmts = parse_block_stmts(p);
     
     return node;     
+}
+
+node_t* parse_program(parser_t* p) {
+    node_t* n, *head;
+
+    if ( p->this_tok->type != END_OF_FILE ) {
+        switch ( p->this_tok->type )
+        {
+        case TOKEN_PROBE:
+            n = parse_probe(p);
+            p_next_tok(p);
+            break;
+        default:
+            break;
+        }
+    }
+    
+    head = n;
+   
+    while ( p->this_tok->type != END_OF_FILE ) {
+        if ( p->this_tok->type == TOKEN_PROBE ) {
+            n->next = parse_probe(p);
+            p_next_tok(p);
+            n = n->next;
+        } else {
+            return head;
+        }
+    }
+
+    return head;
+}
+
+
+void free_parser(parser_t* p) {
+    free_lexer(p->lexer);
+    free_token(p->this_tok);
+    free_token(p->next_tok);
 }

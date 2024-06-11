@@ -59,6 +59,8 @@ char* read_ident(lexer_t* l);
 token_type get_type(char* str);
 lexer_t* lexer_init(char* s);
 token_t* lexer_next_token(lexer_t* l);
+
 void free_token(token_t* tok);
+void free_lexer(lexer_t* lex);
 
 #endif

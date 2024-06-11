@@ -33,8 +33,7 @@ const char* tok_type_str[] = {
 };
 
 static int is_number(char* literal) {
-    while (1)
-    {
+    while (1) {
         char c = *literal;
         
         if (!c) 
@@ -54,12 +53,6 @@ token_type get_type(char* str) {
     if (strcmp(str, "probe") == 0)
         return TOKEN_PROBE;
     
-    if (strcmp(str, "let") == 0)
-        return TOKEN_LET;    
-    
-    if (strcmp(str, "unroll") == 0)
-        return TOKEN_UNROLL;
-
     if (is_number(str))
         return TOKEN_INT;
     
@@ -271,10 +264,16 @@ token_t* lexer_next_token(lexer_t* l) {
     return t;
 }
 
+
 void free_token(token_t* tok) {
     if (tok->type != END_OF_FILE) {
         free(tok->literal);
     }
-
     free(tok);
+}
+
+
+void free_lexer(lexer_t* lex) {
+    free(lex->input);
+    free(lex);
 }

@@ -3,13 +3,11 @@
 #include "testbase.h"
 
 static void test_lexer() {
-    char* input = "probe sys:execute /a == 1/ {a = 1; print(); a[];}";
+    char* input = "probe sys_enter_execve /a == 1/ {a = 1; printf(); a[];}";
    
     token_t toks [] = {
         {"probe", TOKEN_PROBE},
-        {"sys", TOKEN_IDENT},
-        {":", TOKEN_COLON},
-        {"execute", TOKEN_IDENT},
+        {"sys_enter_execve", TOKEN_IDENT},
         {"/", TOKEN_SLASH},
         {"a", TOKEN_IDENT},
         {"==", TOKEN_EQ},
@@ -20,7 +18,7 @@ static void test_lexer() {
         {"=", TOKEN_ASSIGN},
         {"1", TOKEN_INT},
         {";", TOKEN_SEMICOLON},
-        {"print", TOKEN_IDENT},
+        {"printf", TOKEN_IDENT},
         {"(", LEFT_PAREN},
         {")", RIGHT_PAREN},
         {";", TOKEN_SEMICOLON},
@@ -37,13 +35,14 @@ static void test_lexer() {
     for (int i = 0; i < sizeof toks / sizeof toks[0]; i++) {
         t = lexer_next_token(lexer);
         EXPECT_EQ_STR(toks[i].literal, t->literal);
+        free_token(t);
     }
+
+    free_lexer(lexer);
 }
 
-/*
 int main() {
     test_lexer();
     PRINT_ANS();
     return 0;
 }
-*/

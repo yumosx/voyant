@@ -1,6 +1,6 @@
 .PHONY: all clean
 HEADERS = lexer.h insn.h  ast.h parser.h dsl.h testbase.h
-SRCS = lexer.c ast.c parser.c dsl.c compile_test.c
+SRCS = lexer.c ast.c parser.c dsl.c parse_test.c compile_test.c
 
 CFLAGS = -Wall -g
 

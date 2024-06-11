@@ -32,37 +32,7 @@ static const char* node_type_str[] = {
     "TYPE_STRING",
     "TYPE_INT"
 };
-
-node_t* parse_program(parser_t* p) {
-    node_t* n, *head;
-
-    if (p->this_tok->type != END_OF_FILE) {
-        switch (p->this_tok->type)
-        {
-        case TOKEN_PROBE:
-            n = parse_probe(p);
-            p_next_tok(p);
-            break;
-        default:
-            break;
-        }
-    }
     
-    head = n;
-   
-
-    while (p->this_tok->type != END_OF_FILE) {
-        if (p->this_tok->type == TOKEN_PROBE) {
-            n->next = parse_probe(p);
-            p_next_tok(p);
-            n = n->next;
-        } else {
-            return head;
-        }
-    }
-
-    return head;
-}
 
 static void sym_init(symtable_t* st) {
     sym_t* sym;
@@ -369,8 +339,10 @@ void compile_strcmp(node_t* n, ebpf_t* e) {
 		ebpf_emit(e, LDXB(BPF_REG_1, s2->annot.addr + i, BPF_REG_10));
 
 		ebpf_emit(e, ALU(OP_SUB, BPF_REG_0, BPF_REG_1));
-		ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 1) + 1));
-		ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 1) + 0));
+		
+     
+        ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 1) + 1));
+	    ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 1) + 0));
 	}
  
     reg_t* dst = ebpf_reg_get(e); 
@@ -381,7 +353,6 @@ void compile_strcmp(node_t* n, ebpf_t* e) {
     ebpf_emit(e, MOV(dst->reg, 0));
     ebpf_reg_bind(e, dst, n);
 }
-
 
 void compile_pred(ebpf_t* e, node_t* n) {
    node_t* s1 = n->infix_expr.left, *s2 = n->infix_expr.right;

@@ -1,3 +1,3 @@
-probe sys_enter_execve / comm() == "bash"/{
-    printf("%s",comm());
+probe sys_enter_openat2 /comm() == "bash"/{
+    printf("%s", comm());
 }

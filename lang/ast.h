@@ -91,4 +91,5 @@ node_t* node_new_var(char* name);
 node_t* node_int_new(char* name);
 node_t* node_str_new(char* str);
 
+void free_node(node_t* n);
 #endif
