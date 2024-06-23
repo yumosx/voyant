@@ -154,6 +154,7 @@ void ebpf_emit(ebpf_t* e, struct bpf_insn insn) {
     *(e->ip)++ = insn;
 }
 
+
 reg_t* ebpf_reg_find(ebpf_t* e, node_t* n) {
    reg_t* r;
    void* obj = n;
@@ -169,6 +170,7 @@ reg_t* ebpf_reg_find(ebpf_t* e, node_t* n) {
                 return r;
    }
 }
+
 
 void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {    
     if (n->type == NODE_STRING) {

@@ -16,7 +16,7 @@ node_t* node_new(node_type_t t) {
 
 /*
 note we use the strdup to copy the string
-beacuse we release the lexer token
+beacuse we release the token and string next 
 */
 node_t* node_new_var(char* name) {
     node_t* n = node_new(NODE_VAR);
@@ -38,4 +38,6 @@ node_t* node_int_new(char* name) {
 }
 
 void probe_free(node_t* n) {
+     
+
 }
