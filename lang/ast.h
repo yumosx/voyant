@@ -3,6 +3,8 @@
 
 #include "insn.h"
 
+typedef struct node_t node_t;
+
 typedef enum node_type_t {
     NODE_SCRIPT,
     NODE_PROBE,
@@ -19,7 +21,6 @@ typedef enum node_type_t {
     NODE_INT,
 } node_type_t;
 
-typedef struct node_t node_t;
 
 typedef struct probe_t {
     char* name;
@@ -90,6 +91,6 @@ node_t* node_new(node_type_t t);
 node_t* node_new_var(char* name);
 node_t* node_int_new(char* name);
 node_t* node_str_new(char* str);
-
+void node_print_str(node_type_t type);
 void free_node(node_t* n);
 #endif

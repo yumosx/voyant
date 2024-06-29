@@ -59,6 +59,7 @@ token_type get_type(char* str) {
     return TOKEN_IDENT;
 }
 
+
 lexer_t* lexer_init(char* s) {
     lexer_t* l = malloc(sizeof(*l));
 

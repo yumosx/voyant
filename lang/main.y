@@ -1,3 +1,5 @@
-probe sys_enter_openat2 /comm() == "bash"/{
-    printf("%s", comm());
+probe sys_enter_execve{
+     a = pid();
+     printf("%d\n", a);
+     printf("%s", comm());
 }
