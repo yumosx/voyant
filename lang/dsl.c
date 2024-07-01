@@ -251,10 +251,14 @@ void compile_pred(ebpf_t* e, node_t* n) {
     for (i = 0; l; i++, l--) {
 		ebpf_emit(e, LDXB(BPF_REG_0, s1->annot.addr + i, BPF_REG_10));
 		ebpf_emit(e, LDXB(BPF_REG_1, s2->annot.addr + i, BPF_REG_10));
-
+        
 		ebpf_emit(e, ALU(OP_SUB, BPF_REG_0, BPF_REG_1));
-		ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 1) + 1));
-		ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 1) + 0));
+		
+        if (l==1)
+            break;
+
+        ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 2) + 4));
+		ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 2) + 3));
 	}
  
     ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_0, 0, 2));
