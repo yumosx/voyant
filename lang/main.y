@@ -1,3 +1,3 @@
-probe sys_enter_socket{
-    printf("%s", comm());
+probe sys_enter_execve {
+	printf("%s", "helllo");
 }

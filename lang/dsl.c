@@ -96,7 +96,6 @@ void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {
 void ebpf_push(ebpf_t* e, ssize_t at, void* data, size_t size) {
     
     uint32_t* wdata = data;
-         
     size_t left = size / sizeof(*wdata);
     
     for (; left; left--, wdata++, at += sizeof(*wdata)) {
@@ -435,11 +434,10 @@ int tracepoint_setup(ebpf_t* e, int id) {
         perror("perf attach");
         return 1;
      } 
- 
+
     while (1) {
         system("cat /sys/kernel/debug/tracing/trace_pipe");
         getchar(); 
-  
     }
     
     return 0;
@@ -557,7 +555,7 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
     int id = get_id(p->probe.name);
     p->probe.traceid = id;    
     
-    printf("attach the [%s]\n", p->probe.name);    
+    printf("attach the [%s] id:[%d]\n", p->probe.name, id);    
     
     if (p->prev) {
         node_t* n1 = p->prev->infix_expr.left, *n2 = p->prev->infix_expr.right;
