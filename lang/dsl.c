@@ -695,7 +695,6 @@ void node_walk(node_t* n, ebpf_t* e) {
 }
 
 
-
 char* read_file(const char *filename) {
     char *input = (char *) calloc(BUFSIZ, sizeof(char));
     assert(input != NULL);
@@ -717,8 +716,10 @@ char* read_file(const char *filename) {
         }   
     }   
     input[size] = '\0';
+	printf(input);
 
-    fclose(f);
+
+	fclose(f);
     return input;
 }
 
@@ -730,10 +731,12 @@ int main(int argc, char* argv[]) {
     }   
     
     char* filename = argv[1];
+	
+	char* input = "probe sys_enter_execve{ printf(\"%s\", comm());}"
 
-    char* input = read_file(filename);
-      
-    if (!input) {
+
+	/*
+	if (!input) {
         printf("readfile error\n");
         return 0;
     }
@@ -741,7 +744,8 @@ int main(int argc, char* argv[]) {
     lexer_t* l = lexer_init(input);
     parser_t* p = parser_init(l);
     node_t* n = parse_program(p);
-    ebpf_t* e = ebpf_new();
+
+	ebpf_t* e = ebpf_new();
     e->st = symtable_new();
 
     node_walk(n, e);
@@ -749,6 +753,7 @@ int main(int argc, char* argv[]) {
     ebpf_emit(e, EXIT);
     
     tracepoint_setup(e, n->probe.traceid);   
-    return 0;
+	*/
+	return 0;
 }
 

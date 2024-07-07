@@ -35,13 +35,8 @@ const char* tok_type_str[] = {
 static int is_number(char* literal) {
     while (1) {
         char c = *literal;
-        
-        if (!c) 
-            break;
-
-        if (!isdigit(c)) {
-            return 0;
-        }
+        if (!c) break;
+        if (!isdigit(c)) return 0;
         literal++;
     }
 

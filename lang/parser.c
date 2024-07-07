@@ -1,12 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
-
 #include "parser.h"
+
 
 void p_next_tok(parser_t* p) {    
     if (p->this_tok) {
-        free_token(p->this_tok);
-    }
+        printf("%s\n", p->this_tok->literal);
+		free_token(p->this_tok);
+    	//printf("%s\n", p->this_tok->literal);
+	}
     p->this_tok = p->next_tok;
     p->next_tok = lexer_next_token(p->lexer);
 }
@@ -109,7 +111,6 @@ node_t* parse_infix_expr(parser_t* p, node_t* left) {
     n->infix_expr.left = left;
     
     n->infix_expr.opcode = get_op(p->this_tok->type);
-
     seq_t seq = get_token_seq(p->this_tok->type);
     p_next_tok(p);
     
@@ -203,7 +204,8 @@ node_t* parse_expr(parser_t* p, seq_t s) {
             left = node_new_var(p->this_tok->literal);
             break;
         case TOKEN_STRING:
-            left = node_str_new(p->this_tok->literal);
+			printf("%s\n", p->this_tok->literal);
+			left = node_str_new(p->this_tok->literal);
             break;
         default:
             return NULL;
@@ -269,15 +271,11 @@ node_t* parse_probe(parser_t* p) {
         free(node);
         return NULL;
     }
-    
     node->probe.name = strdup(p->this_tok->literal);
-    //this_tok: { | /
-    //next_tok: expr
     p_next_tok(p);
-    
-    if ( p->this_tok->type == TOKEN_SLASH ) {
+	if (p->this_tok->type == TOKEN_SLASH) {
         p_next_tok(p);
-        node->prev = parse_expr(p, LOWEST);
+		node->prev = parse_expr(p, LOWEST);
         p_next_tok(p);
         p_next_tok(p);
     }
@@ -287,12 +285,13 @@ node_t* parse_probe(parser_t* p) {
     return node;     
 }
 
+
+
 node_t* parse_program(parser_t* p) {
     node_t* n, *head;
 
     if ( p->this_tok->type != END_OF_FILE ) {
-        switch ( p->this_tok->type )
-        {
+        switch ( p->this_tok->type ) {
         case TOKEN_PROBE:
             n = parse_probe(p);
             p_next_tok(p);

@@ -1,3 +1,3 @@
-probe sys_enter_execve {
-	printf("%s", "helllo");
+probe sys{
+	printf("%s", "hello");
 }

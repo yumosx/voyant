@@ -3,11 +3,16 @@
 
 #include <stddef.h>
 
+#define is_char(c) isalnum(c) || c == '_'
 #define get_token_name(tok) tok_type_str[tok->type]
 
 extern const char* tok_type_str[];
 
-typedef enum token_type{
+typedef enum token_type token_type;
+typedef struct token_t token_t;
+typedef struct lexer_t lexer_t;
+
+enum token_type{
     TOKEN_IDENT,
     TOKEN_INT,
     TOKEN_STRING,
@@ -34,27 +39,24 @@ typedef enum token_type{
     TOKEN_STAR,
     TOKEN_RETURN,
     END_OF_FILE
-} token_type;
+};
 
 
-#define is_char(c) isalnum(c) || c == '_'
 
-typedef struct token_t {
+struct token_t {
     char* literal;
     token_type type;
-} token_t;
+};
 
 
-typedef struct lexer_t{
-    token_t* token;
+struct lexer_t{
     size_t read_pos;
     size_t pos;
     char ch;
     char* input;
-} lexer_t;
+};
 
 
-char* read_string(lexer_t* l);
 char* read_ident(lexer_t* l);
 token_type get_type(char* str);
 lexer_t* lexer_init(char* s);

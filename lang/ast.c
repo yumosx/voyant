@@ -25,9 +25,12 @@ node_t* node_new_var(char* name) {
 }
 
 node_t* node_str_new(char* str) {
-    node_t* n = node_new(NODE_STRING);
-    n->name = strdup(str);
-    return n;
+	node_t* n = node_new(NODE_STRING);
+    
+   	printf("before: %s\n", str);
+	n->name = strdup(str);
+    printf("copy: %s\n", n->name);
+	return n;
 }
 
 
