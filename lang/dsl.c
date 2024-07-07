@@ -94,14 +94,12 @@ void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {
 
 
 void ebpf_push(ebpf_t* e, ssize_t at, void* data, size_t size) {
-    
     uint32_t* wdata = data;
     size_t left = size / sizeof(*wdata);
     
     for (; left; left--, wdata++, at += sizeof(*wdata)) {
         ebpf_emit(e, STW_IMM(BPF_REG_10, at, *wdata));
     }
-    
 }
 
 
@@ -471,11 +469,11 @@ void annot_map(node_t* n, ebpf_t* e) {
             ksize += head->annot.size;
         }
         n->assign.lval->annot.keysize = ksize;
-        n->assign.lval->annot.addr -= ksize + n->assign.lval->annot.size;
         
+		n->assign.lval->annot.addr = symtable_reserve(e->st, ksize + n->assign.lval->annot.size);
+
         int fd = bpf_map_create(BPF_MAP_TYPE_HASH, n->assign.lval->annot.keysize, n->assign.lval->annot.size, 1024);
         n->assign.lval->annot.mapid = fd;
-
      }
     
     symtable_add(e->st, n->assign.lval);     
@@ -506,7 +504,11 @@ void get_annot(node_t* n, ebpf_t* e) {
             if (!strcmp("comm", n->name)) {
                 comm_annot(n, e);
                 break;
-            }
+            } else {
+				n->annot.type = NODE_INT;
+				n->annot.size = 8;
+				n->annot.loc = LOC_REG;
+			}
             break;
        case NODE_ASSIGN:
             annot_map(n, e);
@@ -568,13 +570,13 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
     node_t* n;
  
     for (n = stmts; n != NULL; n = n->next) {
-        node_walk(n, e); 
+		node_walk(n, e); 
     }
 }
 
 
 void compile_map_load(node_t* head, ebpf_t* e) {
-    sym_t* sym = symtable_get(e->st, head->name);    
+	sym_t* sym = symtable_get(e->st, head->name);    
 
     head->annot = sym->annot;
 
@@ -584,7 +586,6 @@ void compile_map_load(node_t* head, ebpf_t* e) {
     ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
 
     emit_ld_mapfd(e, BPF_REG_1, head->annot.mapid);
-    
     ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
     ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, head->annot.addr)); 
     ebpf_emit(e, CALL(BPF_FUNC_map_lookup_elem));
@@ -609,14 +610,15 @@ void compile_map_load(node_t* head, ebpf_t* e) {
 
 
 void compile_map_assign(node_t* n, ebpf_t* e) {
-   emit_ld_mapfd(e, BPF_REG_1, n->assign.lval->annot.mapid);
    
-   //we get the value
+   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, n->assign.lval->map.args->integer));       
+   ebpf_emit(e, STXDW(BPF_REG_10, n->assign.lval->annot.addr + n->assign.lval->annot.size, BPF_REG_0));   
+   
    if (n->assign.expr->annot.type == NODE_INT) {
-       ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, n->assign.expr->integer));       
+	   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, n->assign.expr->integer));       
        ebpf_emit(e, STXDW(BPF_REG_10, n->assign.lval->annot.addr, BPF_REG_0));   
    }
-    
+
    emit_ld_mapfd(e, BPF_REG_1, n->assign.lval->annot.mapid);
    ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, n->assign.lval->annot.addr + n->assign.lval->annot.size));
@@ -723,19 +725,15 @@ char* read_file(const char *filename) {
     return input;
 }
 
-    
-
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        return 0;
-    }   
+    //if (argc != 2) {
+    //    return 0;
+    //}   
     
-    char* filename = argv[1];
+    //char* filename = argv[1];
 	
-	char* input = "probe sys_enter_execve{ printf(\"%s\", comm());}"
+	char* input = "probe sys_enter_execve{ map[pid()] = 1; printf(\"%d\", map[pid()]);}";
 
-
-	/*
 	if (!input) {
         printf("readfile error\n");
         return 0;
@@ -747,13 +745,13 @@ int main(int argc, char* argv[]) {
 
 	ebpf_t* e = ebpf_new();
     e->st = symtable_new();
+	
 
     node_walk(n, e);
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
     
     tracepoint_setup(e, n->probe.traceid);   
-	*/
 	return 0;
 }
 

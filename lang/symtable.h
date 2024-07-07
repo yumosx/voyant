@@ -38,8 +38,8 @@ typedef struct sym {
 typedef struct symtable_t {
     size_t cap, len;
     sym_t* table;
-    reg_t reg[__MAX_BPF_REG];
     ssize_t stack_top;
+	reg_t reg[__MAX_BPF_REG];
 } symtable_t;
 
 

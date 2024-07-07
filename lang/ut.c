@@ -7,5 +7,5 @@ void* checked_malloc(size_t len) {
 		exit(1);
 	}
 
-	return p;
+	return obj;
 }

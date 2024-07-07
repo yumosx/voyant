@@ -1,25 +1,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "parser.h"
-
+#include "ut.h"
 
 void p_next_tok(parser_t* p) {    
-    if (p->this_tok) {
-        printf("%s\n", p->this_tok->literal);
-		free_token(p->this_tok);
-    	//printf("%s\n", p->this_tok->literal);
-	}
     p->this_tok = p->next_tok;
     p->next_tok = lexer_next_token(p->lexer);
 }
 
 parser_t* parser_init(lexer_t* l) {
-    parser_t* p = malloc(sizeof(*p));
-
-    if (p == NULL) {
-        err(EXIT_FAILURE, "Failed to allocate memory for the parser");
-    }
-    
+    parser_t* p = checked_malloc(sizeof(*p));
     p->lexer = l;
     p->this_tok = NULL;
     p->next_tok = NULL;
@@ -204,7 +194,6 @@ node_t* parse_expr(parser_t* p, seq_t s) {
             left = node_new_var(p->this_tok->literal);
             break;
         case TOKEN_STRING:
-			printf("%s\n", p->this_tok->literal);
 			left = node_str_new(p->this_tok->literal);
             break;
         default:

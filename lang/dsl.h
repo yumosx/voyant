@@ -9,7 +9,7 @@
 #include "parser.h"
 #include "ast.h"
 #include "symtable.h"
-
+#include "testbase.h"
 
 #define get_mode_name(probe)  mode_str[probe.mode]
 

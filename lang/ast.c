@@ -14,10 +14,6 @@ node_t* node_new(node_type_t t) {
     return n;
 }
 
-/*
-note we use the strdup to copy the string
-beacuse we release the token and string next 
-*/
 node_t* node_new_var(char* name) {
     node_t* n = node_new(NODE_VAR);
     n->name = strdup(name);
@@ -26,10 +22,7 @@ node_t* node_new_var(char* name) {
 
 node_t* node_str_new(char* str) {
 	node_t* n = node_new(NODE_STRING);
-    
-   	printf("before: %s\n", str);
 	n->name = strdup(str);
-    printf("copy: %s\n", n->name);
 	return n;
 }
 

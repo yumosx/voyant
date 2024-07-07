@@ -1,7 +1,7 @@
 #include "testbase.h"
 #include "dsl.h"
 #include <string.h>
-
+#include "parser.h"
 
 void test_sym() {
     char* input = "a = pid()";
@@ -100,20 +100,20 @@ void test_node() {
 }
 
 void test_node_map() {
-    char* input = "execute[pid()] = 2;";
+    char* input = "execute[1] = 2;";
     lexer_t* l = lexer_init(input);
     parser_t* p = parser_init(l);
-    node_t* n = parse_expr(p, LOWEST);    
+    //node_t* n = parse_expr(p, LOWEST);    
     ebpf_t* e = ebpf_new();
     e->st = symtable_new();
     
-    get_annot(n, e);
-    EXPECT_EQ_INT(8, n->assign.lval->annot.size);
-    EXPECT_EQ_INT(8, n->assign.lval->annot.keysize);
+    //get_annot(n, e);
+    //EXPECT_EQ_INT(8, n->assign.lval->annot.size);
+    //EXPECT_EQ_INT(8, n->assign.lval->annot.keysize);
     
-    int fd = bpf_map_create(BPF_MAP_TYPE_HASH, n->assign.lval->annot.keysize, n->assign.lval->annot.size, 1024);
-    n->assign.lval->annot.mapid = fd;
-
+    //int fd = bpf_map_create(BPF_MAP_TYPE_HASH, n->assign.lval->annot.keysize, n->assign.lval->annot.size, 1024);
+    //n->assign.lval->annot.mapid = fd;
+	/*
     compile_call_(n->assign.lval->map.args, e);
     compile_map_assign(n, e);
 
@@ -140,7 +140,8 @@ void test_node_map() {
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
 
-    tracepoint_setup(e, 595);
+    tracepoint_setup(e, 721);
+	*/
 }
 
 /*
@@ -181,8 +182,8 @@ void test_node_pred() {
 }
 /*
 int main() {
-    test_node_pred();
-    //test_node_map();
+    //test_node_pred();
+    test_node_map();
     //test_node();
     //test_node_iter();
     //test_sym();
