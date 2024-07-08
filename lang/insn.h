@@ -76,4 +76,5 @@ typedef enum loc_t {
 
 #define LOG_BUF_SIZE 0x1000
 
+
 #endif

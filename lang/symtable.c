@@ -1,6 +1,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include "symtable.h"
+#include "ut.h"
+
 
 static void
 sym_init(symtable_t* st) {

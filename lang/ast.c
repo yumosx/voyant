@@ -1,15 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "ut.h"
 #include "ast.h"
 
 node_t* node_new(node_type_t t) {
-    node_t* n = malloc(sizeof(*n));
-
-    if (n == NULL) {
-       err(EXIT_FAILURE, "Failed to allocate memory for a new node of type %d", t);
-    }
-
+    node_t* n = checked_malloc(sizeof(*n));
     n->type = t;
     return n;
 }

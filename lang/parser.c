@@ -24,7 +24,6 @@ int this_tok_is(parser_t* p, token_type type) {
     return p->this_tok->type == type;
 }
 
-
 int next_tok_is(parser_t* p, token_type type) {
     return p->next_tok->type == type;
 }

@@ -2,7 +2,9 @@
 #include <err.h>
 #include <string.h>
 #include <stdlib.h>
+
 #include "lexer.h"
+#include "ut.h"
 
 const char* tok_type_str[] = {
     "IDENT",
@@ -10,7 +12,6 @@ const char* tok_type_str[] = {
     "STRING",
     "ILLEGAL",
     "PROBE",
-    "FILTER",
     "SLASH"
     "COLON",
     "COMMA",
@@ -35,11 +36,13 @@ const char* tok_type_str[] = {
 static int is_number(char* literal) {
     while (1) {
         char c = *literal;
-        if (!c) break;
-        if (!isdigit(c)) return 0;
-        literal++;
+        
+		if (!c) break;
+        
+		if (!isdigit(c)) return 0;
+        
+		literal++;
     }
-
     return 1; 
 }
 
@@ -56,11 +59,7 @@ token_type get_type(char* str) {
 
 
 lexer_t* lexer_init(char* s) {
-    lexer_t* l = malloc(sizeof(*l));
-
-    if (l == NULL) {
-        err(EXIT_FAILURE, "malloc failed");
-    }
+    lexer_t* l = checked_malloc(sizeof(*l));
 
     l->input = strdup(s);
 
@@ -102,10 +101,7 @@ char* read_string(lexer_t* l) {
 
     size_t len = l->pos - pos;
 
-    char* str = malloc(len+1);
-
-    if (str == NULL)
-       err(EXIT_FAILURE, "malloc failed");
+    char* str = checked_malloc(len+1);
 
     memcpy(str, l->input+pos, len);
 
