@@ -25,13 +25,8 @@ ebpf_t* ebpf_new() {
     ebpf_t* e = checked_calloc(1, sizeof(*e));
     e->st = symtable_new();     
     e->ip = e->prog;
-
-    if (e->st == NULL) {
-        err(EXIT_FAILURE, "malloc failure");
-    }
     return e;
 }
-
 
 void ebpf_emit(ebpf_t* e, struct bpf_insn insn) {
     *(e->ip)++ = insn;
@@ -90,11 +85,11 @@ void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {
 
 
 void ebpf_push(ebpf_t* e, ssize_t at, void* data, size_t size) {
-    uint32_t* wdata = data;
-    size_t left = size / sizeof(*wdata);
+    uint32_t* obj = data;
+    size_t left = size / sizeof(*obj);
     
-    for (; left; left--, wdata++, at += sizeof(*wdata)) {
-        ebpf_emit(e, STW_IMM(BPF_REG_10, at, *wdata));
+    for (; left; left--, obj++, at += sizeof(*obj)) {
+        ebpf_emit(e, STW_IMM(BPF_REG_10, at, *obj));
     }
 }
 
@@ -119,7 +114,8 @@ void emit_ld_mapfd(ebpf_t* e, int reg, int fd) {
     ebpf_emit(e, INSN(0, 0, 0, 0, 0));
 }
 
-static inline int node_is_sym(node_t* n) {
+static inline 
+int node_is_sym(node_t* n) {
     return n->type == NODE_VAR || n->type == NODE_MAP;
 }
 
@@ -296,6 +292,12 @@ static int compile_ns_call(ebpf_t* e, node_t* n) {
     return int32_void_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_NONE, e, n);
 }
 
+static int compile_cpu_call(ebpf_t* e, node_t* n) {
+	return int32_void_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
+}
+
+
+
 static __u64 ptr_to_u64(const void* ptr) {
     return (__u64) (unsigned long) ptr;
 }
@@ -445,7 +447,11 @@ void compile_call_(node_t* n, ebpf_t* e) {
         compile_comm(n, e);
     }else if (!strcmp(n->name, "strcmp")){
         compile_strcmp(n, e);
-    } else {
+    } else if (!strcmp(n->name, "ns")) {
+	    compile_ns_call(e, n);
+	} else if (!strcmp(n->name, "cpu")) {
+		compile_cpu_call(e, n);
+	} else {
         err(EXIT_FAILURE, "not match the function");
     }
 }
@@ -646,7 +652,7 @@ int main(int argc, char* argv[]) {
     
     //char* filename = argv[1];
 	
-	char* input = "probe sys_enter_execve{ printf(\"%s\", comm());}";
+	char* input = "probe sys_enter_execve{ printf(\"%d\", cpu());}";
 
 	if (!input) {
         printf("readfile error\n");

@@ -20,11 +20,7 @@ symtable_t* symtable_new() {
     symtable_t* st;
     int i;
 
-    st = malloc(sizeof(*st));
-
-    if (st == NULL) {
-        err(EXIT_FAILURE, "malloc failure");
-    }
+    st = checked_malloc(sizeof(*st));
 
     st->cap = 16;
     st->table = calloc(st->cap, sizeof(*st->table));

@@ -256,9 +256,10 @@ node_t* parse_probe(parser_t* p) {
     node_t* node = node_new(NODE_PROBE);
     
     if (!expect_peek(p, TOKEN_IDENT)) {
-        free(node);
+		free(node);
         return NULL;
     }
+
     node->probe.name = strdup(p->this_tok->literal);
     p_next_tok(p);
 	if (p->this_tok->type == TOKEN_SLASH) {
