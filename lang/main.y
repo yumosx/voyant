@@ -1,3 +1,3 @@
-probe sys{
-	printf("%s", "hello");
+probe sys_enter_execve{
+	printf("%d", pid());
 }

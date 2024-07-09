@@ -151,7 +151,8 @@ void generic_load_args(node_t* arg, ebpf_t* e, int* reg) {
         if (arg->annot.loc == LOC_STACK){
            ebpf_emit(e, LDXDW(*reg, arg->annot.addr, BPF_REG_10));
         } else {
-           ebpf_emit(e, MOV_IMM(*reg, arg->integer));
+			//ebpf_emit(e, MOV(*reg, ebpf_reg_find(e, arg)->reg)); 
+			ebpf_emit(e, MOV_IMM(*reg, arg->integer));
         }
         break;                  
     case NODE_STRING:
@@ -172,8 +173,9 @@ void generic_load_args(node_t* arg, ebpf_t* e, int* reg) {
         ebpf_emit(e, MOV_IMM(*reg, strlen(arg->name) + 1)); 
         break;
     default:
-        ebpf_emit(e, MOV(*reg, ebpf_reg_find(e, arg)->reg)); 
-        break;
+        
+		ebpf_emit(e, MOV(*reg, ebpf_reg_find(e, arg)->reg)); 
+		break;
     }
 }
 
@@ -638,21 +640,19 @@ char* read_file(const char *filename) {
         }   
     }   
     input[size] = '\0';
-	printf(input);
-
 
 	fclose(f);
     return input;
 }
 
 int main(int argc, char* argv[]) {
-    //if (argc != 2) {
-    //    return 0;
-    //}   
+    if (argc != 2) {
+        return 0;
+    }   
     
-    //char* filename = argv[1];
+    char* filename = argv[1];
 	
-	char* input = "probe sys_enter_execve{ printf(\"%d\", cpu());}";
+	char* input = read_file(filename);
 
 	if (!input) {
         printf("readfile error\n");

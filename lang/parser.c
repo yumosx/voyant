@@ -1,11 +1,25 @@
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "lexer.h"
 #include "parser.h"
 #include "ut.h"
 
 void p_next_tok(parser_t* p) {    
-    p->this_tok = p->next_tok;
+    if (p->this_tok != NULL) {
+		free_token(p->this_tok);
+	}
+
+	p->this_tok = p->next_tok;
     p->next_tok = lexer_next_token(p->lexer);
+}
+
+int this_tok_is(parser_t* p, token_type type) {
+    return p->this_tok->type == type;
+}
+
+int next_tok_is(parser_t* p, token_type type) {
+    return p->next_tok->type == type;
 }
 
 parser_t* parser_init(lexer_t* l) {
@@ -20,24 +34,16 @@ parser_t* parser_init(lexer_t* l) {
     return p;
 }
 
-int this_tok_is(parser_t* p, token_type type) {
-    return p->this_tok->type == type;
-}
-
-int next_tok_is(parser_t* p, token_type type) {
-    return p->next_tok->type == type;
-}
-
 int expect_peek(parser_t* p, token_type t) {
     if (next_tok_is(p, t)) {
         p_next_tok(p);
         return 1;
-    } else {
-        return 0;
     }
+    return 0;
 }
 
-static seq_t get_token_seq(token_type t) {
+static seq_t 
+get_token_seq(token_type t) {
     switch (t) {
     case TOKEN_EQ:
         return EQUALS;  
@@ -81,41 +87,44 @@ int get_op(token_type t) {
     }
 }
 
-
 node_t* parse_int_expr(char* name) {
-    node_t* expr = node_new(NODE_INT);
-    expr->integer = 0;
-
+   	size_t integer = 0;
     char* s = name;
 
     while (*s != '\0') {
-        expr->integer = (expr->integer * 10) + (*s++ - '0');
+        integer = (integer * 10) + (*s++ - '0');
     }
-    
-    return expr;
+	
+	return node_int_new(integer);
+}
+
+node_t* parse_assign_expr(parser_t* p, node_t* left) {
+	op_t op;
+	node_t* right;
+
+    int seq = get_token_seq(p->this_tok->type);
+    p_next_tok(p);
+    right = parse_expr(p, seq); 
+
+    return node_assign_new(left, right);
 }
 
 node_t* parse_infix_expr(parser_t* p, node_t* left) {
-    node_t* n = node_new(NODE_INFIX_EXPR);
-    n->infix_expr.left = left;
+	node_t* right; 
+	seq_t seq; 
+	int opcode;
     
-    n->infix_expr.opcode = get_op(p->this_tok->type);
-    seq_t seq = get_token_seq(p->this_tok->type);
+	opcode = get_op(p->this_tok->type);
+    seq = get_token_seq(p->this_tok->type);
     p_next_tok(p);
     
-    n->infix_expr.right = parse_expr(p, seq);
+    right = parse_expr(p, seq);
     
-    return n; 
+    return node_expr_new(opcode, left, right); 
 }
-
 
 node_t* parse_call_args(parser_t* p) {
     node_t* n, *head;
-    
-    if (next_tok_is(p, RIGHT_PAREN)) {
-        p_next_tok(p);
-        return NULL;
-    }
     
     p_next_tok(p);
     
@@ -139,7 +148,13 @@ node_t* parse_call_args(parser_t* p) {
 
 node_t* parse_call_expr(parser_t* p, node_t* left) {
     left->type = NODE_CALL;
-    left->call.args = parse_call_args(p);
+    
+	if (next_tok_is(p, RIGHT_PAREN)) {
+		p_next_tok(p);
+		return left;
+	}
+
+	left->call.args = parse_call_args(p);
     return left;
 }
 
@@ -171,16 +186,6 @@ node_t* parse_map_expr(parser_t* p, node_t* left) {
     return left;
 }
 
-node_t* parse_assign_expr(parser_t* p, node_t* left) {
-    node_t* n = node_new(NODE_ASSIGN);
-
-    n->assign.op = OP_MOV;
-    n->assign.lval = left;
-    int seq = get_token_seq(p->this_tok->type);
-    p_next_tok(p);
-    n->assign.expr = parse_expr(p, seq); 
-    return n;
-}
 
 node_t* parse_expr(parser_t* p, seq_t s) {    
     node_t* left;
@@ -188,13 +193,13 @@ node_t* parse_expr(parser_t* p, seq_t s) {
     switch (p->this_tok->type) {
         case TOKEN_INT:
             left = parse_int_expr(p->this_tok->literal);
-            break;
+			break;
         case TOKEN_IDENT:
-            left = node_new_var(p->this_tok->literal);
-            break;
+			left = node_new_var(ut_str(p->this_tok->literal));
+			break;
         case TOKEN_STRING:
-			left = node_str_new(p->this_tok->literal);
-            break;
+			left = node_str_new(ut_str(p->this_tok->literal));
+			break;
         default:
             return NULL;
     }
@@ -230,7 +235,6 @@ node_t* parse_expr(parser_t* p, seq_t s) {
 node_t* parse_block_stmts(parser_t* p) {
     node_t* n, *head;
     
-    //free the {
     p_next_tok(p);
 
     n = parse_expr(p, LOWEST);
@@ -253,56 +257,36 @@ node_t* parse_block_stmts(parser_t* p) {
 }
 
 node_t* parse_probe(parser_t* p) {
-    node_t* node = node_new(NODE_PROBE);
+   	
+	char* name;
+	node_t* stmts, *prev;
     
     if (!expect_peek(p, TOKEN_IDENT)) {
-		free(node);
         return NULL;
     }
 
-    node->probe.name = strdup(p->this_tok->literal);
-    p_next_tok(p);
+    name = strdup(p->this_tok->literal);
+	p_next_tok(p);
+	
 	if (p->this_tok->type == TOKEN_SLASH) {
         p_next_tok(p);
-		node->prev = parse_expr(p, LOWEST);
+		prev = parse_expr(p, LOWEST);
         p_next_tok(p);
         p_next_tok(p);
     }
     
-    node->probe.stmts = parse_block_stmts(p);
+    stmts = parse_block_stmts(p);
     
-    return node;     
+    return node_probe_new(name, stmts);     
 }
 
 
 
 node_t* parse_program(parser_t* p) {
-    node_t* n, *head;
+    node_t* n;
 
-    if ( p->this_tok->type != END_OF_FILE ) {
-        switch ( p->this_tok->type ) {
-        case TOKEN_PROBE:
-            n = parse_probe(p);
-            p_next_tok(p);
-            break;
-        default:
-            break;
-        }
-    }
-    
-    head = n;
-   
-    while ( p->this_tok->type != END_OF_FILE ) {
-        if ( p->this_tok->type == TOKEN_PROBE ) {
-            n->next = parse_probe(p);
-            p_next_tok(p);
-            n = n->next;
-        } else {
-            return head;
-        }
-    }
-
-    return head;
+	n = parse_probe(p);
+    return n;
 }
 
 

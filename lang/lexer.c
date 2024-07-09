@@ -92,24 +92,23 @@ void skip_whitespace(lexer_t* l) {
 }
 
 char* read_string(lexer_t* l) {
-    l->pos++;
-    size_t pos = l->pos;
+    size_t pos = l->pos+1;
+	l->pos++;
 
     while (l->input[l->pos] != '"' && l->input[l->pos] != 0) {
         l->pos++;
     }
 
     size_t len = l->pos - pos;
-
     char* str = checked_malloc(len+1);
 
     memcpy(str, l->input+pos, len);
-
+	str[len] = 0;
     l->pos++;
     l->read_pos = l->pos+1;
     l->ch = l->input[l->pos];
-
-    return str;
+    
+	return str;
 }
 
 char* read_ident(lexer_t* l) {
@@ -136,12 +135,8 @@ char* read_ident(lexer_t* l) {
 
 
 token_t* lexer_next_token(lexer_t* l) {
-    token_t* t = malloc(sizeof(*t));
+    token_t* t = checked_malloc(sizeof(*t));
 
-    if (t == NULL) {
-        err(EXIT_FAILURE, "malloc failed");
-    }
-    
     skip_whitespace(l);
 
     switch (l->ch) {

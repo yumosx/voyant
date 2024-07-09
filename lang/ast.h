@@ -4,6 +4,8 @@
 #include "insn.h"
 
 typedef struct node_t node_t;
+typedef struct probe_t probe_t;
+typedef struct call_t call_t;
 
 typedef enum node_type_t {
     NODE_SCRIPT,
@@ -22,17 +24,16 @@ typedef enum node_type_t {
 } node_type_t;
 
 
-typedef struct probe_t {
+struct probe_t {
     char* name;
     int traceid;
     node_t* stmts;
-} probe_t;
+};
 
 
-typedef struct call_t {
+struct call_t {
    node_t* args; 
-} call_t;
-
+};
 
 typedef struct infix_t {
     int opcode;
@@ -68,13 +69,12 @@ typedef struct annot_t {
 } annot_t;
 
 
-typedef struct node_t {
+struct node_t {
     node_type_t type;
     node_t* prev, *next;
     char* name;
 
-    union 
-    {
+    union {
         probe_t probe;
         infix_t infix_expr;
         prefix_t prefix_expr;
@@ -85,12 +85,17 @@ typedef struct node_t {
     };
 
     annot_t annot;
-} node_t;
+};
 
-node_t* node_new(node_type_t t);
-node_t* node_new_var(char* name);
-node_t* node_int_new(char* name);
-node_t* node_str_new(char* str);
+extern node_t* node_new(node_type_t t);
+extern node_t* node_probe_new(char* name, node_t* stmts);
+extern node_t* node_new_var(char* name);
+extern node_t* node_int_new(size_t name);
+extern node_t* node_str_new(char* str);
+extern node_t* node_expr_new(int opcode, node_t* left, node_t* right);
+extern node_t* node_assign_new(node_t* left, node_t* expr);
+
 void node_print_str(node_type_t type);
 void free_node(node_t* n);
+
 #endif
