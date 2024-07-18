@@ -12,6 +12,15 @@ There are three aspectes that can account for my option;
 2. The second, our dsl will offer the similarly level of expressivity as general-purpose programming language, also extending the semantics in certain aspectes;
 
 
+## how to install
+
+```c
+cd lang
+make
+sudo ./voyant main.y
+```
+
+
 ## syntax
 
 ## hello, world
@@ -44,7 +53,7 @@ probe sys_enter_execve {
 
 ### pred expression
 
-⚠️。I use the lower version linux kernal, this program crash, because the bpf insns limit
+I use the lower version linux kernal, this program crash, because the bpf insns limit
 
 ```y
 probe sys_enter_execve /comm() == "bash"/ {

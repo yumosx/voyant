@@ -24,7 +24,6 @@ typedef struct reg {
 } reg_t;
 
 
-
 typedef struct sym {
     const char* name;
     annot_t annot;

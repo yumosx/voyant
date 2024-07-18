@@ -6,41 +6,13 @@
 #include "lexer.h"
 #include "ut.h"
 
-const char* tok_type_str[] = {
-    "IDENT",
-    "INT",
-    "STRING",
-    "ILLEGAL",
-    "PROBE",
-    "SLASH"
-    "COLON",
-    "COMMA",
-    "LEFT_BRACKET",
-    "RIGHT_BRACKET",
-    "LEFT_BLOCK",
-    "RIGHT_BLOCK",
-    "UNDERLINE",
-    "LEFT_PAREN",
-    "RIGHT_PAREN",
-    "ASSIGN",
-    "EQ",
-    "SEMMICONON",
-    "IF",
-    "UNROLL",
-    "LET",
-    "PLUS",
-    "RETURN",
-    "END_OF_FILE"
-};
-
 static int is_number(char* literal) {
     while (1) {
         char c = *literal;
-        
-		if (!c) break;
-        
-		if (!isdigit(c)) return 0;
-        
+		if (!c) 
+            break;
+		if (!isdigit(c)) 
+            return 0;
 		literal++;
     }
     return 1; 
@@ -60,13 +32,7 @@ token_type get_type(char* str) {
 
 lexer_t* lexer_init(char* s) {
     lexer_t* l = checked_malloc(sizeof(*l));
-
-    l->input = strdup(s);
-
-    if (l == NULL) {
-        err(EXIT_FAILURE, "strdup failed");
-    }
-
+    l->input = ut_str(s);
     l->read_pos = 1;
     l->pos = 0;
     l->ch = l->input[0];
@@ -140,112 +106,112 @@ token_t* lexer_next_token(lexer_t* l) {
     skip_whitespace(l);
 
     switch (l->ch) {
-            case '"':
-                t->type = TOKEN_STRING;
-                t->literal = read_string(l);
-                break;
+        case '"':
+            t->type = TOKEN_STRING;
+            t->literal = read_string(l);
+            break;
             
-            case ',':
-                t->type = TOKEN_COMMA;
-                t->literal = strdup(",");
-                read_char(l);
-                break;
+        case ',':
+            t->type = TOKEN_COMMA;
+            t->literal = strdup(",");
+            read_char(l);
+            break;
             
-            case '/':
-                t->type = TOKEN_SLASH;
-                t->literal = strdup("/");
-                read_char(l);
-                break;
+        case '/':
+            t->type = TOKEN_SLASH;
+            t->literal = strdup("/");
+            read_char(l);
+            break;
 
-            case '(':
-                t->type = LEFT_PAREN;
-                t->literal = strdup("(");
-                read_char(l);
-                break;
+        case '(':
+            t->type = LEFT_PAREN;
+            t->literal = strdup("(");
+            read_char(l);
+            break;
 
-            case ')':
-                t->type = RIGHT_PAREN;
-                t->literal = strdup(")");
-                read_char(l);
-                break;
+        case ')':
+            t->type = RIGHT_PAREN;
+            t->literal = strdup(")");
+            read_char(l);
+            break;
             
-            case '[':
-                t->type = TOKEN_LEFT_BRACKET;
-                t->literal = strdup("[");
-                read_char(l);
-                break; 
+        case '[':
+            t->type = TOKEN_LEFT_BRACKET;
+            t->literal = strdup("[");
+            read_char(l);
+            break; 
             
-            case ']':
-                t->type = TOKEN_RIGHT_BRACKET;
-                t->literal = strdup("]");
-                read_char(l);
-                break;
+        case ']':
+            t->type = TOKEN_RIGHT_BRACKET;
+            t->literal = strdup("]");
+            read_char(l);
+            break;
 
-            case '{':
-                t->type = TOKEN_LEFT_BLOCK;
-                t->literal = strdup("{");
+        case '{':
+            t->type = TOKEN_LEFT_BLOCK;
+            t->literal = strdup("{");
+            read_char(l);
+            break;
+            
+        case '}':
+            t->type = TOKEN_RIGHT_BLOCK;
+            t->literal = strdup("}");
+            read_char(l);
+            break;
+            
+        case ';':
+            t->type = TOKEN_SEMICOLON;
+            t->literal = strdup(";");
+            read_char(l);
+            break;
+            
+        case '=':
+            if (l->input[l->read_pos] == '=') {
+                t->type = TOKEN_EQ;
+                t->literal = strdup("==");
+                read_char(l);
                 read_char(l);
                 break;
-            
-            case '}':
-                t->type = TOKEN_RIGHT_BLOCK;
-                t->literal = strdup("}");
-                read_char(l);
-                break;
-            
-            case ';':
-                t->type = TOKEN_SEMICOLON;
-                t->literal = strdup(";");
-                read_char(l);
-                break;
-            
-            case '=':
-                  if (l->input[l->read_pos] == '=') {
-                    t->type = TOKEN_EQ;
-                    t->literal = strdup("==");
-                    read_char(l);
-                    read_char(l);
-                    break;
-                  }                  
+            }                  
 
-                  t->type = TOKEN_ASSIGN;
-                  t->literal = strdup("=");
-                  read_char(l);
-                  break;
+            t->type = TOKEN_ASSIGN;
+            t->literal = strdup("=");
+            read_char(l);
+            break;
             
-            case':':
-                t ->type = TOKEN_COLON;
-                t->literal = strdup(":");
-                read_char(l);
-                break;
-            
-            case '+':
-                t->type = TOKEN_PLUS;
-                t->literal = strdup("+");
-                read_char(l);
-                break;
-            
-            case '*':
-                t->type = TOKEN_STAR;
-                t->literal = strdup("*");
-                read_char(l);
-                break;
-            
-            case 0:
-                t->literal = "";
-                t->type = END_OF_FILE;
-                break;
-            
-            default:
-                if (is_char(l->ch)) {
-                    t->literal = read_ident(l);
-                    t->type = get_type(t->literal);
-                    return t;
-                } else {
-                    t->type = TOKEN_ILLEGAL;
-                    t->literal = NULL;
-                    return t;
-                }
+        case':':
+            t ->type = TOKEN_COLON;
+            t->literal = strdup(":");
+            read_char(l);
+            break;
+        
+        case '+':
+            t->type = TOKEN_PLUS;
+            t->literal = strdup("+");
+            read_char(l);
+            break;
+        
+        case '*':
+            t->type = TOKEN_STAR;
+            t->literal = strdup("*");
+            read_char(l);
+            break;
+        
+        case 0:
+            t->literal = "";
+            t->type = END_OF_FILE;
+            break;
+        
+        default:
+            if (is_char(l->ch)) {
+                t->literal = read_ident(l);
+                t->type = get_type(t->literal);
+                return t;
+            } else {
+                t->type = TOKEN_ILLEGAL;
+                t->literal = NULL;
+                return t;
+            }
     }
 
     return t;
@@ -258,7 +224,6 @@ void free_token(token_t* tok) {
     }
     free(tok);
 }
-
 
 void free_lexer(lexer_t* lex) {
     free(lex->input);

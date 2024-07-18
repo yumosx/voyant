@@ -15,15 +15,19 @@ sym_init(symtable_t* st) {
     sym->size = sym->annot.size;
 }
 
+ssize_t symtable_reserve(symtable_t* st, size_t size) {
+    st->stack_top -= size;
+    return st->stack_top;
+}
+
 
 symtable_t* symtable_new() {
     symtable_t* st;
     int i;
 
     st = checked_malloc(sizeof(*st));
-
     st->cap = 16;
-    st->table = calloc(st->cap, sizeof(*st->table));
+    st->table = checked_calloc(st->cap, sizeof(*st->table));
      
     sym_init(st);
 
@@ -32,11 +36,6 @@ symtable_t* symtable_new() {
     }
 
     return st;
-}
-
-ssize_t symtable_reserve(symtable_t* st, size_t size) {
-    st->stack_top -= size;
-    return st->stack_top;
 }
 
 

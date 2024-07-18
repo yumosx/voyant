@@ -51,7 +51,6 @@ node_t* node_probe_new(char* name, node_t* stmts) {
 	return n;
 }
 
-
 void node_print_str(node_type_t type) {
     const char* node_type_str[] = {
         "TYE_SCRIPT",
@@ -59,7 +58,6 @@ void node_print_str(node_type_t type) {
         "TYPE_EXPR",
         "TYPE_VAR",
         "TYPE_MAP",
-        "TYPE_LET",
         "TYPE_ASSIGN",
         "TYPE_CALL",
         "TYPE_STRING",
@@ -69,8 +67,7 @@ void node_print_str(node_type_t type) {
     printf("%s\n", node_type_str[type]);
 }
 
-
 void probe_free(node_t* n) {
-     
-
+    node_t* head;
+	free(n->probe.name);
 }

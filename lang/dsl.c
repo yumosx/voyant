@@ -18,8 +18,14 @@
 #include "dsl.h"
 #include "annot.h"
 #include "ut.h"
+#include "compiler.h"
 
 char bpf_log_buf[LOG_BUF_SIZE];
+
+static inline 
+int node_is_sym(node_t* n) {
+    return n->type == NODE_VAR || n->type == NODE_MAP;
+}
 
 ebpf_t* ebpf_new() {
     ebpf_t* e = checked_calloc(1, sizeof(*e));
@@ -28,24 +34,19 @@ ebpf_t* ebpf_new() {
     return e;
 }
 
-void ebpf_emit(ebpf_t* e, struct bpf_insn insn) {
-    *(e->ip)++ = insn;
-}
-
 
 reg_t* ebpf_reg_find(ebpf_t* e, node_t* n) {
    reg_t* r;
    void* obj = n;
    int type = REG_NODE;
 
-   if (n->type == NODE_VAR || n->type == NODE_MAP) {
+   if (node_is_sym(n)) {
         type = REG_SYM;
         obj = symtable_get(e->st, n->name);
    }
 
    for (r = &e->st->reg[BPF_REG_0]; r <= &e->st->reg[BPF_REG_9]; r++) {
-        if (r->type == type && r->obj == obj)
-                return r;
+        if (r->type == type && r->obj == obj) return r;
    }
 }
 
@@ -84,16 +85,6 @@ void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {
 }
 
 
-void ebpf_push(ebpf_t* e, ssize_t at, void* data, size_t size) {
-    uint32_t* obj = data;
-    size_t left = size / sizeof(*obj);
-    
-    for (; left; left--, obj++, at += sizeof(*obj)) {
-        ebpf_emit(e, STW_IMM(BPF_REG_10, at, *obj));
-    }
-}
-
-
 reg_t* ebpf_reg_get(ebpf_t* e) {
     reg_t* r, *r_aged = NULL;
     
@@ -106,19 +97,7 @@ reg_t* ebpf_reg_get(ebpf_t* e) {
             r_aged = r;
        }
     }
-
 }
-
-void emit_ld_mapfd(ebpf_t* e, int reg, int fd) {
-    ebpf_emit(e, INSN(BPF_LD|BPF_DW|BPF_IMM, reg, BPF_PSEUDO_MAP_FD, 0, fd));
-    ebpf_emit(e, INSN(0, 0, 0, 0, 0));
-}
-
-static inline 
-int node_is_sym(node_t* n) {
-    return n->type == NODE_VAR || n->type == NODE_MAP;
-}
-
 
 int ebpf_reg_bind(ebpf_t* e, reg_t* r, node_t* n) {
     if (node_is_sym(n)) {
@@ -270,6 +249,8 @@ int int32_void_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n
         case EXTRACT_OP_SHIFT:
             ebpf_emit(e, ALU_IMM(OP_RSH, BPF_REG_0, 32));
             break;
+		case EXTRACT_OP_DIV_1G:
+			ebpf_emit(e, ALU_IMM(OP_DIV, BPF_REG_0, 1000000000));
         default:
             break;
     }
@@ -291,14 +272,12 @@ int compile_pid_call(ebpf_t* e, node_t* n) {
 }
 
 static int compile_ns_call(ebpf_t* e, node_t* n) {
-    return int32_void_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_NONE, e, n);
+    return int32_void_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
 }
 
 static int compile_cpu_call(ebpf_t* e, node_t* n) {
 	return int32_void_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
 }
-
-
 
 static __u64 ptr_to_u64(const void* ptr) {
     return (__u64) (unsigned long) ptr;
@@ -320,16 +299,6 @@ int bpf_prog_load(const struct bpf_insn* insns, int insn_cnt) {
     return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
 }
 
-int bpf_map_create(enum bpf_map_type type, int key_sz, int val_sz, int entries) {
-    union bpf_attr attr = {
-       .map_type = type,
-       .key_size = key_sz,
-       .value_size = val_sz,
-       .max_entries = entries,
-    };
-
-    return syscall(__NR_bpf, BPF_MAP_CREATE, &attr, sizeof(attr));
-}
 
 
 int bpf_map_close(int fd){
@@ -436,7 +405,7 @@ int tracepoint_setup(ebpf_t* e, int id) {
    
 
 void compile_str(ebpf_t* e, node_t* n) {
-    ebpf_push(e, n->annot.addr, n->name, n->annot.size);
+    stack_push(e, n->annot.addr, n->name, n->annot.size);
 }
 
 
@@ -453,7 +422,9 @@ void compile_call_(node_t* n, ebpf_t* e) {
 	    compile_ns_call(e, n);
 	} else if (!strcmp(n->name, "cpu")) {
 		compile_cpu_call(e, n);
-	} else {
+    } else if (!strcmp(n->name, "output")) {
+        
+    } else {
         err(EXIT_FAILURE, "not match the function");
     }
 }

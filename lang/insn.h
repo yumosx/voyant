@@ -46,6 +46,7 @@ typedef enum extract_op {
     EXTRACT_OP_NONE,
     EXTRACT_OP_MASK,
     EXTRACT_OP_SHIFT,
+	EXTRACT_OP_DIV_1G,
 } extract_op_t;
 
 

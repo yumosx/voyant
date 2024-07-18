@@ -9,7 +9,6 @@ void p_next_tok(parser_t* p) {
     if (p->this_tok != NULL) {
 		free_token(p->this_tok);
 	}
-
 	p->this_tok = p->next_tok;
     p->next_tok = lexer_next_token(p->lexer);
 }
@@ -158,6 +157,7 @@ node_t* parse_call_expr(parser_t* p, node_t* left) {
     return left;
 }
 
+
 node_t* parse_map_args(parser_t* p) {
     node_t* n, *head;
     
@@ -280,15 +280,11 @@ node_t* parse_probe(parser_t* p) {
     return node_probe_new(name, stmts);     
 }
 
-
-
 node_t* parse_program(parser_t* p) {
     node_t* n;
-
 	n = parse_probe(p);
     return n;
 }
-
 
 void free_parser(parser_t* p) {
     free_lexer(p->lexer);
