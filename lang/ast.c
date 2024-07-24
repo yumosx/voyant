@@ -44,6 +44,12 @@ node_t* node_assign_new(node_t* left, node_t* expr) {
 	n->assign.expr = expr;
 }
 
+node_t* node_rec_new(node_t* args) {
+	node_t* n = node_new(NODE_REC);
+	n->rec.args = args; 
+	return n;
+}
+
 node_t* node_probe_new(char* name, node_t* stmts) {
 	node_t* n = node_new(NODE_PROBE);
 	n->probe.name = name;

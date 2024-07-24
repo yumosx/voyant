@@ -32,12 +32,13 @@ typedef struct evqueue {
 } evqueue_t;
 
 
-typedef struct evipe {
+typedef struct evpipe {
 	int mapfd;
 	uint32_t ncpus;
 	struct pollfd* poll;
 	evqueue_t* q;
 } evpipe_t;
 
-
+extern int evpipe_init(evpipe_t* evp, size_t qsize);
+extern void evhandler_register(evhandler_t* evh);
 #endif

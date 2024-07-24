@@ -18,7 +18,6 @@ static int is_number(char* literal) {
     return 1; 
 }
 
-
 token_type get_type(char* str) {
     if (strcmp(str, "probe") == 0)
         return TOKEN_PROBE;
@@ -28,7 +27,6 @@ token_type get_type(char* str) {
     
     return TOKEN_IDENT;
 }
-
 
 lexer_t* lexer_init(char* s) {
     lexer_t* l = checked_malloc(sizeof(*l));
@@ -40,9 +38,7 @@ lexer_t* lexer_init(char* s) {
     return l;
 }
 
-
-static 
-void read_char(lexer_t* l) {
+static void read_char(lexer_t* l) {
     if (l->ch) {
         l->pos = l->read_pos;
         l->read_pos++;
@@ -50,8 +46,7 @@ void read_char(lexer_t* l) {
     }
 }
 
-static 
-void skip_whitespace(lexer_t* l) {
+static void skip_whitespace(lexer_t* l) {
     while (l->ch && (l->ch == ' ' || l->ch == '\n' || l->ch == '\r' || l->ch == '\t')) {
         read_char(l);
     }
@@ -85,20 +80,14 @@ char* read_ident(lexer_t* l) {
     }
     size_t len = l->pos - pos;
 
-    char* ident = malloc(len + 1);
-
-    if (ident == NULL)
-       err(EXIT_FAILURE, "malloc failed");
-
+    char* ident = checked_malloc(len + 1);
     memcpy(ident, l->input+pos, len);
-
     ident[len] = 0;
 
     l->read_pos = l->pos+1;
     l->ch = l->input[l->pos];
     return ident;
 }
-
 
 token_t* lexer_next_token(lexer_t* l) {
     token_t* t = checked_malloc(sizeof(*t));

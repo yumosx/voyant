@@ -50,12 +50,6 @@ typedef enum extract_op {
 } extract_op_t;
 
 
-typedef enum loc_t {
-    LOC_NOWHERE,
-    LOC_REG,
-    LOC_STACK,
-} loc_t;
-
 #define MOV(_dst, _src)     INSN(BPF_ALU64 | BPF_MOV | BPF_X, _dst, _src, 0, 0)
 #define MOV_IMM(_dst, _imm) INSN(BPF_ALU64 | BPF_MOV | BPF_K, _dst, 0, 0, _imm)
 
@@ -73,9 +67,5 @@ typedef enum loc_t {
 
 #define LDXDW(_dst, _off, _src) INSN(BPF_LDX | BPF_SIZE(BPF_DW) | BPF_MEM, _dst, _src, _off, 0)
 #define LDXB(_dst, _off, _src) INSN(BPF_LDX | BPF_SIZE(BPF_B) | BPF_MEM, _dst, _src, _off, 0)
-
-
-#define LOG_BUF_SIZE 0x1000
-
 
 #endif

@@ -7,6 +7,7 @@
 #include "dsl.h"
 #include "ut.h"
 
+
 static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
 	int64_t num;
 	size_t fmt_len;
@@ -23,6 +24,9 @@ static void printf_spec(const char* spec, const char* term, void* data, node_t* 
 	case 'c':
 		printf(fmt, (char)num);
 		break;
+	case 'd':
+		printf(fmt, (int)num);
+		break;
 	}
 
 	free(fmt);
@@ -33,34 +37,67 @@ static int event_output(event_t* ev, void* _call) {
 	char* fmt, *spec;
 	void* data = ev->data;
 	
-	arg = call->call.args->next; 
+	arg = call->call.args->next->rec.args->next; 
 	for (fmt = call->call.args->name; fmt; fmt++) {
 		if (*fmt == '%' && arg) {
 			spec = fmt;
 			//todo: support more data
-			fmt = strpbrk(spec, "sc");
+			fmt = strpbrk(spec, "scd");
 			if (!fmt) break;
 			printf_spec(spec, fmt, data, arg);
 			data += arg->annot.size;
-			arg = arg->next;
+			
+			if (arg->next) {
+				arg = arg->next;
+			} else {
+				printf("\n");
+				return;
+			}
 		} else {
-			fputc(*fmt, stdout);
+			return;
+			//fputc(*fmt, stdout);
 		}
 	}
 	return 0;
 }
 
-
-void annot_perf_output(node_t* call) {
+void annot_perf_output(node_t* call, ebpf_t* e) {
 	evhandler_t* evh;
-	node_t* meta, *rec, *varg;
+	node_t* meta, *head, *varg, *rec;
+	size_t size; 
+	ssize_t addr;
 
 	varg = call->call.args;
 	if (!varg) {
 		_errno("should has a string fromat");
+		return -1;
 	}
     
 	evh = checked_calloc(1, sizeof(*evh));
+    evh->priv = call;
+	evh->handle = event_output;
+	
+	evhandler_register(evh);	
+	
+	meta = node_int_new(evh->type);
+	meta->annot.type = NODE_INT;
+	meta->annot.size = 8;
+	meta->next = varg->next;
+	
+	rec = node_rec_new(meta);
+	varg->next = rec;
+	
+	size = meta->annot.size;	
+	
+	//get the function value and get the size
+	//but we don't store format string
+	for (head = meta->next; head != NULL; head = head->next) {
+		get_annot(head, e);
+		size += head->annot.size;
+	}
+	
+	rec->annot.size = size;
+	rec->annot.addr = symtable_reserve(e->st, size);
 }
 
 void annot_map(node_t* n, ebpf_t* e) {
@@ -95,18 +132,19 @@ void annot_map(node_t* n, ebpf_t* e) {
 }
 
 
-void comm_annot(node_t* n, ebpf_t* e) {
+void annot_comm(node_t* n, ebpf_t* e) {
     n->annot.type = NODE_STRING;
     n->annot.size = _ALIGNED(16);
     n->annot.addr = symtable_reserve(e->st, n->annot.size);
     n->annot.loc = LOC_STACK;
 }
 
-
 void call_annot(node_t* n, ebpf_t* e) {
 	if (!strcmp("comm", n->name)) {
-       comm_annot(n, e);
-    } else {
+       annot_comm(n, e);
+    } else if (!strcmp("out", n->name)) {
+		annot_perf_output(n, e);
+	} else {
 	  n->annot.type = NODE_INT;
 	  n->annot.size = 8;
 	  n->annot.loc = LOC_REG;
@@ -134,4 +172,12 @@ void get_annot(node_t* n, ebpf_t* e) {
         default:
             break;
     }
+}
+
+ebpf_t* ebpf_new() {
+    ebpf_t* e = checked_calloc(1, sizeof(*e));
+    e->st = symtable_new();     
+	e->ip = e->prog;
+    e->evp = checked_calloc(1, sizeof(*e->evp));
+	return e;
 }

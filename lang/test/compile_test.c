@@ -192,3 +192,27 @@ int main() {
     return 0;
 }
 */
+
+int test() {
+	char* input = "probe sys_execve_enter{ out(\"%d\", 112)}";
+	lexer_t* l = lexer_init(input);
+	parser_t* p = parser_init(l);
+	node_t* n = parse_program(p);
+	ebpf_t* e = ebpf_new();
+	evpipe_init(e->evp, 4<<10);
+	
+	get_annot(n->probe.stmts, e);
+	
+	ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
+	
+    node_t* rec = n->probe.stmts->call.args->next;
+	
+	compile_out(rec, e);	
+	
+	ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
+    ebpf_emit(e, EXIT);
+
+	tracepoint_setup(e, 721);
+	evpipe_loop(e->evp, &term_sig, 0);	
+	return 0;
+}

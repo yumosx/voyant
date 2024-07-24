@@ -1,4 +1,3 @@
-#include <unistd.h>
 #include <assert.h>
 #include <ctype.h>
 #include <err.h>
@@ -9,6 +8,8 @@
 #include <stdint.h>
 #include <sched.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <signal.h>
 #include <sys/syscall.h>
 #include <sys/resource.h>
 #include <linux/bpf.h>
@@ -16,24 +17,16 @@
 #include <linux/perf_event.h>
 
 #include "dsl.h"
+#include "buffer.h"
 #include "annot.h"
 #include "ut.h"
 #include "compiler.h"
 
-char bpf_log_buf[LOG_BUF_SIZE];
 
 static inline 
 int node_is_sym(node_t* n) {
     return n->type == NODE_VAR || n->type == NODE_MAP;
 }
-
-ebpf_t* ebpf_new() {
-    ebpf_t* e = checked_calloc(1, sizeof(*e));
-    e->st = symtable_new();     
-    e->ip = e->prog;
-    return e;
-}
-
 
 reg_t* ebpf_reg_find(ebpf_t* e, node_t* n) {
    reg_t* r;
@@ -83,7 +76,6 @@ void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {
         ebpf_emit(e, MOV(r->reg, src->reg));        
     } 
 }
-
 
 reg_t* ebpf_reg_get(ebpf_t* e) {
     reg_t* r, *r_aged = NULL;
@@ -152,7 +144,6 @@ void generic_load_args(node_t* arg, ebpf_t* e, int* reg) {
         ebpf_emit(e, MOV_IMM(*reg, strlen(arg->name) + 1)); 
         break;
     default:
-        
 		ebpf_emit(e, MOV(*reg, ebpf_reg_find(e, arg)->reg)); 
 		break;
     }
@@ -187,29 +178,6 @@ void compile_comm(node_t* n, ebpf_t* e) {
     ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
 
-void compile_strcmp(node_t* n, ebpf_t* e) {
-   node_t* s1 = n->call.args, *s2 = n->call.args->next;
-   ssize_t i, l;
-   l = s1->annot.size < s2->annot.size ? s1->annot.size : s2->annot.size;
-   
-    for (i = 0; l; i++, l--) {
-		ebpf_emit(e, LDXB(BPF_REG_0, s1->annot.addr + i, BPF_REG_10));
-		ebpf_emit(e, LDXB(BPF_REG_1, s2->annot.addr + i, BPF_REG_10));
-
-		ebpf_emit(e, ALU(OP_SUB, BPF_REG_0, BPF_REG_1));
-     
-        ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_1, 0, 5 * (l - 1) + 1));
-	    ebpf_emit(e, JMP_IMM(JUMP_JNE, BPF_REG_0, 0, 5 * (l - 1) + 0));
-	}
- 
-    reg_t* dst = ebpf_reg_get(e); 
-    
-    if (!dst)
-        err(EXIT_FAILURE, "get register failed");
-    
-    ebpf_emit(e, MOV(dst->reg, 0));
-    ebpf_reg_bind(e, dst, n);
-}
 
 void compile_pred(ebpf_t* e, node_t* n) {
    node_t* s1 = n->infix_expr.left, *s2 = n->infix_expr.right;
@@ -236,9 +204,8 @@ void compile_pred(ebpf_t* e, node_t* n) {
 
 
 int int32_void_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
-    n->annot.type = LOC_REG;
-
     reg_t* dst;
+    n->annot.type = LOC_REG;
     
     ebpf_emit(e, CALL(func));
     
@@ -283,34 +250,6 @@ static __u64 ptr_to_u64(const void* ptr) {
     return (__u64) (unsigned long) ptr;
 }
 
-int bpf_prog_load(const struct bpf_insn* insns, int insn_cnt) {
-    union bpf_attr attr = {
-        .prog_type = BPF_PROG_TYPE_TRACEPOINT,
-        .insns = ptr_to_u64(insns),
-        .insn_cnt = insn_cnt,
-        .license = ptr_to_u64("GPL"),
-        .log_buf = ptr_to_u64(bpf_log_buf),
-        .log_size = LOG_BUF_SIZE,
-        .log_level = 1,
-        .kern_version = LINUX_VERSION_CODE,
-    };
-
-
-    return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
-}
-
-
-
-int bpf_map_close(int fd){
-    close(fd);
-}
-
-long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
-    int ret;
-    ret = syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
-    return ret;    
-}
-
 #define DEBUGFS "/sys/kernal/debug/tracing"
 
 void read_trace_pipe(void) {
@@ -318,8 +257,8 @@ void read_trace_pipe(void) {
     trace_fd = open(DEBUGFS, "trace_pipe", O_RDONLY, 0);
     
     if (trace_fd < 0)
-        printf("error"); 
-    
+        _errno("trace fd not found");
+
     while (1) {
         static char buf[4096];
         ssize_t sz;
@@ -333,116 +272,54 @@ void read_trace_pipe(void) {
 }
 
 int get_id(char* name) {
-    char* buffer = checked_malloc(256);
+    char* buffer; 
+    FILE* fp;   
+    int number;
 
+    buffer = checked_malloc(256); 
     sprintf(buffer, "/sys/kernel/debug/tracing/events/syscalls/%s/id", name);
 
-    FILE* fp = fopen(buffer, "r");
+    fp = fopen(buffer, "r");
     
     if (fp == NULL) {
         perror("Error opening file");
         return 1;
     }
 
-    int number;
-
     if (fscanf(fp, "%d", &number) != 1) {
         fprintf(stderr, "Error reading number from file\n");
         fclose(fp);
         return 1;
     }
-    
     free(buffer);
-    
     return number;
 }
-
-
-int tracepoint_setup(ebpf_t* e, int id) {
-    struct perf_event_attr attr = {};
-    
-    int ed, bd;
-
-    attr.type = PERF_TYPE_TRACEPOINT;
-    attr.sample_type = PERF_SAMPLE_RAW;
-    attr.sample_period = 1;
-    attr.wakeup_events = 1;
-    attr.config = id;  
-    
-    bd = bpf_prog_load(e->prog, e->ip - e->prog);
-    
-    if (bd < 0) {
-        perror("bpf");
-        fprintf(stderr, "bpf verifier:\n%s\n", bpf_log_buf);
-        return 1;
-    }
-    
-    ed = perf_event_open(&attr, -1, 0, -1, 0);
-
-    if (ed < 0){
-        perror("perf_event_open");
-        return 1;
-    }
-    
-    if (ioctl(ed, PERF_EVENT_IOC_ENABLE, 0)) {
-        perror("perf enable");
-        return 1;
-    }
-
-
-    if (ioctl(ed, PERF_EVENT_IOC_SET_BPF, bd)) {
-        perror("perf attach");
-        return 1;
-     } 
-
-    while (1) {
-        system("cat /sys/kernel/debug/tracing/trace_pipe");
-        getchar(); 
-    }
-    
-    return 0;
-}
-   
 
 void compile_str(ebpf_t* e, node_t* n) {
     stack_push(e, n->annot.addr, n->name, n->annot.size);
 }
 
-
-void compile_call_(node_t* n, ebpf_t* e) {
+void compile_call(node_t* n, ebpf_t* e) {
     if (!strcmp(n->name, "pid")) {
         compile_pid_call(e, n);
     } else if (!strcmp(n->name, "printf")) {
         compile_print(n, e);
     } else if (!strcmp(n->name, "comm")) {
         compile_comm(n, e);
-    }else if (!strcmp(n->name, "strcmp")){
-        compile_strcmp(n, e);
     } else if (!strcmp(n->name, "ns")) {
 	    compile_ns_call(e, n);
 	} else if (!strcmp(n->name, "cpu")) {
 		compile_cpu_call(e, n);
-    } else if (!strcmp(n->name, "output")) {
-        
+    } else if (!strcmp(n->name, "out")) {
+		printf("%s\n", "Yes");
+		node_t* rec = n->call.args->next;
+		compile_out(rec, e); 
     } else {
-        err(EXIT_FAILURE, "not match the function");
-    }
+        _errno("no matach function");
+	}
 }
-
-
-void compile(node_t* n, ebpf_t* _e) {
-    ebpf_t* e = _e;
-    
-    switch (n->type) {
-       case NODE_STRING:
-            compile_str(e, n);
-            break;
-    }
-}
-
 
 void node_walk(node_t* n, ebpf_t* e);
-
 
 void node_probe_walk(node_t* p, ebpf_t* e) {
     int id = get_id(p->probe.name);
@@ -501,7 +378,6 @@ void compile_map_load(node_t* head, ebpf_t* e) {
 
 
 void compile_map_assign(node_t* n, ebpf_t* e) {
-
    node_t* lval = n->assign.lval, *expr = n->assign.expr;
 
    ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, lval->map.args->integer));       
@@ -525,9 +401,9 @@ void compile_map_assign(node_t* n, ebpf_t* e) {
 
 
 void node_assign_walk(node_t* a, ebpf_t* e) {
-    get_annot(a, e);
-    
     node_t* expr = a->assign.expr;
+    
+    get_annot(a, e);
     node_walk(expr, e);
     
     if (a->assign.lval->type == NODE_MAP) {
@@ -549,18 +425,16 @@ void node_assign_walk(node_t* a, ebpf_t* e) {
     }
 }
 
-
 void node_call_walk(node_t* c, ebpf_t* e) {
     node_t* args = c->call.args;
     node_t* n;
     
     for (n = args; n != NULL; n = n->next) {
-         node_walk(n, e);
+        node_walk(n, e);
     }
     
-    compile_call_(c, e);
+    compile_call(c, e);
 }
-
 
 void node_walk(node_t* n, ebpf_t* e) {
     switch(n->type) {
@@ -589,7 +463,6 @@ void node_walk(node_t* n, ebpf_t* e) {
     }
 }
 
-
 char* read_file(const char *filename) {
     char *input = (char *) calloc(BUFSIZ, sizeof(char));
     assert(input != NULL);
@@ -616,33 +489,40 @@ char* read_file(const char *filename) {
     return input;
 }
 
-int main(int argc, char* argv[]) {
+
+static int term_sig = 0;
+static void term(int sig) {
+	term_sig = sig;
+	return;
+}
+
+int main(int argc, char** argv) {
+	char* filename, *input;
+
     if (argc != 2) {
         return 0;
     }   
     
-    char* filename = argv[1];
-	
-	char* input = read_file(filename);
+    filename = argv[1];
+	input = read_file(filename);
 
 	if (!input) {
-        printf("readfile error\n");
+        _errno("readfile error\n");
         return 0;
     }
-    
-    lexer_t* l = lexer_init(input);
+	
+	lexer_t* l = lexer_init(input);
     parser_t* p = parser_init(l);
     node_t* n = parse_program(p);
-
 	ebpf_t* e = ebpf_new();
-    e->st = symtable_new();
-	
-
+	evpipe_init(e->evp, 4 << 10);		
+   
+	ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
     node_walk(n, e);
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
     
     tracepoint_setup(e, n->probe.traceid);   
-	return 0;
+	evpipe_loop(e->evp, &term_sig, 0);	
+    return 0;
 }
-

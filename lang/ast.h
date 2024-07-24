@@ -6,6 +6,9 @@
 typedef struct node_t node_t;
 typedef struct probe_t probe_t;
 typedef struct call_t call_t;
+typedef struct infix_t infix_t;
+typedef struct prefix_t prefix_t;
+typedef struct assign_t assign_t;
 
 typedef enum node_type_t {
     NODE_SCRIPT,
@@ -15,7 +18,8 @@ typedef enum node_type_t {
     NODE_INFIX_EXPR,
     NODE_VAR,
     NODE_MAP,
-    NODE_ASSIGN,
+    NODE_REC, 
+	NODE_ASSIGN,
     NODE_CALL,
     NODE_STRING,
     NODE_INT,
@@ -32,32 +36,41 @@ struct call_t {
    node_t* args; 
 };
 
-typedef struct infix_t {
+struct infix_t {
     int opcode;
     node_t* left, *right;
-} infix_t;
+};
 
-
-typedef struct prefix_t {
+struct prefix_t {
     int opcode;
     node_t* right;
-} prefix_t;
+};
 
-
-typedef struct assign_t {
+struct assign_t {
     op_t op;
     node_t* lval, *expr;
-} assign_t;
+};
 
 typedef struct map_t {
     node_t* args;
 } map_t;
 
 
+typedef struct rec_t {
+	node_t* args;
+} rec_t;
+
+
 typedef struct maphdr {
 	size_t keyszie;
 	int mapid;
 } maphdr_t;
+
+typedef enum loc_t {
+    LOC_NOWHERE,
+    LOC_REG,
+    LOC_STACK,
+} loc_t;
 
 typedef struct annot_t {
     node_type_t type;
@@ -83,7 +96,8 @@ struct node_t {
         prefix_t prefix_expr;
         call_t call;
         map_t map;
-        assign_t assign;
+        rec_t rec;
+		assign_t assign;
         size_t integer;
     };
 
@@ -97,6 +111,7 @@ extern node_t* node_new_var(char* name);
 extern node_t* node_int_new(size_t name);
 extern node_t* node_str_new(char* str);
 extern node_t* node_expr_new(int opcode, node_t* left, node_t* right);
+extern node_t* node_rec_new(node_t* args);
 extern node_t* node_assign_new(node_t* left, node_t* expr);
 extern void node_print_str(node_type_t type);
 

@@ -1,3 +1,3 @@
 probe sys_enter_execve{
-	printf("%s", comm());
+	out("%d", 1);
 }

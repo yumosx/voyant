@@ -18,7 +18,7 @@ static uint64_t next_type = 0;
 TAILQ_HEAD(evhandlers, evhandler);
 static struct evhandlers evh_list = TAILQ_HEAD_INITIALIZER(evh_list);
 
-void event_register(evhandler_t* evh) {
+void evhandler_register(evhandler_t* evh) {
 	evh->type = next_type++;
 	TAILQ_INSERT_TAIL(&evh_list, evh, node);
 }
@@ -89,6 +89,12 @@ int evpipe_init(evpipe_t* evp, size_t qsize) {
 	
 	evp->ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 	evp->mapfd = bpf_map_create(BPF_MAP_TYPE_PERF_EVENT_ARRAY, sizeof(uint32_t), sizeof(int), evp->ncpus);
+	
+	if (evp->mapfd < 0) {
+		_errno("clould not create map");
+		return evp->mapfd;
+	}
+
 	evp->q = checked_calloc(evp->ncpus, sizeof(*evp->q)); 
 	evp->poll = checked_calloc(evp->ncpus, sizeof(*evp->poll));	
 
@@ -136,15 +142,20 @@ int evqueue_drain(evqueue_t* q, int strict) {
 			memcpy(q->buf + left, base, ev->hdr.size - left);
 			ev = q->buf;
 		}
+
 		switch(ev->hdr.type) {
 			case PERF_RECORD_SAMPLE:
 				err = event_handle(ev, ev->hdr.size);
 				break;
 			case PERF_RECORD_LOST:
 				lost = (void*) ev;
+				if (strict) {
+					_error("lost");
+				}
 				break;
 			default:
 				err = -1;	
+				_error("unknown");
 				break;
 		}
 
@@ -165,7 +176,8 @@ int evpipe_loop(evpipe_t* evp, int* sig, int strict) {
 			if (!(evp->poll[cpu].revents & POLLIN))
 				continue;
 			err = evqueue_drain(&evp->q[cpu], strict);
-			if (err) return err;
+			if (err) 
+				return err;
 			ready--;
 		}
 	}

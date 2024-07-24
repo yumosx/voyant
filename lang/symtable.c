@@ -3,9 +3,7 @@
 #include "symtable.h"
 #include "ut.h"
 
-
-static void
-sym_init(symtable_t* st) {
+static void sym_init(symtable_t* st) {
     sym_t* sym;
 
     sym = &st->table[st->len++];
@@ -19,7 +17,6 @@ ssize_t symtable_reserve(symtable_t* st, size_t size) {
     st->stack_top -= size;
     return st->stack_top;
 }
-
 
 symtable_t* symtable_new() {
     symtable_t* st;
@@ -47,7 +44,7 @@ sym_t* symtable_get(symtable_t* st, const char* name) {
             return &st->table[i]; 
         }
     }
-
+    
     return NULL;
 }
 
