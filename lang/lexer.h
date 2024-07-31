@@ -41,13 +41,10 @@ enum token_type{
     END_OF_FILE
 };
 
-
-
 struct token_t {
     char* literal;
     token_type type;
 };
-
 
 struct lexer_t{
     size_t read_pos;
@@ -55,7 +52,6 @@ struct lexer_t{
     char ch;
     char* input;
 };
-
 
 char* read_ident(lexer_t* l);
 token_type get_type(char* str);

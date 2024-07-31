@@ -6,7 +6,16 @@
 #include "buffer.h"
 #include "dsl.h"
 #include "ut.h"
+#include "compiler.h"
 
+ssize_t get_stack_addr(node_t* n, ebpf_t* e) {
+	if (n->type == NODE_MAP) {
+		e->st->sp -= n->annot.keysize;
+	}
+	
+	e->st->sp -= n->annot.size;
+	return e->st->sp;
+}
 
 static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
 	int64_t num;
@@ -38,24 +47,23 @@ static int event_output(event_t* ev, void* _call) {
 	void* data = ev->data;
 	
 	arg = call->call.args->next->rec.args->next; 
-	for (fmt = call->call.args->name; fmt; fmt++) {
+	for (fmt = call->call.args->name; *fmt; fmt++) {
 		if (*fmt == '%' && arg) {
 			spec = fmt;
-			//todo: support more data
 			fmt = strpbrk(spec, "scd");
-			if (!fmt) break;
+			if (!fmt) 
+				break;
 			printf_spec(spec, fmt, data, arg);
-			data += arg->annot.size;
 			
+			data += arg->annot.size;
 			if (arg->next) {
 				arg = arg->next;
 			} else {
-				printf("\n");
-				return;
+				arg = NULL;
 			}
 		} else {
-			return;
-			//fputc(*fmt, stdout);
+			fputc(*fmt, stdout);
+			//printf("%c", *fmt);
 		}
 	}
 	return 0;
@@ -97,7 +105,7 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 	}
 	
 	rec->annot.size = size;
-	rec->annot.addr = symtable_reserve(e->st, size);
+	rec->annot.addr = get_stack_addr(rec, e);
 }
 
 void annot_map(node_t* n, ebpf_t* e) {
@@ -122,9 +130,9 @@ void annot_map(node_t* n, ebpf_t* e) {
         }
 
         lval->annot.keysize = ksize;
-		lval->annot.addr = symtable_reserve(e->st, ksize + lval->annot.size);
-
-        int fd = bpf_map_create(BPF_MAP_TYPE_HASH, lval->annot.keysize, lval->annot.size, 1024);
+		lval->annot.addr = get_stack_addr(lval, e);
+        
+		int fd = bpf_map_create(BPF_MAP_TYPE_HASH, ksize, lval->annot.size, 1024);
         lval->annot.mapid = fd;
    }
     

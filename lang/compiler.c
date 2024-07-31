@@ -8,8 +8,8 @@ void ebpf_emit(ebpf_t* e, struct bpf_insn insn) {
 
 reg_t* reg_get(ebpf_t* e) {
     reg_t* r, *r_aged = NULL;
-    
-    for (r = &e->st->reg[BPF_REG_9]; r >= &e->st->reg[BPF_REG_0]; r--) {
+
+    for (r = &e->st->reg[BPF_REG_8]; r >= &e->st->reg[BPF_REG_0]; r--) {
        if (r->type == REG_EMPTY) {
             return r;
        } 
@@ -32,7 +32,7 @@ void stack_init(node_t* n, ebpf_t* e) {
 	}
 }
 
-void stack_push(ebpf_t* e, ssize_t at, void* data, size_t size) {
+void str_to_stack(ebpf_t* e, ssize_t at, void* data, size_t size) {
 	uint32_t* obj = data;
 	size_t left = size / sizeof(*obj);
 	
@@ -52,21 +52,17 @@ void rec_to_stack(node_t* n, ebpf_t* e) {
 
 	offs += n->annot.addr;
 	for (arg = n->rec.args; arg; arg = arg->next) {
-		int_to_stack(e, arg->integer, offs);
+		switch (arg->type) {
+		case NODE_INT:
+			int_to_stack(e, arg->integer, offs);
+			break;
+		case NODE_STRING:
+			str_to_stack(e, offs, arg->name, arg->annot.size);
+			break;
+		default:
+			break;
+		}
 		offs += arg->annot.size;
-	}
-}
-
-int emit_literal(node_t* n, ebpf_t* e) {
-	annot_t to = n->annot;
-
-	switch (to.loc) {
-		case LOC_REG:
-			ebpf_emit(e, MOV_IMM(to.reg, n->integer));
-			break;
-		case LOC_STACK:
-			stack_push(e, to.addr, n->name, to.size);
-			break;
 	}
 }
 
@@ -93,3 +89,46 @@ void compile_out(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, MOV_IMM(BPF_REG_5, to.size));
 	ebpf_emit(e, CALL(BPF_FUNC_perf_event_output));
 }
+
+void emit_map_update(ebpf_t* e, int fd, ssize_t key, ssize_t value) {
+   	emit_ld_mapfd(e, BPF_REG_1, fd);
+	ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, key));
+   
+	ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_3, value));
+
+	ebpf_emit(e, MOV_IMM(BPF_REG_4, 0));
+	ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
+}
+
+
+void compile_map_assign(node_t* n, ebpf_t* e) {
+   node_t* lval = n->assign.lval, *expr = n->assign.expr;
+	//store args
+   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, lval->map.args->integer));       
+   ebpf_emit(e, STXDW(BPF_REG_10, lval->annot.addr + lval->annot.size, BPF_REG_0));   
+   //store value
+   if (expr->annot.type == NODE_INT && expr->type == NODE_INT) {
+	   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, expr->integer));       
+       ebpf_emit(e, STXDW(BPF_REG_10, lval->annot.addr, BPF_REG_0));   
+   }
+	
+	ssize_t size = lval->annot.addr + lval->annot.size;
+	emit_map_update(e, lval->annot.mapid, size, lval->annot.addr);
+}
+
+/*
+void compile_comm(node_t* n, ebpf_t* e) {
+	size_t i;
+	
+	for (i = 0; i < n->annot.size; i += 4) {
+		ebpf_emit(e, STW_IMM(BPF_REG_10, n->annot.addr+i, BPF_REG_0));
+	}
+
+	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, n->annot.addr));
+	ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
+	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
+}
+*/

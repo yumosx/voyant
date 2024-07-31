@@ -7,15 +7,12 @@ typedef struct sym sym_t;
 
 typedef struct reg {
     const int reg;
-    
+    int age;
     enum {
         REG_EMPTY,
         REG_SYM,
         REG_NODE,
     }type;
-
-    int age;
-
     union {
         void* obj;
         sym_t* sym;
@@ -37,7 +34,7 @@ typedef struct sym {
 typedef struct symtable_t {
     size_t cap, len;
     sym_t* table;
-    ssize_t stack_top;
+    ssize_t sp;
 	reg_t reg[__MAX_BPF_REG];
 } symtable_t;
 

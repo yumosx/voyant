@@ -128,9 +128,9 @@ int evqueue_drain(evqueue_t* q, int strict) {
 	offs = q->mem->data_offset;
 	base = (uint8_t*)q->mem + offs;
 
-	for (head = __get_head(q->mem); q->mem->data_tail != head; ) {
+	for (head = __get_head(q->mem); q->mem->data_tail != head; 
+		__set_tail(q->mem, q->mem->data_tail+ev->hdr.size)) {
 		tail = q->mem->data_tail;
-
 		this = base + (tail % size);
 		ev = (void*) this;
 		next = base + (tail + ev->hdr.size) % size;

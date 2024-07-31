@@ -80,7 +80,7 @@ void ebpf_reg_load(ebpf_t* e, reg_t* r, node_t* n) {
 reg_t* ebpf_reg_get(ebpf_t* e) {
     reg_t* r, *r_aged = NULL;
     
-    for (r = &e->st->reg[BPF_REG_9]; r >= &e->st->reg[BPF_REG_0]; r--) {
+    for (r = &e->st->reg[BPF_REG_8]; r >= &e->st->reg[BPF_REG_0]; r--) {
        if (r->type == REG_EMPTY) {
             return r;
        } 
@@ -296,7 +296,7 @@ int get_id(char* name) {
 }
 
 void compile_str(ebpf_t* e, node_t* n) {
-    stack_push(e, n->annot.addr, n->name, n->annot.size);
+    str_to_stack(e, n->annot.addr, n->name, n->annot.size);
 }
 
 void compile_call(node_t* n, ebpf_t* e) {
@@ -311,7 +311,6 @@ void compile_call(node_t* n, ebpf_t* e) {
 	} else if (!strcmp(n->name, "cpu")) {
 		compile_cpu_call(e, n);
     } else if (!strcmp(n->name, "out")) {
-		printf("%s\n", "Yes");
 		node_t* rec = n->call.args->next;
 		compile_out(rec, e); 
     } else {
@@ -373,30 +372,6 @@ void compile_map_load(node_t* head, ebpf_t* e) {
     }
 
     head->annot.loc = LOC_STACK;
-}
-
-
-
-void compile_map_assign(node_t* n, ebpf_t* e) {
-   node_t* lval = n->assign.lval, *expr = n->assign.expr;
-
-   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, lval->map.args->integer));       
-   ebpf_emit(e, STXDW(BPF_REG_10, lval->annot.addr + lval->annot.size, BPF_REG_0));   
-   
-   if (expr->annot.type == NODE_INT) {
-	   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, n->assign.expr->integer));       
-       ebpf_emit(e, STXDW(BPF_REG_10, n->assign.lval->annot.addr, BPF_REG_0));   
-   }
-
-   emit_ld_mapfd(e, BPF_REG_1, n->assign.lval->annot.mapid);
-   ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
-   ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, n->assign.lval->annot.addr + n->assign.lval->annot.size));
-   
-   ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_10));
-   ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_3, n->assign.lval->annot.addr));
-
-   ebpf_emit(e, MOV_IMM(BPF_REG_4, 0));
-   ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
 }
 
 

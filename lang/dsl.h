@@ -13,8 +13,6 @@
 #include "annot.h"
 
 
-
 #define get_mode_name(probe)  mode_str[probe.mode]
-
 
 #endif

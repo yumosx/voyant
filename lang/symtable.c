@@ -14,8 +14,8 @@ static void sym_init(symtable_t* st) {
 }
 
 ssize_t symtable_reserve(symtable_t* st, size_t size) {
-    st->stack_top -= size;
-    return st->stack_top;
+    st->sp -= size;
+    return st->sp;
 }
 
 symtable_t* symtable_new() {

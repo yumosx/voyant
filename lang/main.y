@@ -1,3 +1,3 @@
 probe sys_enter_execve{
-	out("%d", 1);
+	out("value: %d", 123);
 }
