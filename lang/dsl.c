@@ -162,9 +162,8 @@ void compile_print(node_t* n, ebpf_t* e) {
     ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
 }
 
+
 /*
-set a default value
-*/
 void compile_comm(node_t* n, ebpf_t* e) {
     size_t i;
     
@@ -177,6 +176,7 @@ void compile_comm(node_t* n, ebpf_t* e) {
     ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
     ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
+*/
 
 
 void compile_pred(ebpf_t* e, node_t* n) {
@@ -401,7 +401,13 @@ void node_assign_walk(node_t* a, ebpf_t* e) {
 }
 
 void node_call_walk(node_t* c, ebpf_t* e) {
-    node_t* args = c->call.args;
+    if (!strcmp(c->name, "out")) {
+		compile_call(c, e);
+		return;
+	}
+
+
+	node_t* args = c->call.args;
     node_t* n;
     
     for (n = args; n != NULL; n = n->next) {

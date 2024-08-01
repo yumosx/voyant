@@ -1,3 +1,3 @@
-probe sys_enter_execve{
-	out("value: %d", 123);
+probe sys_enter_socket{
+	out("value: %s", "wwwwwww"));
 }

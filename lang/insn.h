@@ -3,7 +3,7 @@
 
 #include <linux/bpf.h>
 
-#define _ALIGN 4
+#define _ALIGN sizeof(int64_t)
 #define _ALIGNED(_size) (((_size) + _ALIGN - 1) & ~(_ALIGN - 1))
 
 #define INSN(_code, _dst, _src, _off, _imm) \

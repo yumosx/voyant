@@ -41,27 +41,45 @@ void str_to_stack(ebpf_t* e, ssize_t at, void* data, size_t size) {
 	}
 }
 
+void str_to_stack_(ebpf_t* e, ssize_t start, void* data, size_t size) {
+	const int32_t* s32 = data;
+	ssize_t at;
+
+	for (at = start; size; at += sizeof(*s32), size -= sizeof(*s32), s32++) {
+		ebpf_emit(e, STW_IMM(BPF_REG_10, at, *s32));	
+	}
+}
+
 void int_to_stack(ebpf_t* e, int value, ssize_t at) {
 	ebpf_emit(e, MOV_IMM(BPF_REG_0, value));
 	ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
+}
+
+void call_to_stack(node_t* n, ebpf_t* e) {
+	compile_comm(n, e);
 }
 
 void rec_to_stack(node_t* n, ebpf_t* e) {
 	node_t* arg;
 	ssize_t offs = 0;
 
-	offs += n->annot.addr;
+	offs = n->annot.addr;
+	
 	for (arg = n->rec.args; arg; arg = arg->next) {
 		switch (arg->type) {
 		case NODE_INT:
 			int_to_stack(e, arg->integer, offs);
 			break;
 		case NODE_STRING:
-			str_to_stack(e, offs, arg->name, arg->annot.size);
+			str_to_stack_(e, offs, arg->name, arg->annot.size);
+			break;
+		case NODE_CALL:
+			call_to_stack(arg, e);
 			break;
 		default:
 			break;
 		}
+
 		offs += arg->annot.size;
 	}
 }
@@ -118,7 +136,7 @@ void compile_map_assign(node_t* n, ebpf_t* e) {
 	emit_map_update(e, lval->annot.mapid, size, lval->annot.addr);
 }
 
-/*
+
 void compile_comm(node_t* n, ebpf_t* e) {
 	size_t i;
 	
@@ -131,4 +149,3 @@ void compile_comm(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
 	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
-*/
