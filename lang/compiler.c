@@ -41,22 +41,17 @@ void str_to_stack(ebpf_t* e, ssize_t at, void* data, size_t size) {
 	}
 }
 
-void str_to_stack_(ebpf_t* e, ssize_t start, void* data, size_t size) {
-	const int32_t* s32 = data;
-	ssize_t at;
-
-	for (at = start; size; at += sizeof(*s32), size -= sizeof(*s32), s32++) {
-		ebpf_emit(e, STW_IMM(BPF_REG_10, at, *s32));	
-	}
-}
-
 void int_to_stack(ebpf_t* e, int value, ssize_t at) {
 	ebpf_emit(e, MOV_IMM(BPF_REG_0, value));
 	ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
 }
 
 void call_to_stack(node_t* n, ebpf_t* e) {
-	compile_comm(n, e);
+	if (!strcmp(n->name, "pid")) {
+		compile_pid(n, e);
+	} else if (!strcmp(n->name, "cpu")) {
+		compile_cpu(n, e);
+	}
 }
 
 void rec_to_stack(node_t* n, ebpf_t* e) {
@@ -71,7 +66,7 @@ void rec_to_stack(node_t* n, ebpf_t* e) {
 			int_to_stack(e, arg->integer, offs);
 			break;
 		case NODE_STRING:
-			str_to_stack_(e, offs, arg->name, arg->annot.size);
+			str_to_stack(e, offs, arg->name, arg->annot.size);
 			break;
 		case NODE_CALL:
 			call_to_stack(arg, e);
@@ -136,6 +131,45 @@ void compile_map_assign(node_t* n, ebpf_t* e) {
 	emit_map_update(e, lval->annot.mapid, size, lval->annot.addr);
 }
 
+int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
+	reg_t* dst;
+
+	ebpf_emit(e, CALL(func));
+    
+    switch(op) {
+        case EXTRACT_OP_MASK:
+            ebpf_emit(e, ALU_IMM(OP_AND, BPF_REG_0, 0xffffffff));
+            break;
+        case EXTRACT_OP_SHIFT:
+            ebpf_emit(e, ALU_IMM(OP_RSH, BPF_REG_0, 32));
+            break;
+		case EXTRACT_OP_DIV_1G:
+			ebpf_emit(e, ALU_IMM(OP_DIV, BPF_REG_0, 1000000000));
+        default:
+            break;
+    }
+	dst = reg_get(e);
+
+	if (!dst)
+		_errno("get register failed");
+
+	ebpf_emit(e, MOV(dst->reg, BPF_REG_0));
+	ebpf_emit(e, STXDW(BPF_REG_10, n->annot.addr, BPF_REG_8));
+
+   return 0; 
+}
+
+int compile_pid(node_t* n, ebpf_t* e) {
+    return compile_rint_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
+}
+
+int compile_ns(node_t* n, ebpf_t* e) {
+	return compile_rint_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
+}
+
+int compile_cpu(node_t* n, ebpf_t* e) {
+	return compile_rint_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
+}
 
 void compile_comm(node_t* n, ebpf_t* e) {
 	size_t i;
@@ -148,4 +182,11 @@ void compile_comm(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, n->annot.addr));
 	ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
 	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
+}
+
+
+void compile_return(node_t* n, ebpf_t* e) {
+	ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
+	ebpf_emit(e, EXIT);
+	return 0;
 }

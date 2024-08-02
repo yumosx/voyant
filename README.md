@@ -27,7 +27,7 @@ sudo ./voyant main.y
 
 ```y
 probe sys_enter_execve {
-    printf("Hello, World!");
+    out("%s", "Hello, World!");
 }
 ```
 
@@ -57,6 +57,6 @@ I use the lower version linux kernal, this program crash, because the bpf insns 
 
 ```y
 probe sys_enter_execve /comm() == "bash"/ {
-    printf("%s", comm());
+    out("%s", comm());
 }
 ```

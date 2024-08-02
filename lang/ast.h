@@ -72,16 +72,23 @@ typedef enum loc_t {
     LOC_STACK,
 } loc_t;
 
+typedef enum {
+    ANNOT_RETURN_INT,
+    ANNOT_RETURN_STR,
+    ANNOT_STRING,
+    ANNOT_INT,
+} annot_type;
+
 typedef struct annot_t {
     node_type_t type;
-    int reg;
+    annot_type atype;
     int mapid;
     size_t keysize;
-	
-	maphdr_t map;
     ssize_t size;
-    ssize_t addr;
+    
     loc_t loc;
+    ssize_t addr;
+    int reg;
 } annot_t;
 
 

@@ -17,6 +17,11 @@ ssize_t get_stack_addr(node_t* n, ebpf_t* e) {
 	return e->st->sp;
 }
 
+ssize_t get_stack_addr_(ebpf_t* e, size_t size) {
+	e->st->sp -= size;
+	return e->st->sp;
+}
+
 static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
 	int64_t num;
 	size_t fmt_len;
@@ -101,30 +106,46 @@ void annot_int(node_t* n, ebpf_t* e) {
 	n->annot.size = sizeof(n->integer);
 }
 
-
 void annot_comm(node_t* n, ebpf_t* e) {
     n->annot.type = NODE_STRING;
     n->annot.size = _ALIGNED(16);
-    n->annot.addr = symtable_reserve(e->st, n->annot.size);
     n->annot.loc = LOC_STACK;
+    n->annot.addr = get_stack_addr(n, e);
 }
 
 void annot_str(node_t* n, ebpf_t* e) {
 	n->annot.type = NODE_STRING;
     n->annot.size = _ALIGNED(strlen(n->name) + 1);
+	n->annot.loc = LOC_STACK;
+	n->annot.addr = get_stack_addr(n, e);
 }
 
+void annot_func_rint(node_t* n, ebpf_t* e) {
+	n->annot.type = NODE_INT;
+	n->annot.size = 8;
+	n->annot.loc = LOC_STACK;
+	n->annot.addr = get_stack_addr(n, e);
+}
 
-void call_annot(node_t* n, ebpf_t* e) {
+void annot_func_rstr(node_t* n, ebpf_t* e) {
+	n->annot.atype = ANNOT_RETURN_STR;
+	n->annot.size = _ALIGNED(16);
+	n->annot.loc = LOC_STACK;
+	n->annot.addr = get_stack_addr(n, e);
+}
+
+void annot_call(node_t* n, ebpf_t* e) {
 	if (!strcmp("comm", n->name)) {
        annot_comm(n, e);
     } else if (!strcmp("out", n->name)) {
 		annot_perf_output(n, e);
 	} else {
-	  n->annot.type = NODE_INT;
+	  /*n->annot.type = NODE_INT;
 	  n->annot.size = 8;
 	  n->annot.loc = LOC_REG;
-    }
+	  */
+	 annot_func_rint(n, e);
+	}
 }
 
 void get_annot(node_t* n, ebpf_t* e) {
@@ -133,13 +154,10 @@ void get_annot(node_t* n, ebpf_t* e) {
             annot_int(n, e);
 			break;
         case NODE_STRING:
-            n->annot.type = NODE_STRING;
-            n->annot.size = _ALIGNED(strlen(n->name) + 1);
-            n->annot.addr = symtable_reserve(e->st, n->annot.size);
-            n->annot.loc  = LOC_STACK; 
-            break;
+			annot_str(n, e);
+			break;
         case NODE_CALL:
-            call_annot(n, e);
+            annot_call(n, e);
 			break;
        case NODE_ASSIGN:
             annot_map(n, e);
@@ -177,12 +195,10 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 	
 	size = meta->annot.size;	
 	
-	//get the function value and get the size
-	//but we don't store format string
 	for (head = meta->next; head != NULL; head = head->next) {
 		if (head->type == NODE_INT) {
 			annot_int(head, e);
-			head->annot.addr = symtable_reserve(e->st, head->annot.size);
+			head->annot.addr = get_stack_addr(head, e);
 		}else {
 			get_annot(head, e);
 		}
