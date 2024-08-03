@@ -74,7 +74,7 @@ void annot_map(node_t* n, ebpf_t* e) {
    	node_t* lval = n->assign.lval, *expr = n->assign.expr;
 
     if (expr->type == NODE_VAR) {
-        symtable_transfer(e->st, expr);  
+        sym_right_annot(e->st, expr);  
     } else {
         get_annot(expr, e);
     }
@@ -83,7 +83,7 @@ void annot_map(node_t* n, ebpf_t* e) {
    lval->annot.size = expr->annot.size;
    
    if (lval->type == NODE_MAP) {
-        node_t* head, *args = lval->map.args;
+		node_t* head, *args = lval->map.args;
         ssize_t ksize = 0; 
         
         for (head = args; head != NULL; head = head->next) {
@@ -128,23 +128,32 @@ void annot_func_rint(node_t* n, ebpf_t* e) {
 }
 
 void annot_func_rstr(node_t* n, ebpf_t* e) {
-	n->annot.atype = ANNOT_RETURN_STR;
+	n->annot.type = NODE_STRING;
 	n->annot.size = _ALIGNED(16);
 	n->annot.loc = LOC_STACK;
 	n->annot.addr = get_stack_addr(n, e);
 }
 
+void annot_sym(node_t* n, ebpf_t* e) {
+	sym_right_annot(e->st, n);	
+}
+
+void annot_sym_assign(node_t* n, ebpf_t* e) {
+	node_t* var, *expr;
+
+	var = n->assign.lval, expr = n->assign.expr;
+	get_annot(expr, e);
+	var->annot = expr->annot;
+	symtable_add(e->st, n->assign.lval);
+}
+
 void annot_call(node_t* n, ebpf_t* e) {
 	if (!strcmp("comm", n->name)) {
-       annot_comm(n, e);
+       	annot_func_rstr(n, e);
     } else if (!strcmp("out", n->name)) {
 		annot_perf_output(n, e);
 	} else {
-	  /*n->annot.type = NODE_INT;
-	  n->annot.size = 8;
-	  n->annot.loc = LOC_REG;
-	  */
-	 annot_func_rint(n, e);
+	 	annot_func_rint(n, e);
 	}
 }
 
@@ -159,9 +168,12 @@ void get_annot(node_t* n, ebpf_t* e) {
         case NODE_CALL:
             annot_call(n, e);
 			break;
+		case NODE_VAR:
+			annot_sym(n, e);
+			break;
        case NODE_ASSIGN:
-            annot_map(n, e);
-            break;
+			annot_sym_assign(n, e);
+			break;
         default:
             break;
     }
@@ -199,7 +211,7 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 		if (head->type == NODE_INT) {
 			annot_int(head, e);
 			head->annot.addr = get_stack_addr(head, e);
-		}else {
+		} else {
 			get_annot(head, e);
 		}
 		

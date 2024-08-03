@@ -6,8 +6,11 @@
 #include <linux/bpf.h>
 #include <linux/version.h>
 #include <linux/perf_event.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "annot.h" 
+#include "ut.h"
 
 #define LOG_BUF_SIZE 0x1000
 char bpf_log_buf[LOG_BUF_SIZE];
@@ -46,6 +49,27 @@ int bpf_map_create(enum bpf_map_type type, int ksize, int size, int entries) {
     return syscall(__NR_bpf, BPF_MAP_CREATE, &attr, sizeof(attr));
 }
 
+#define DEBUGFS "/sys/kernal/debug/tracing"
+
+void read_trace_pipe(void) {
+    int trace_fd;
+    trace_fd = open(DEBUGFS, "trace_pipe", O_RDONLY, 0);
+    
+    if (trace_fd < 0)
+        _errno("trace fd not found");
+
+    while (1) {
+        static char buf[4096];
+        ssize_t sz;
+        
+        sz = read(trace_fd, buf, sizeof(buf) - 1);
+        if (sz > 0) {
+            buf[sz] = 0;
+            puts(buf);
+        }
+    }
+}
+
 int tracepoint_setup(ebpf_t* e, int id) {
     struct perf_event_attr attr = {};
     
@@ -81,12 +105,7 @@ int tracepoint_setup(ebpf_t* e, int id) {
         perror("perf attach");
         return 1;
      } 
-    /*
-    while (1) {
-        system("cat /sys/kernel/debug/tracing/trace_pipe");
-        getchar(); 
-    }
-    */
+    
     return 0;
 }
  

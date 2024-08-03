@@ -8,11 +8,13 @@ typedef struct sym sym_t;
 typedef struct reg {
     const int reg;
     int age;
+    
     enum {
         REG_EMPTY,
         REG_SYM,
         REG_NODE,
     }type;
+    
     union {
         void* obj;
         sym_t* sym;
@@ -42,6 +44,6 @@ typedef struct symtable_t {
 symtable_t* symtable_new();
 ssize_t symtable_reserve(symtable_t* st, size_t size); 
 sym_t* symtable_get(symtable_t* st, const char* name); 
-int symtable_transfer(symtable_t* st, node_t* n); 
+int sym_right_annot(symtable_t* st, node_t* n); 
 
 #endif

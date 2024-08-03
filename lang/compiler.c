@@ -20,6 +20,30 @@ reg_t* reg_get(ebpf_t* e) {
     }
 }
 
+void reg_load(node_t* n, ebpf_t* e, reg_t* r) {
+	switch (n->type) {
+	case NODE_INT:
+		ebpf_emit(e, MOV_IMM(r->reg, n->integer));
+		break;
+	default:
+		break;
+	}
+}
+
+void reg_bind(node_t* n, ebpf_t* e, reg_t* r) {
+	if (n->type == NODE_VAR) {
+		sym_t* sym;
+		sym = symtable_get(e->st, n->name);
+		sym->reg = r;
+		r->type = REG_SYM;
+		r->sym = sym;	
+	} else {
+		r->type = REG_NODE;
+		r->n = n;
+	}
+}
+
+
 void stack_init(node_t* n, ebpf_t* e) {
 	size_t i;
 	annot_t to = n->annot;
@@ -54,12 +78,22 @@ void call_to_stack(node_t* n, ebpf_t* e) {
 	}
 }
 
+void sym_to_stack(node_t* n, ebpf_t* e) {
+	sym_t* sym;
+
+	sym = symtable_get(e->st, n->name);
+	
+	if (sym->reg) {
+		ebpf_emit(e, MOV(BPF_REG_0, sym->reg->reg));
+		ebpf_emit(e, STXDW(BPF_REG_10, sym->addr, BPF_REG_0));
+	}
+}
+
 void rec_to_stack(node_t* n, ebpf_t* e) {
 	node_t* arg;
 	ssize_t offs = 0;
 
 	offs = n->annot.addr;
-	
 	for (arg = n->rec.args; arg; arg = arg->next) {
 		switch (arg->type) {
 		case NODE_INT:
@@ -70,6 +104,9 @@ void rec_to_stack(node_t* n, ebpf_t* e) {
 			break;
 		case NODE_CALL:
 			call_to_stack(arg, e);
+			break;
+		case NODE_VAR:
+			sym_to_stack(arg, e);
 			break;
 		default:
 			break;
@@ -115,20 +152,63 @@ void emit_map_update(ebpf_t* e, int fd, ssize_t key, ssize_t value) {
 	ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
 }
 
+void emit_map_look(ebpf_t* e, int fd, ssize_t key) {
+	emit_ld_mapfd(e, BPF_REG_1, fd);
+	
+	ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, key));
+
+	ebpf_emit(e, CALL(BPF_FUNC_map_lookup_elem));
+}
+
 
 void compile_map_assign(node_t* n, ebpf_t* e) {
-   node_t* lval = n->assign.lval, *expr = n->assign.expr;
-	//store args
+   node_t* lval, *expr;
+   ssize_t size;
+
+   lval = n->assign.lval, expr = n->assign.expr;
+	
    ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, lval->map.args->integer));       
    ebpf_emit(e, STXDW(BPF_REG_10, lval->annot.addr + lval->annot.size, BPF_REG_0));   
-   //store value
+   
    if (expr->annot.type == NODE_INT && expr->type == NODE_INT) {
 	   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, expr->integer));       
        ebpf_emit(e, STXDW(BPF_REG_10, lval->annot.addr, BPF_REG_0));   
    }
 	
-	ssize_t size = lval->annot.addr + lval->annot.size;
+	size = lval->annot.addr + lval->annot.size;
 	emit_map_update(e, lval->annot.mapid, size, lval->annot.addr);
+}
+
+void map_load(node_t* head, ebpf_t* e) {
+	sym_t* sym = symtable_get(e->st, head->name);    
+
+    head->annot = sym->annot;
+
+    int at = head->annot.addr + head->annot.size; 
+    
+    //TODO: just has one args
+	//ebpf_emit(e, MOV(BPF_REG_0, 10));
+    ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
+
+    emit_ld_mapfd(e, BPF_REG_1, head->annot.mapid);
+    ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
+    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, head->annot.addr)); 
+    ebpf_emit(e, CALL(BPF_FUNC_map_lookup_elem));
+    
+    ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_0, 0, 5));
+
+    ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
+    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, head->annot.addr));
+    ebpf_emit(e, MOV_IMM(BPF_REG_2, head->annot.size));
+    ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_0));
+    
+    ebpf_emit(e, CALL(BPF_FUNC_probe_read));
+    //ebpf_emit(e, JMP_IMM(JUMP_JA, 0, 0, head->annot.size / 4));
+
+    for (int i = 0; i < (ssize_t)head->annot.size; i += 4) {
+        ebpf_emit(e, STW_IMM(BPF_REG_10, head->annot.addr + i, 0));
+    }
 }
 
 int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
@@ -182,6 +262,15 @@ void compile_comm(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, n->annot.addr));
 	ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
 	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
+}
+
+void compile_sym_assign(node_t* n, ebpf_t* e) {
+	reg_t* dst;
+
+	dst = reg_get(e);
+	
+	reg_load(n->assign.expr, e, dst);
+	reg_bind(n->assign.lval, e, dst);
 }
 
 

@@ -162,23 +162,6 @@ void compile_print(node_t* n, ebpf_t* e) {
     ebpf_emit(e, CALL(BPF_FUNC_trace_printk));
 }
 
-
-/*
-void compile_comm(node_t* n, ebpf_t* e) {
-    size_t i;
-    
-    for (i = 0; i < n->annot.size; i += 4) {
-        ebpf_emit(e, STW_IMM(BPF_REG_10, n->annot.addr + i, 0));
-    }
-    
-    ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
-    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, n->annot.addr));
-    ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
-    ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
-}
-*/
-
-
 void compile_pred(ebpf_t* e, node_t* n) {
    node_t* s1 = n->infix_expr.left, *s2 = n->infix_expr.right;
    ssize_t i, l;
@@ -200,75 +183,6 @@ void compile_pred(ebpf_t* e, node_t* n) {
     ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_0, 0, 2));
     ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
     ebpf_emit(e, EXIT);
-}
-
-
-int int32_void_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
-    reg_t* dst;
-    n->annot.type = LOC_REG;
-    
-    ebpf_emit(e, CALL(func));
-    
-    switch(op) {
-        case EXTRACT_OP_MASK:
-            ebpf_emit(e, ALU_IMM(OP_AND, BPF_REG_0, 0xffffffff));
-            break;
-        case EXTRACT_OP_SHIFT:
-            ebpf_emit(e, ALU_IMM(OP_RSH, BPF_REG_0, 32));
-            break;
-		case EXTRACT_OP_DIV_1G:
-			ebpf_emit(e, ALU_IMM(OP_DIV, BPF_REG_0, 1000000000));
-        default:
-            break;
-    }
-
-    dst = ebpf_reg_get(e); 
-    
-    if (!dst)
-        err(EXIT_FAILURE, "malloc failed");
-    
-    ebpf_emit(e, MOV(dst->reg, 0));
-    ebpf_reg_bind(e, dst, n);
-    
-   return 0; 
-}
-
-
-int compile_pid_call(ebpf_t* e, node_t* n) {
-    return int32_void_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
-}
-
-static int compile_ns_call(ebpf_t* e, node_t* n) {
-    return int32_void_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
-}
-
-static int compile_cpu_call(ebpf_t* e, node_t* n) {
-	return int32_void_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
-}
-
-static __u64 ptr_to_u64(const void* ptr) {
-    return (__u64) (unsigned long) ptr;
-}
-
-#define DEBUGFS "/sys/kernal/debug/tracing"
-
-void read_trace_pipe(void) {
-    int trace_fd;
-    trace_fd = open(DEBUGFS, "trace_pipe", O_RDONLY, 0);
-    
-    if (trace_fd < 0)
-        _errno("trace fd not found");
-
-    while (1) {
-        static char buf[4096];
-        ssize_t sz;
-        
-        sz = read(trace_fd, buf, sizeof(buf) - 1);
-        if (sz > 0) {
-            buf[sz] = 0;
-            puts(buf);
-        }
-    }
 }
 
 int get_id(char* name) {
@@ -299,23 +213,15 @@ void compile_str(ebpf_t* e, node_t* n) {
     str_to_stack(e, n->annot.addr, n->name, n->annot.size);
 }
 
+//TODO: approve more function
 void compile_call(node_t* n, ebpf_t* e) {
-    if (!strcmp(n->name, "pid")) {
-        compile_pid_call(e, n);
-    } else if (!strcmp(n->name, "printf")) {
-        compile_print(n, e);
-    } else if (!strcmp(n->name, "comm")) {
-        compile_comm(n, e);
-    } else if (!strcmp(n->name, "ns")) {
-	    compile_ns_call(e, n);
-	} else if (!strcmp(n->name, "cpu")) {
-		compile_cpu_call(e, n);
-    } else if (!strcmp(n->name, "out")) {
-		node_t* rec = n->call.args->next;
-		compile_out(rec, e); 
-    } else {
-        _errno("no matach function");
-	}
+
+   if (!strcmp(n->name, "out")) {
+        node_t* rec = n->call.args->next;
+        compile_out(rec, e);
+   } else {
+   }
+
 }
 
 void node_walk(node_t* n, ebpf_t* e);
@@ -378,12 +284,13 @@ void compile_map_load(node_t* head, ebpf_t* e) {
 void node_assign_walk(node_t* a, ebpf_t* e) {
     node_t* expr = a->assign.expr;
     
-    get_annot(a, e);
-    node_walk(expr, e);
-    
+    //get_annot(a, e);
+    //node_walk(expr, e);
+    get_annot(a, e); 
     if (a->assign.lval->type == NODE_MAP) {
         compile_map_assign(a, e);
     } else {    
+        /*
         reg_t* dst = ebpf_reg_get(e);
         //TODO: the bug of get the call        
         if (expr->type == NODE_CALL && expr->annot.type == NODE_STRING) {
@@ -397,6 +304,8 @@ void node_assign_walk(node_t* a, ebpf_t* e) {
         }
         ebpf_reg_load(e, dst, expr);
         ebpf_reg_bind(e, dst, a->assign.lval);
+        */
+       compile_sym_assign(a, e);
     }
 }
 
@@ -405,7 +314,6 @@ void node_call_walk(node_t* c, ebpf_t* e) {
 		compile_call(c, e);
 		return;
 	}
-
 
 	node_t* args = c->call.args;
     node_t* n;

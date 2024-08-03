@@ -16,7 +16,7 @@ void test_sym() {
     EXPECT_EQ_INT(OP_MOV, n->assign.op);
     EXPECT_EQ_STR("pid", n->assign.expr->name);
 
-    symtable_transfer(e->st, n->assign.expr); 
+    sym_right_annot(e->st, n->assign.expr); 
     
     n->assign.lval->annot.type = n->assign.expr->annot.type;
     n->assign.lval->annot.size = n->assign.expr->annot.size;

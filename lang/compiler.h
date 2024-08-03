@@ -24,4 +24,8 @@ extern void compile_out(node_t* n, ebpf_t* e);
 extern void compile_comm(node_t* n, ebpf_t* e);
 extern int compile_pid(node_t* n, ebpf_t* e);
 extern int compile_ns(node_t* n, ebpf_t* e);
+
+extern void compile_map_assign(node_t* n, ebpf_t* e);
+extern void map_load(node_t* n, ebpf_t* e);
+extern void compile_sym_assign(node_t* n, ebpf_t* e);
 #endif

@@ -4,7 +4,6 @@
 #include "insn.h"
 
 typedef struct node_t node_t;
-typedef struct probe_t probe_t;
 typedef struct call_t call_t;
 typedef struct infix_t infix_t;
 typedef struct prefix_t prefix_t;
@@ -26,11 +25,11 @@ typedef enum node_type_t {
 } node_type_t;
 
 
-struct probe_t {
+typedef struct probe_t {
     char* name;
     int traceid;
     node_t* stmts;
-};
+} probe_t;
 
 struct call_t {
    node_t* args; 
@@ -73,11 +72,18 @@ typedef enum loc_t {
 } loc_t;
 
 typedef enum {
+    ANNOT_SYM_MAP_INT,
+    
+    //sym = 1
+    ANNOT_SYM_INT,
+    ANOOT_SYM_STRING,
+
     ANNOT_RETURN_INT,
     ANNOT_RETURN_STR,
     ANNOT_STRING,
     ANNOT_INT,
 } annot_type;
+
 
 typedef struct annot_t {
     node_type_t type;
@@ -85,7 +91,6 @@ typedef struct annot_t {
     int mapid;
     size_t keysize;
     ssize_t size;
-    
     loc_t loc;
     ssize_t addr;
     int reg;

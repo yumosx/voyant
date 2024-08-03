@@ -35,7 +35,6 @@ symtable_t* symtable_new() {
     return st;
 }
 
-
 sym_t* symtable_get(symtable_t* st, const char* name) {
     size_t i;
 
@@ -48,36 +47,33 @@ sym_t* symtable_get(symtable_t* st, const char* name) {
     return NULL;
 }
 
-int symtable_transfer(symtable_t* st, node_t* n) {
+int sym_right_annot(symtable_t* st, node_t* n) {
     sym_t* sym;
     
-    if ( n->type != NODE_VAR ) {
+    if (n->type != NODE_VAR) {
         return 0;
     }
-    
     sym = symtable_get(st, n->name);
-    
     n->annot = sym->annot;
-
+    
     return 0;
 }
 
 int symtable_map_transfer(symtable_t* st, node_t* m) {
-    node_t* n, *head = m->map.args;
+    node_t* n, *head;
     
+    head = m->map.args;
     for (n = head; n != NULL; n = n->next) {
-        symtable_transfer(st, n);
+        sym_right_annot(st, n);
     }    
     
     return 0; 
 }
 
-/*
-the symbol is alloc in the stack
-*/
 void symtable_add(struct symtable_t* st, node_t* n) {
    sym_t* sym;
-   if ( st->len == st->cap ) {
+
+   if (st->len == st->cap) {
         st->cap += 16;
         st->table = realloc(st->table, st->cap * sizeof(*st->table));
         memset(&st->table[st->len], 0, 16 * sizeof(*st->table));
