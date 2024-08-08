@@ -69,7 +69,7 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
 
 void node_assign_walk(node_t* a, ebpf_t* e) {
     node_t* expr = a->assign.expr;
-    get_annot(a, e); 
+    //get_annot(a, e); 
     compile_sym_assign(a, e);
 }
 
@@ -94,8 +94,10 @@ void node_walk(node_t* n, ebpf_t* e) {
         case NODE_PROBE:
             node_probe_walk(n, e);
             break;
+        case NODE_ASSIGN:
+            compile_sym_assign(n, e);
+            break;
         case NODE_CALL:
-            get_annot(n, e);
             node_call_walk(n, e);
             break;
         default:
@@ -156,9 +158,12 @@ int main(int argc, char** argv) {
     parser_t* p = parser_init(l);
     node_t* n = parse_program(p);
 	ebpf_t* e = ebpf_new();
-	evpipe_init(e->evp, 4 << 10);		
+	
+    evpipe_init(e->evp, 4 << 10);		
    
 	ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
+    
+    node_iter(n, get_annot, loc_assign, e);
     node_walk(n, e);
     reg_bind(e, &e->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);

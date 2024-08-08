@@ -23,4 +23,9 @@ extern reg_t* reg_get(ebpf_t* e);
 extern reg_t* reg_bind_find(node_t* n, ebpf_t* e);
 extern void reg_bind(node_t* n, ebpf_t* e, reg_t* reg);
 extern void get_annot(node_t* n, ebpf_t* e);
+extern void loc_assign(node_t* n, ebpf_t* e);
+extern void node_iter(node_t *n, 
+    void (*pre) (node_t *n, ebpf_t *e), 
+	void (*post)(node_t *n, ebpf_t *e), ebpf_t *e);
+
 #endif

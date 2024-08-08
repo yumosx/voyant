@@ -252,10 +252,8 @@ void compile_comm(node_t* n, ebpf_t* e) {
 void compile_sym_assign(node_t* n, ebpf_t* e) {
 	reg_t* dst;
 
-	dst = reg_get(e);
-	
+	dst = reg_bind_find(n->assign.lval, e);
 	reg_value_load(n->assign.expr, e, dst);
-	reg_bind(n->assign.lval, e, dst);
 }
 
 void compile_str(node_t* n, ebpf_t* e) {

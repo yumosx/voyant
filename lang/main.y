@@ -1,3 +1,4 @@
 probe sys_enter_socket{
-    out("v: %d", cpu());
+    a = 12;
+    out("v: %d %d", a, pid());
 }

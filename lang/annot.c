@@ -43,21 +43,20 @@ void reg_bind(node_t* n, ebpf_t* e, reg_t* r) {
 reg_t* reg_bind_find(node_t* n, ebpf_t* e) {
 	reg_t* reg;
 	int type;
+	sym_t* sym;
 
 	type = BPF_REG_NODE;
 
 	if (n->type == NODE_VAR) {
-		sym_t* sym;
-		sym = symtable_get(e, n->name);
+		sym = symtable_get(e->st, n->name);
 		type = BPF_REG_SYM;
 	}
 
-	for (reg = &e->reg[BPF_REG_8]; reg >= &e->reg[BPF_REG_0]; reg--) {
-		if (type == reg->type && reg->node == n) {
+	for (reg = &e->reg[BPF_REG_8]; reg >= &e->reg[BPF_REG_6]; reg--) {
+		if (reg->type == BPF_REG_NODE && reg->node == n) {
 			return reg;
 		}
-
-		if (type == reg->type && reg->sym == n) {
+		if (reg->type == BPF_REG_SYM && reg->sym == sym) {
 			return reg;
 		}
 	}
@@ -109,39 +108,6 @@ static int event_output(event_t* ev, void* _call) {
 	}
 	return 0;
 }
-
-
-void annot_map(node_t* n, ebpf_t* e) {
-   	node_t* lval = n->assign.lval, *expr = n->assign.expr;
-
-    if (expr->type == NODE_VAR) {
-        sym_transfer(e->st, expr);  
-    } else {
-        get_annot(expr, e);
-    }
-   
-   lval->annot.type = expr->annot.type;
-   lval->annot.size = expr->annot.size;
-   
-   if (lval->type == NODE_MAP) {
-		node_t* head, *args = lval->map.args;
-        ssize_t ksize = 0; 
-        
-        for (head = args; head != NULL; head = head->next) {
-            get_annot(head, e);
-            ksize += head->annot.size;
-        }
-
-        lval->annot.keysize = ksize;
-		lval->annot.addr = get_stack_addr(lval, e);
-        
-		int fd = bpf_map_create(BPF_MAP_TYPE_HASH, ksize, lval->annot.size, 1024);
-        lval->annot.mapid = fd;
-   }
-    
-    symtable_add(e->st, n->assign.lval);     
-}
-
 
 void annot_int(node_t* n, ebpf_t* e) {
 	n->annot.type = NODE_INT;
@@ -235,6 +201,25 @@ void assign_stack(node_t* n, ebpf_t* e) {
 	n->annot.addr = get_stack_addr(n, e);
 }
 
+void assign_reg(node_t* n, ebpf_t* e) {
+	reg_t* reg;
+
+	reg = reg_get(e);
+	reg_bind(n->assign.lval, e, reg);
+
+	n->annot.loc = LOC_REG;
+}
+
+void loc_assign(node_t* n, ebpf_t* e) {
+	switch (n->annot.atype) {
+	case ANNOT_SYM_ASSIGN:
+		assign_reg(n, e);	
+		break;
+	default:
+		break;
+	}
+}
+
 void annot_perf_output(node_t* call, ebpf_t* e) {
 	evhandler_t* evh;
 	node_t* meta, *head, *varg, *rec;
@@ -275,4 +260,43 @@ ebpf_t* ebpf_new() {
 	}
 		
 	return e;
+}
+
+static int _node_walk_list(node_t *head,
+			 void (*pre) (node_t *n, ebpf_t *ctx),
+			 void (*post)(node_t *n, ebpf_t *ctx), ebpf_t *ctx)
+{
+	node_t *elem, *next = head;
+	int err = 0;
+	
+	for (elem = next; !err && elem;) {
+		next = elem->next;
+		node_iter(elem, pre, post, ctx);
+		elem = next;
+	}
+
+	return err;
+}
+
+#define do_list(_head)	_node_walk_list(_head, pre, post, e) 
+#define do_walk(_node) 	node_iter(_node, pre, post, e)
+
+void node_iter(node_t *n, 
+	void (*pre) (node_t *n, ebpf_t *e), 
+	void (*post)(node_t *n, ebpf_t *e), ebpf_t *e) {
+
+	if (pre) { pre(n, e);}
+	
+	switch (n->type) {
+	case NODE_PROBE:
+		do_list(n->probe.stmts);
+		break;
+	case NODE_CALL:
+		do_list(n->call.args);
+		break;
+	default:
+		break;
+	}
+
+	if (post) { post(n, e);}
 }
