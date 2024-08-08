@@ -77,7 +77,7 @@ void node_call_walk(node_t* c, ebpf_t* e) {
     node_t* args, *n;
 
     if (!strcmp(c->name, "out")) {
-        node_t* rec = n->call.args->next;
+        node_t* rec = c->call.args->next;
         compile_out(rec, e); 
         return;
 	}
