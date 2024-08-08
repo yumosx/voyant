@@ -17,6 +17,8 @@ probe sys_enter_execve {
 
 ### 变量
 
+注意因为现在的寄存器分配算法还存在一些问题, 目前最好不要设置多个变量
+
 ```c
 probe sys_eneter_execve {
     a = 1;

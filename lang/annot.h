@@ -14,7 +14,6 @@ typedef struct ebpf_t {
     struct bpf_insn* ip;
     struct bpf_insn prog[BPF_MAXINSNS];
     struct reg_t reg[__MAX_BPF_REG];
-    int bindex;
 }ebpf_t;
 
 extern ebpf_t* ebpf_new();
