@@ -5,21 +5,21 @@
 
 typedef struct sym sym_t;
 
-typedef struct reg {
-    const int reg;
-    int age;
-    
+typedef struct reg_t{
+    int start;
+    int end;    
     enum {
-        REG_EMPTY,
-        REG_SYM,
-        REG_NODE,
-    }type;
+        BPF_REG_EMPTY,
+        BPF_REG_NODE,
+        BPF_REG_SYM,
+    } type;
     
     union {
-        void* obj;
+        node_t* node;
         sym_t* sym;
-        node_t* n;
     };
+        
+    int reg; 
 } reg_t;
 
 
@@ -37,13 +37,12 @@ typedef struct symtable_t {
     size_t cap, len;
     sym_t* table;
     ssize_t sp;
-	reg_t reg[__MAX_BPF_REG];
 } symtable_t;
 
 
 symtable_t* symtable_new();
 ssize_t symtable_reserve(symtable_t* st, size_t size); 
 sym_t* symtable_get(symtable_t* st, const char* name); 
-int sym_right_annot(symtable_t* st, node_t* n); 
+int sym_transfer(symtable_t* st, node_t* n); 
 
 #endif

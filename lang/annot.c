@@ -17,9 +17,50 @@ ssize_t get_stack_addr(node_t* n, ebpf_t* e) {
 	return e->st->sp;
 }
 
-ssize_t get_stack_addr_(ebpf_t* e, size_t size) {
-	e->st->sp -= size;
-	return e->st->sp;
+reg_t* reg_get(ebpf_t* e) {
+	reg_t* r;
+	
+	for (r = &e->reg[BPF_REG_8]; r >= &e->reg[BPF_REG_6]; r--) {
+		if (r->type == BPF_REG_EMPTY) {
+			return r;
+		}
+	}
+}
+
+void reg_bind(node_t* n, ebpf_t* e, reg_t* r) {
+	if (n->type == NODE_VAR) {
+		sym_t* sym;
+		sym = symtable_get(e->st, n->name);
+		sym->reg = r;
+		r->type = BPF_REG_SYM;
+		r->sym = sym;
+	} else {
+		r->type = BPF_REG_NODE;
+		r->node = n;
+	}
+}
+
+reg_t* reg_bind_find(node_t* n, ebpf_t* e) {
+	reg_t* reg;
+	int type;
+
+	type = BPF_REG_NODE;
+
+	if (n->type == NODE_VAR) {
+		sym_t* sym;
+		sym = symtable_get(e, n->name);
+		type = BPF_REG_SYM;
+	}
+
+	for (reg = &e->reg[BPF_REG_8]; reg >= &e->reg[BPF_REG_0]; reg--) {
+		if (type == reg->type && reg->node == n) {
+			return reg;
+		}
+
+		if (type == reg->type && reg->sym == n) {
+			return reg;
+		}
+	}
 }
 
 static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
@@ -74,7 +115,7 @@ void annot_map(node_t* n, ebpf_t* e) {
    	node_t* lval = n->assign.lval, *expr = n->assign.expr;
 
     if (expr->type == NODE_VAR) {
-        sym_right_annot(e->st, expr);  
+        sym_transfer(e->st, expr);  
     } else {
         get_annot(expr, e);
     }
@@ -101,60 +142,70 @@ void annot_map(node_t* n, ebpf_t* e) {
     symtable_add(e->st, n->assign.lval);     
 }
 
+
 void annot_int(node_t* n, ebpf_t* e) {
 	n->annot.type = NODE_INT;
+	n->annot.atype = ANNOT_INT;
 	n->annot.size = sizeof(n->integer);
-}
-
-void annot_comm(node_t* n, ebpf_t* e) {
-    n->annot.type = NODE_STRING;
-    n->annot.size = _ALIGNED(16);
-    n->annot.loc = LOC_STACK;
-    n->annot.addr = get_stack_addr(n, e);
 }
 
 void annot_str(node_t* n, ebpf_t* e) {
 	n->annot.type = NODE_STRING;
-    n->annot.size = _ALIGNED(strlen(n->name) + 1);
-	n->annot.loc = LOC_STACK;
-	n->annot.addr = get_stack_addr(n, e);
+	n->annot.atype = ANNOT_STR;
+	n->annot.size = _ALIGNED(strlen(n->name) + 1);
 }
 
 void annot_func_rint(node_t* n, ebpf_t* e) {
 	n->annot.type = NODE_INT;
+	n->annot.atype = ANNOT_RINT;
 	n->annot.size = 8;
-	n->annot.loc = LOC_STACK;
-	n->annot.addr = get_stack_addr(n, e);
 }
 
 void annot_func_rstr(node_t* n, ebpf_t* e) {
 	n->annot.type = NODE_STRING;
+	n->annot.atype = ANNOT_RSTR;
 	n->annot.size = _ALIGNED(16);
-	n->annot.loc = LOC_STACK;
-	n->annot.addr = get_stack_addr(n, e);
 }
 
 void annot_sym(node_t* n, ebpf_t* e) {
-	sym_right_annot(e->st, n);	
+	sym_transfer(e->st, n);	
 }
 
 void annot_sym_assign(node_t* n, ebpf_t* e) {
+	sym_t* sym;
 	node_t* var, *expr;
+	annot_type from, to;
 
 	var = n->assign.lval, expr = n->assign.expr;
 	get_annot(expr, e);
+	
+	sym = symtable_get(e->st, var->name);
 	var->annot = expr->annot;
 	symtable_add(e->st, n->assign.lval);
+	n->annot.atype = ANNOT_SYM_ASSIGN;
 }
 
 void annot_call(node_t* n, ebpf_t* e) {
 	if (!strcmp("comm", n->name)) {
-       	annot_func_rstr(n, e);
-    } else if (!strcmp("out", n->name)) {
+		annot_func_rstr(n, e);
+	} else if (!strcmp("out", n->name)) { 
 		annot_perf_output(n, e);
 	} else {
-	 	annot_func_rint(n, e);
+		annot_func_rint(n, e);
 	}
+}
+
+void annot_rec(node_t* n, ebpf_t* e) {
+	node_t* arg;
+	ssize_t size = 0;
+	
+	_foreach(arg, n->rec.args) {
+		get_annot(arg, e);
+		size += arg->annot.size;
+	}
+
+	n->annot.size = size;
+	n->annot.addr = get_stack_addr(n, e);
 }
 
 void get_annot(node_t* n, ebpf_t* e) {
@@ -179,6 +230,11 @@ void get_annot(node_t* n, ebpf_t* e) {
     }
 }
 
+void assign_stack(node_t* n, ebpf_t* e) {
+	n->annot.loc = LOC_STACK;
+	n->annot.addr = get_stack_addr(n, e);
+}
+
 void annot_perf_output(node_t* call, ebpf_t* e) {
 	evhandler_t* evh;
 	node_t* meta, *head, *varg, *rec;
@@ -187,7 +243,7 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 
 	varg = call->call.args;
 	if (!varg) {
-		_errno("should has a string fromat");
+		_errmsg("should has a string fromat");
 		return -1;
 	}
     
@@ -204,29 +260,19 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 	
 	rec = node_rec_new(meta);
 	varg->next = rec;
-	
-	size = meta->annot.size;	
-	
-	for (head = meta->next; head != NULL; head = head->next) {
-		if (head->type == NODE_INT) {
-			annot_int(head, e);
-			head->annot.addr = get_stack_addr(head, e);
-		} else {
-			get_annot(head, e);
-		}
-		
-		size += head->annot.size;
-	}
-	
-	rec->annot.size = size;
-	rec->annot.addr = symtable_reserve(e->st, 8);
+	annot_rec(rec, e);
 }
-
 
 ebpf_t* ebpf_new() {
     ebpf_t* e = checked_calloc(1, sizeof(*e));
     e->st = symtable_new();     
 	e->ip = e->prog;
     e->evp = checked_calloc(1, sizeof(*e->evp));
+	
+	for (int i = BPF_REG_0; i < __MAX_BPF_REG; i++) {
+		*(int*)(&e->reg[i].reg) = i;
+		*(int*)(&e->reg[i].type) = BPF_REG_EMPTY;
+	}
+		
 	return e;
 }

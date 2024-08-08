@@ -58,13 +58,13 @@ void evqueue_init(evpipe_t* evp, uint32_t cpu, size_t size) {
 
 	q->fd = perf_event_open(&attr, -1, cpu, -1, 0);
 	if (q->fd < 0) {
-		_errno("could not create queue");
+		_errmsg("could not create queue");
 		return q->fd;
 	}
 
 	err = bpf_map_update(evp->mapfd, &cpu, &q->fd, BPF_ANY);
 	if (err) {
-		_errno("could not link map to queue");
+		_errmsg("could not link map to queue");
 		return err;
 	}
 	
@@ -72,7 +72,7 @@ void evqueue_init(evpipe_t* evp, uint32_t cpu, size_t size) {
 	size += sysconf(_SC_PAGESIZE);
 	q->mem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, q->fd, 0);
 	if (q->mem == MAP_FAILED) {
-		_errno("clould not mmap queue");
+		_errmsg("clould not mmap queue");
 		return -1;
 	}
 
@@ -91,7 +91,7 @@ int evpipe_init(evpipe_t* evp, size_t qsize) {
 	evp->mapfd = bpf_map_create(BPF_MAP_TYPE_PERF_EVENT_ARRAY, sizeof(uint32_t), sizeof(int), evp->ncpus);
 	
 	if (evp->mapfd < 0) {
-		_errno("clould not create map");
+		_errmsg("clould not create map");
 		return evp->mapfd;
 	}
 

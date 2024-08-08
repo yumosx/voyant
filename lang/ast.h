@@ -2,6 +2,7 @@
 #define AST_H
 
 #include "insn.h"
+#include <unistd.h>
 
 typedef struct node_t node_t;
 typedef struct call_t call_t;
@@ -71,19 +72,15 @@ typedef enum loc_t {
     LOC_STACK,
 } loc_t;
 
-typedef enum {
-    ANNOT_SYM_MAP_INT,
-    
-    //sym = 1
-    ANNOT_SYM_INT,
-    ANOOT_SYM_STRING,
-
-    ANNOT_RETURN_INT,
-    ANNOT_RETURN_STR,
-    ANNOT_STRING,
+typedef enum annot_type{
+    ANNOT_STR,
     ANNOT_INT,
+    ANNOT_SYM,
+    ANNOT_RINT,
+    ANNOT_RSTR,
+    ANNOT_SYM_MAP,
+    ANNOT_SYM_ASSIGN,
 } annot_type;
-
 
 typedef struct annot_t {
     node_type_t type;

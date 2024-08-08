@@ -13,6 +13,6 @@
 #include "annot.h"
 
 
-#define get_mode_name(probe)  mode_str[probe.mode]
+extern void node_walk(node_t* n, ebpf_t* e);
 
 #endif

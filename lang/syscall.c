@@ -56,7 +56,7 @@ void read_trace_pipe(void) {
     trace_fd = open(DEBUGFS, "trace_pipe", O_RDONLY, 0);
     
     if (trace_fd < 0)
-        _errno("trace fd not found");
+        _errmsg("trace fd not found");
 
     while (1) {
         static char buf[4096];

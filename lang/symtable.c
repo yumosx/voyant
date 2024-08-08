@@ -28,10 +28,6 @@ symtable_t* symtable_new() {
      
     sym_init(st);
 
-    for ( i = BPF_REG_0; i < __MAX_BPF_REG; i++ ) {
-        *(int*)(&st->reg[i].reg) = i;
-    }
-
     return st;
 }
 
@@ -47,7 +43,7 @@ sym_t* symtable_get(symtable_t* st, const char* name) {
     return NULL;
 }
 
-int sym_right_annot(symtable_t* st, node_t* n) {
+int sym_transfer(symtable_t* st, node_t* n) {
     sym_t* sym;
     
     if (n->type != NODE_VAR) {
@@ -64,7 +60,7 @@ int symtable_map_transfer(symtable_t* st, node_t* m) {
     
     head = m->map.args;
     for (n = head; n != NULL; n = n->next) {
-        sym_right_annot(st, n);
+        sym_transfer(st, n);
     }    
     
     return 0; 

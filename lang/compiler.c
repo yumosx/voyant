@@ -3,24 +3,10 @@
 #include "compiler.h"
 
 void ebpf_emit(ebpf_t* e, struct bpf_insn insn) {
-	*(e->ip)++ = insn;
+    *(e->ip)++ = insn;
 }
 
-reg_t* reg_get(ebpf_t* e) {
-    reg_t* r, *r_aged = NULL;
-
-    for (r = &e->st->reg[BPF_REG_8]; r >= &e->st->reg[BPF_REG_0]; r--) {
-       if (r->type == REG_EMPTY) {
-            return r;
-       } 
-
-       if (r->type == REG_SYM && (!r_aged || r->age < r_aged->age)) {
-            r_aged = r;
-       }
-    }
-}
-
-void reg_load(node_t* n, ebpf_t* e, reg_t* r) {
+void reg_value_load(node_t* n, ebpf_t* e, reg_t* r) {
 	switch (n->type) {
 	case NODE_INT:
 		ebpf_emit(e, MOV_IMM(r->reg, n->integer));
@@ -29,20 +15,6 @@ void reg_load(node_t* n, ebpf_t* e, reg_t* r) {
 		break;
 	}
 }
-
-void reg_bind(node_t* n, ebpf_t* e, reg_t* r) {
-	if (n->type == NODE_VAR) {
-		sym_t* sym;
-		sym = symtable_get(e->st, n->name);
-		sym->reg = r;
-		r->type = REG_SYM;
-		r->sym = sym;	
-	} else {
-		r->type = REG_NODE;
-		r->n = n;
-	}
-}
-
 
 void stack_init(node_t* n, ebpf_t* e) {
 	size_t i;
@@ -56,7 +28,7 @@ void stack_init(node_t* n, ebpf_t* e) {
 	}
 }
 
-void str_to_stack(ebpf_t* e, ssize_t at, void* data, size_t size) {
+void str_to_stack(ebpf_t* e, void* data, ssize_t at, size_t size) {
 	uint32_t* obj = data;
 	size_t left = size / sizeof(*obj);
 	
@@ -70,22 +42,35 @@ void int_to_stack(ebpf_t* e, int value, ssize_t at) {
 	ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
 }
 
-void call_to_stack(node_t* n, ebpf_t* e) {
+
+void compile_func_call(node_t* n, ebpf_t* e) {
 	if (!strcmp(n->name, "pid")) {
 		compile_pid(n, e);
 	} else if (!strcmp(n->name, "cpu")) {
 		compile_cpu(n, e);
+	} else {
+		_errmsg("not match the function call");
 	}
 }
 
-void sym_to_stack(node_t* n, ebpf_t* e) {
+void call_to_stack(node_t* n, ebpf_t* e, ssize_t* at) {
+	reg_t* reg;
+	
+	compile_func_call(n, e);
+	reg = reg_bind_find(n, e);
+
+	ebpf_emit(e, MOV(BPF_REG_0, reg->reg));
+	ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
+}
+
+void sym_to_stack(node_t* n, ebpf_t* e, size_t addr) {
 	sym_t* sym;
 
 	sym = symtable_get(e->st, n->name);
 	
 	if (sym->reg) {
 		ebpf_emit(e, MOV(BPF_REG_0, sym->reg->reg));
-		ebpf_emit(e, STXDW(BPF_REG_10, sym->addr, BPF_REG_0));
+		ebpf_emit(e, STXDW(BPF_REG_10, addr, BPF_REG_0));
 	}
 }
 
@@ -94,19 +79,20 @@ void rec_to_stack(node_t* n, ebpf_t* e) {
 	ssize_t offs = 0;
 
 	offs = n->annot.addr;
-	for (arg = n->rec.args; arg; arg = arg->next) {
+		
+	_foreach(arg, n->rec.args) {
 		switch (arg->type) {
 		case NODE_INT:
 			int_to_stack(e, arg->integer, offs);
 			break;
 		case NODE_STRING:
-			str_to_stack(e, offs, arg->name, arg->annot.size);
+			str_to_stack(e, arg->name, offs, arg->annot.size);
 			break;
 		case NODE_CALL:
-			call_to_stack(arg, e);
+			call_to_stack(arg, e, offs);
 			break;
 		case NODE_VAR:
-			sym_to_stack(arg, e);
+			sym_to_stack(arg, e, offs);
 			break;
 		default:
 			break;
@@ -231,12 +217,11 @@ int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t*
 	dst = reg_get(e);
 
 	if (!dst)
-		_errno("get register failed");
+		_errmsg("get register failed");
 
-	ebpf_emit(e, MOV(dst->reg, BPF_REG_0));
-	ebpf_emit(e, STXDW(BPF_REG_10, n->annot.addr, BPF_REG_8));
-
-   return 0; 
+	ebpf_emit(e, MOV(dst->reg, 0));
+    reg_bind(n, e, dst);
+   	return 0; 
 }
 
 int compile_pid(node_t* n, ebpf_t* e) {
@@ -269,10 +254,13 @@ void compile_sym_assign(node_t* n, ebpf_t* e) {
 
 	dst = reg_get(e);
 	
-	reg_load(n->assign.expr, e, dst);
+	reg_value_load(n->assign.expr, e, dst);
 	reg_bind(n->assign.lval, e, dst);
 }
 
+void compile_str(node_t* n, ebpf_t* e) {
+    str_to_stack(e, n->annot.addr, n->name, n->annot.size);
+}
 
 void compile_return(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
