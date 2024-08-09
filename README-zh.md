@@ -7,7 +7,7 @@ voyant 是一个基于bpf指令集的动态追踪领域特定语言， 它具有
 **note: 目前项目正在重构, 一些原本支持的特性正在重写**
 
 
-### out输出hello, world 
+### hello, world 
 
 ```c
 probe sys_enter_execve {
@@ -17,11 +17,18 @@ probe sys_enter_execve {
 
 ### 变量
 
-注意因为现在的寄存器分配算法还存在一些问题, 目前最好不要设置多个变量
-
+因为现在的寄存器分配算法还存在一些问题, 目前最好不要设置多个变量
 ```c
-probe sys_eneter_execve {
+probe sys_enter_execve {
     a = 1;
     out("%d\n", a);
+}
+```
+
+### 辅助函数
+
+```c
+probe sys_enter_execve {
+    out("pid: %d, cpu: %d", pid(), cpu());
 }
 ```

@@ -84,8 +84,8 @@ typedef enum annot_type{
 } annot_type;
 
 typedef struct annot_t {
-    node_type_t type;
-    annot_type atype;
+    //node_type_t type;
+    annot_type type;
     int mapid;
     size_t keysize;
     ssize_t size;

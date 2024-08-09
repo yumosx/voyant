@@ -6,7 +6,6 @@
 #include "buffer.h"
 #include "dsl.h"
 #include "ut.h"
-#include "compiler.h"
 
 ssize_t get_stack_addr(node_t* n, ebpf_t* e) {
 	if (n->type == NODE_MAP) {
@@ -110,26 +109,22 @@ static int event_output(event_t* ev, void* _call) {
 }
 
 void annot_int(node_t* n, ebpf_t* e) {
-	n->annot.type = NODE_INT;
-	n->annot.atype = ANNOT_INT;
+	n->annot.type = ANNOT_INT;
 	n->annot.size = sizeof(n->integer);
 }
 
 void annot_str(node_t* n, ebpf_t* e) {
-	n->annot.type = NODE_STRING;
-	n->annot.atype = ANNOT_STR;
+	n->annot.type = ANNOT_STR;
 	n->annot.size = _ALIGNED(strlen(n->name) + 1);
 }
 
 void annot_func_rint(node_t* n, ebpf_t* e) {
-	n->annot.type = NODE_INT;
-	n->annot.atype = ANNOT_RINT;
+	n->annot.type = ANNOT_RINT;
 	n->annot.size = 8;
 }
 
 void annot_func_rstr(node_t* n, ebpf_t* e) {
-	n->annot.type = NODE_STRING;
-	n->annot.atype = ANNOT_RSTR;
+	n->annot.type = ANNOT_RSTR;
 	n->annot.size = _ALIGNED(16);
 }
 
@@ -148,7 +143,7 @@ void annot_sym_assign(node_t* n, ebpf_t* e) {
 	sym = symtable_get(e->st, var->name);
 	var->annot = expr->annot;
 	symtable_add(e->st, n->assign.lval);
-	n->annot.atype = ANNOT_SYM_ASSIGN;
+	n->annot.type = ANNOT_SYM_ASSIGN;
 }
 
 void annot_call(node_t* n, ebpf_t* e) {
@@ -171,7 +166,7 @@ void annot_rec(node_t* n, ebpf_t* e) {
 	}
 
 	n->annot.size = size;
-	n->annot.atype = ANNOT_REC;
+	n->annot.type = ANNOT_REC;
 }
 
 void get_annot(node_t* n, ebpf_t* e) {
@@ -193,6 +188,7 @@ void get_annot(node_t* n, ebpf_t* e) {
 			break;
 		case NODE_REC:
 			annot_rec(n, e);
+			break;
 		default:
             break;
     }
@@ -205,6 +201,7 @@ void assign_stack(node_t* n, ebpf_t* e) {
 
 void assign_reg(node_t* n, ebpf_t* e) {
 	reg_t* reg;
+
 
 	reg = reg_get(e);
 	reg_bind(n->assign.lval, e, reg);
@@ -224,12 +221,17 @@ void assign_rec(node_t* n, ebpf_t* e) {
 		head->annot.addr = offs;
 		offs += head->annot.size;
 	}
+
+	n->annot.loc = LOC_STACK;
 }
 
 void loc_assign(node_t* n, ebpf_t* e) {
-	switch (n->annot.atype) {
+	switch (n->annot.type) {
 	case ANNOT_SYM_ASSIGN:
 		assign_reg(n, e);	
+		break;
+	case ANNOT_RINT:
+		assign_reg(n, e);		
 		break;
 	case ANNOT_RSTR:
 		assign_stack(n, e);
@@ -261,16 +263,12 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 	evhandler_register(evh);	
 	
 	meta = node_int_new(evh->type);
-	meta->annot.type = NODE_INT;
+	meta->annot.type = ANNOT_INT;
 	meta->annot.size = 8;
 	meta->next = varg->next;
 	
 	rec = node_rec_new(meta);
 	varg->next = rec;
-	/*	
-	annot_rec(rec, e);
-	loc_assign(rec, e);
-	*/
 }
 
 ebpf_t* ebpf_new() {
@@ -296,7 +294,7 @@ static int _node_walk_list(node_t *head,
 	
 	for (elem = next; !err && elem;) {
 		next = elem->next;
-		node_iter(elem, pre, post, ctx);
+		node_pre_traversal(elem, pre, post, ctx);
 		elem = next;
 	}
 
@@ -306,7 +304,7 @@ static int _node_walk_list(node_t *head,
 #define do_list(_head)	_node_walk_list(_head, pre, post, e) 
 #define do_walk(_node) 	node_iter(_node, pre, post, e)
 
-void node_iter(node_t *n, 
+void node_pre_traversal(node_t *n, 
 	void (*pre) (node_t *n, ebpf_t *e), 
 	void (*post)(node_t *n, ebpf_t *e), ebpf_t *e) {
 

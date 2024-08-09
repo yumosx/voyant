@@ -7,7 +7,7 @@ static void sym_init(symtable_t* st) {
     sym_t* sym;
 
     sym = &st->table[st->len++];
-    sym->annot.type = NODE_INT;
+    sym->annot.type = ANNOT_INT;
     sym->annot.size = 8;
     sym->name = "@$";
     sym->size = sym->annot.size;

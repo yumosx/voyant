@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
    
 	ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
     
-    node_iter(n, get_annot, loc_assign, e);
+    node_pre_traversal(n, get_annot, loc_assign, e);
     node_walk(n, e);
     reg_bind(e, &e->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);

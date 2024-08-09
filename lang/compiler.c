@@ -42,16 +42,25 @@ void int_to_stack(ebpf_t* e, int value, ssize_t at) {
 	ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
 }
 
-
+void compile_func_call(node_t* n, ebpf_t* e) {
+	if (!strcmp(n->name, "pid")) {
+		compile_pid(n, e);
+	} else if (!strcmp(n->name, "cpu")) {
+		compile_cpu(n, e);
+	} else if (!strcmp(n->name), "comm") {
+		compile_comm(n, e);
+	} else {
+		_errmsg("not match the function call");
+	}
+}
 
 void call_to_stack(node_t* n, ebpf_t* e, ssize_t* at) {
 	reg_t* reg;
 
 	compile_func_call(n, e);
 	
-	if (n->annot.loc == LOC_REG) {
+	if (n->annot.type == ANNOT_RINT) {
 		reg = reg_bind_find(n, e);
-
 		ebpf_emit(e, MOV(BPF_REG_0, reg->reg));
 		ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
 	}
@@ -75,6 +84,9 @@ void rec_to_stack(node_t* n, ebpf_t* e) {
 		switch (arg->type) {
 		case NODE_INT:
 			int_to_stack(e, arg->integer, arg->annot.addr);
+			break;
+		case NODE_STRING:
+			str_to_stack(e, arg->name, arg->annot.addr, arg->annot.size);
 			break;
 		case NODE_VAR:
 			sym_to_stack(arg, e, arg->annot.addr);
@@ -236,17 +248,7 @@ void compile_comm(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
 
-void compile_func_call(node_t* n, ebpf_t* e) {
-	if (!strcmp(n->name, "pid")) {
-		compile_pid(n, e);
-	} else if (!strcmp(n->name, "cpu")) {
-		compile_cpu(n, e);
-	} else if (!strcmp(n->name), "comm") {
-		compile_comm(n, e);
-	} else {
-		_errmsg("not match the function call");
-	}
-}
+
 
 void compile_sym_assign(node_t* n, ebpf_t* e) {
 	reg_t* dst;
