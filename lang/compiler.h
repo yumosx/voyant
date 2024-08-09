@@ -21,7 +21,9 @@ extern int compile_pid(node_t* n, ebpf_t* e);
 extern int compile_cpu(node_t* n, ebpf_t* e);
 extern int compile_ns(node_t* n, ebpf_t* e);
 
-extern void compile_map_assign(node_t* n, ebpf_t* e);
+extern void compile_func_call(node_t* n, ebpf_t* e);
+
+//extern void compile_map_assign(node_t* n, ebpf_t* e);
 extern void map_load(node_t* n, ebpf_t* e);
 extern void compile_sym_assign(node_t* n, ebpf_t* e);
 extern void compile_str(node_t* n, ebpf_t* e);

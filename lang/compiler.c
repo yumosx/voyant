@@ -43,24 +43,18 @@ void int_to_stack(ebpf_t* e, int value, ssize_t at) {
 }
 
 
-void compile_func_call(node_t* n, ebpf_t* e) {
-	if (!strcmp(n->name, "pid")) {
-		compile_pid(n, e);
-	} else if (!strcmp(n->name, "cpu")) {
-		compile_cpu(n, e);
-	} else {
-		_errmsg("not match the function call");
-	}
-}
 
 void call_to_stack(node_t* n, ebpf_t* e, ssize_t* at) {
 	reg_t* reg;
-	
-	compile_func_call(n, e);
-	reg = reg_bind_find(n, e);
 
-	ebpf_emit(e, MOV(BPF_REG_0, reg->reg));
-	ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
+	compile_func_call(n, e);
+	
+	if (n->annot.loc == LOC_REG) {
+		reg = reg_bind_find(n, e);
+
+		ebpf_emit(e, MOV(BPF_REG_0, reg->reg));
+		ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
+	}
 }
 
 void sym_to_stack(node_t* n, ebpf_t* e, size_t addr) {
@@ -76,29 +70,21 @@ void sym_to_stack(node_t* n, ebpf_t* e, size_t addr) {
 
 void rec_to_stack(node_t* n, ebpf_t* e) {
 	node_t* arg;
-	ssize_t offs = 0;
 
-	offs = n->annot.addr;
-		
 	_foreach(arg, n->rec.args) {
 		switch (arg->type) {
 		case NODE_INT:
-			int_to_stack(e, arg->integer, offs);
-			break;
-		case NODE_STRING:
-			str_to_stack(e, arg->name, offs, arg->annot.size);
-			break;
-		case NODE_CALL:
-			call_to_stack(arg, e, offs);
+			int_to_stack(e, arg->integer, arg->annot.addr);
 			break;
 		case NODE_VAR:
-			sym_to_stack(arg, e, offs);
+			sym_to_stack(arg, e, arg->annot.addr);
+			break;
+		case NODE_CALL:
+			call_to_stack(arg, e, arg->annot.addr);
 			break;
 		default:
 			break;
 		}
-
-		offs += arg->annot.size;
 	}
 }
 
@@ -147,7 +133,7 @@ void emit_map_look(ebpf_t* e, int fd, ssize_t key) {
 	ebpf_emit(e, CALL(BPF_FUNC_map_lookup_elem));
 }
 
-
+/*
 void compile_map_assign(node_t* n, ebpf_t* e) {
    node_t* lval, *expr;
    ssize_t size;
@@ -165,6 +151,7 @@ void compile_map_assign(node_t* n, ebpf_t* e) {
 	size = lval->annot.addr + lval->annot.size;
 	emit_map_update(e, lval->annot.mapid, size, lval->annot.addr);
 }
+*/
 
 void map_load(node_t* head, ebpf_t* e) {
 	sym_t* sym = symtable_get(e->st, head->name);    
@@ -247,6 +234,18 @@ void compile_comm(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, n->annot.addr));
 	ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
 	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
+}
+
+void compile_func_call(node_t* n, ebpf_t* e) {
+	if (!strcmp(n->name, "pid")) {
+		compile_pid(n, e);
+	} else if (!strcmp(n->name, "cpu")) {
+		compile_cpu(n, e);
+	} else if (!strcmp(n->name), "comm") {
+		compile_comm(n, e);
+	} else {
+		_errmsg("not match the function call");
+	}
 }
 
 void compile_sym_assign(node_t* n, ebpf_t* e) {

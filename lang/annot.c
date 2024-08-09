@@ -171,7 +171,7 @@ void annot_rec(node_t* n, ebpf_t* e) {
 	}
 
 	n->annot.size = size;
-	n->annot.addr = get_stack_addr(n, e);
+	n->annot.atype = ANNOT_REC;
 }
 
 void get_annot(node_t* n, ebpf_t* e) {
@@ -188,17 +188,19 @@ void get_annot(node_t* n, ebpf_t* e) {
 		case NODE_VAR:
 			annot_sym(n, e);
 			break;
-       case NODE_ASSIGN:
+       	case NODE_ASSIGN:
 			annot_sym_assign(n, e);
 			break;
-        default:
+		case NODE_REC:
+			annot_rec(n, e);
+		default:
             break;
     }
 }
 
 void assign_stack(node_t* n, ebpf_t* e) {
-	n->annot.loc = LOC_STACK;
 	n->annot.addr = get_stack_addr(n, e);
+	n->annot.loc = LOC_STACK;
 }
 
 void assign_reg(node_t* n, ebpf_t* e) {
@@ -210,10 +212,30 @@ void assign_reg(node_t* n, ebpf_t* e) {
 	n->annot.loc = LOC_REG;
 }
 
+void assign_rec(node_t* n, ebpf_t* e) {
+	node_t* head;
+	size_t offs;
+
+	assign_stack(n, e);
+
+	offs = n->annot.addr;
+
+	_foreach(head, n->rec.args) {
+		head->annot.addr = offs;
+		offs += head->annot.size;
+	}
+}
+
 void loc_assign(node_t* n, ebpf_t* e) {
 	switch (n->annot.atype) {
 	case ANNOT_SYM_ASSIGN:
 		assign_reg(n, e);	
+		break;
+	case ANNOT_RSTR:
+		assign_stack(n, e);
+		break;
+	case ANNOT_REC:
+		assign_rec(n, e);
 		break;
 	default:
 		break;
@@ -245,7 +267,10 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 	
 	rec = node_rec_new(meta);
 	varg->next = rec;
+	/*	
 	annot_rec(rec, e);
+	loc_assign(rec, e);
+	*/
 }
 
 ebpf_t* ebpf_new() {

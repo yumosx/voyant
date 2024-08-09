@@ -69,7 +69,6 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
 
 void node_assign_walk(node_t* a, ebpf_t* e) {
     node_t* expr = a->assign.expr;
-    //get_annot(a, e); 
     compile_sym_assign(a, e);
 }
 

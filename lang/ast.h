@@ -75,6 +75,7 @@ typedef enum loc_t {
 typedef enum annot_type{
     ANNOT_STR,
     ANNOT_INT,
+    ANNOT_REC,
     ANNOT_SYM,
     ANNOT_RINT,
     ANNOT_RSTR,
