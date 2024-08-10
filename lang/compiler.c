@@ -54,18 +54,6 @@ void compile_func_call(node_t* n, ebpf_t* e) {
 	}
 }
 
-void call_to_stack(node_t* n, ebpf_t* e, ssize_t* at) {
-	reg_t* reg;
-
-	compile_func_call(n, e);
-	
-	if (n->annot.type == ANNOT_RINT) {
-		reg = reg_bind_find(n, e);
-		ebpf_emit(e, MOV(BPF_REG_0, reg->reg));
-		ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
-	}
-}
-
 void sym_to_stack(node_t* n, ebpf_t* e, size_t addr) {
 	sym_t* sym;
 
@@ -92,8 +80,10 @@ void rec_to_stack(node_t* n, ebpf_t* e) {
 			sym_to_stack(arg, e, arg->annot.addr);
 			break;
 		case NODE_CALL:
-			call_to_stack(arg, e, arg->annot.addr);
+			compile_func_call(arg, e);
 			break;
+		case NODE_MAP:
+			compile_map_load(arg, e);
 		default:
 			break;
 		}
@@ -136,69 +126,25 @@ void emit_map_update(ebpf_t* e, int fd, ssize_t key, ssize_t value) {
 	ebpf_emit(e, CALL(BPF_FUNC_map_update_elem));
 }
 
-void emit_map_look(ebpf_t* e, int fd, ssize_t key) {
-	emit_ld_mapfd(e, BPF_REG_1, fd);
-	
-	ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
-	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, key));
 
-	ebpf_emit(e, CALL(BPF_FUNC_map_lookup_elem));
+int emit_map_look(ebpf_t *prog, int fd, ssize_t addr) {
+	emit_ld_mapfd(prog, BPF_REG_1, fd);
+	ebpf_emit(prog, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(prog, ALU_IMM(BPF_ADD, BPF_REG_2, addr));
+	ebpf_emit(prog, CALL(BPF_FUNC_map_lookup_elem));
+	return 0;
 }
 
-/*
-void compile_map_assign(node_t* n, ebpf_t* e) {
-   node_t* lval, *expr;
-   ssize_t size;
 
-   lval = n->assign.lval, expr = n->assign.expr;
-	
-   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, lval->map.args->integer));       
-   ebpf_emit(e, STXDW(BPF_REG_10, lval->annot.addr + lval->annot.size, BPF_REG_0));   
-   
-   if (expr->annot.type == NODE_INT && expr->type == NODE_INT) {
-	   ebpf_emit(e, ALU_IMM(n->assign.op, BPF_REG_0, expr->integer));       
-       ebpf_emit(e, STXDW(BPF_REG_10, lval->annot.addr, BPF_REG_0));   
-   }
-	
-	size = lval->annot.addr + lval->annot.size;
-	emit_map_update(e, lval->annot.mapid, size, lval->annot.addr);
-}
-*/
-
-void map_load(node_t* head, ebpf_t* e) {
-	sym_t* sym = symtable_get(e->st, head->name);    
-
-    head->annot = sym->annot;
-
-    int at = head->annot.addr + head->annot.size; 
-    
-    //TODO: just has one args
-	//ebpf_emit(e, MOV(BPF_REG_0, 10));
-    ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
-
-    emit_ld_mapfd(e, BPF_REG_1, head->annot.mapid);
-    ebpf_emit(e, MOV(BPF_REG_2, BPF_REG_10));
-    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_2, head->annot.addr)); 
-    ebpf_emit(e, CALL(BPF_FUNC_map_lookup_elem));
-    
-    ebpf_emit(e, JMP_IMM(JUMP_JEQ, BPF_REG_0, 0, 5));
-
-    ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
-    ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, head->annot.addr));
-    ebpf_emit(e, MOV_IMM(BPF_REG_2, head->annot.size));
-    ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_0));
-    
-    ebpf_emit(e, CALL(BPF_FUNC_probe_read));
-    //ebpf_emit(e, JMP_IMM(JUMP_JA, 0, 0, head->annot.size / 4));
-
-    for (int i = 0; i < (ssize_t)head->annot.size; i += 4) {
-        ebpf_emit(e, STW_IMM(BPF_REG_10, head->annot.addr + i, 0));
-    }
+void emit_read(ebpf_t* e, ssize_t to, int from, size_t size) {
+	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, to));
+	ebpf_emit(e, MOV_IMM(BPF_REG_2, size));
+	ebpf_emit(e, MOV(BPF_REG_3, from));
+	ebpf_emit(e, CALL(BPF_FUNC_probe_read));
 }
 
 int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
-	reg_t* dst;
-
 	ebpf_emit(e, CALL(func));
     
     switch(op) {
@@ -213,14 +159,9 @@ int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t*
         default:
             break;
     }
-	dst = reg_get(e);
-
-	if (!dst)
-		_errmsg("get register failed");
-
-	ebpf_emit(e, MOV(dst->reg, 0));
-    reg_bind(n, e, dst);
-   	return 0; 
+	
+	ebpf_emit(e, STXDW(BPF_REG_10, n->annot.addr, BPF_REG_0));
+	return 0; 
 }
 
 int compile_pid(node_t* n, ebpf_t* e) {
@@ -248,14 +189,53 @@ void compile_comm(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
 
+void compile_map_assign(node_t* n, ebpf_t* e) {
+	node_t* val, *expr;
+	size_t kaddr, vaddr;
+
+	val = n->assign.lval;	
+	expr = n->assign.expr;
+	
+	kaddr = val->annot.addr;
+	vaddr = kaddr + val->annot.size;
+
+	int_to_stack(e, val->map.args->integer, kaddr);
+	int_to_stack(e, expr->integer, vaddr);
+	emit_map_update(e, val->annot.mapid, kaddr, vaddr);
+}
 
 
 void compile_sym_assign(node_t* n, ebpf_t* e) {
 	reg_t* dst;
 
+	if (n->assign.lval->type == NODE_MAP) {
+		compile_map_assign(n, e);
+		return;
+	}
+
 	dst = reg_bind_find(n->assign.lval, e);
 	reg_value_load(n->assign.expr, e, dst);
 }
+
+void compile_map_load(node_t* n, ebpf_t* e) {
+	sym_t* sym;
+	size_t kaddr = 0;
+	int fd;
+
+	sym = symtable_get(e->st, n->name);
+	
+	if (!sym) {
+		_errmsg("the map not found");
+		exit(1);
+	}
+	
+	kaddr = sym->addr;
+	fd = sym->annot.mapid;
+
+	emit_map_look(e, fd, kaddr);
+	emit_read(e, n->annot.addr, BPF_REG_0, 8);
+}
+
 
 void compile_str(node_t* n, ebpf_t* e) {
     str_to_stack(e, n->annot.addr, n->name, n->annot.size);

@@ -81,10 +81,10 @@ typedef enum annot_type{
     ANNOT_RSTR,
     ANNOT_SYM_MAP,
     ANNOT_SYM_ASSIGN,
+    ANNOT_MAP_ASSIGN,
 } annot_type;
 
 typedef struct annot_t {
-    //node_type_t type;
     annot_type type;
     int mapid;
     size_t keysize;

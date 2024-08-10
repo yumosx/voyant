@@ -157,7 +157,7 @@ void test_node_map_2() {
     node_t* n = parse_program(p);
     ebpf_t* e = ebpf_new();
     e->st = symtable_new();
-    node_walk(n, e);
+    compile_walk(n, e);
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
 
@@ -174,7 +174,7 @@ void test_node_pred() {
     ebpf_t* e = ebpf_new();
     e->st = symtable_new();
 
-    node_walk(n, e);
+    compile_walk(n, e);
     ebpf_reg_bind(e, &e->st->reg[BPF_REG_0], n);
     ebpf_emit(e, EXIT);
     

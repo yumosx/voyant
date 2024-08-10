@@ -41,4 +41,6 @@ typedef struct evpipe {
 
 extern int evpipe_init(evpipe_t* evp, size_t qsize);
 extern void evhandler_register(evhandler_t* evh);
+extern int evpipe_loop(evpipe_t* evp, int* sig, int strict);
+
 #endif

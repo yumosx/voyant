@@ -162,6 +162,7 @@ int evqueue_drain(evqueue_t* q, int strict) {
 		if (err)
 			break;
 	}
+	return err;
 }
 
 
@@ -176,8 +177,10 @@ int evpipe_loop(evpipe_t* evp, int* sig, int strict) {
 			if (!(evp->poll[cpu].revents & POLLIN))
 				continue;
 			err = evqueue_drain(&evp->q[cpu], strict);
+			/*
 			if (err) 
 				return err;
+			*/
 			ready--;
 		}
 	}

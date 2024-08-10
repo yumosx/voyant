@@ -63,7 +63,7 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
     stmts = p->probe.stmts;
 
     _foreach(n, stmts) {
-        node_walk(n, e);
+        compile_walk(n, e);
     }
 }
 
@@ -82,13 +82,13 @@ void node_call_walk(node_t* c, ebpf_t* e) {
 	}
 
     _foreach(n, c->call.args) {
-        node_walk(n, e);
+        compile_walk(n, e);
     }
 
     compile_call(c, e);
 }
 
-void node_walk(node_t* n, ebpf_t* e) {
+void compile_walk(node_t* n, ebpf_t* e) {
     switch(n->type) {
         case NODE_PROBE:
             node_probe_walk(n, e);
@@ -163,11 +163,13 @@ int main(int argc, char** argv) {
 	ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
     
     node_pre_traversal(n, get_annot, loc_assign, e);
-    node_walk(n, e);
-    reg_bind(e, &e->reg[BPF_REG_0], n);
-    ebpf_emit(e, EXIT);
-    
+    compile_walk(n, e);
+    compile_return(n, e);
+
     tracepoint_setup(e, n->probe.traceid);   
-	evpipe_loop(e->evp, &term_sig, 0);	
+	
+    siginterrupt(SIGINT, 1);
+    signal(SIGINT, term);
+    evpipe_loop(e->evp, &term_sig, 0);	
     return 0;
 }

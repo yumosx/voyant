@@ -13,6 +13,6 @@
 #include "annot.h"
 
 
-extern void node_walk(node_t* n, ebpf_t* e);
+extern void compile_walk(node_t* n, ebpf_t* e);
 
 #endif
