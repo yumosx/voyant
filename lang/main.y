@@ -1,4 +1,4 @@
-probe sys_enter_socket{
-    map[1] = 1;
-    out("%d", map[1]);
+probe sys_enter_execve{
+    map[pid()] = 1;
+    out("name: %s, count: %d", comm(), map[pid()]);
 }

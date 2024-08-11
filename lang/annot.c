@@ -75,7 +75,7 @@ static void printf_spec(const char* spec, const char* term, void* data, node_t* 
 	switch(*term) {
 	case 's':
 		printf(fmt, (char*)data);
-		printf("\n");
+		//printf("\n");
 		break;
 	case 'd':
 		printf(fmt, (int)num);

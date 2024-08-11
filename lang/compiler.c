@@ -189,24 +189,41 @@ void compile_comm(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
 
-void compile_count(node_t* n, ebpf_t* e) {
-	ebpf_emit(e, LDXB(BPF_REG_0, n->annot.addr, BPF_REG_10));
+void compile_count(ssize_t addr, ebpf_t* e) {
+	ebpf_emit(e, LDXB(BPF_REG_0, addr, BPF_REG_10));
 	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_0, 1));
-	ebpf_emit(e, STXDW(BPF_REG_10, n->annot.addr, BPF_REG_0));
+	ebpf_emit(e, STXDW(BPF_REG_10, addr, BPF_REG_0));
+}
+
+void compile_map_method(node_t* n, ebpf_t* e) {
+	node_t* val, *expr;
 }
 
 void compile_map_assign(node_t* n, ebpf_t* e) {
 	node_t* val, *expr;
 	size_t kaddr, vaddr;
+	int fd;
 
 	val = n->assign.lval;	
 	expr = n->assign.expr;
 	
 	kaddr = val->annot.addr;
 	vaddr = kaddr + val->annot.size;
+	fd = val->annot.mapid;
 
-	int_to_stack(e, val->map.args->integer, kaddr);
+	val->map.args->annot.addr = kaddr;
+	
+	compile_comm(val->map.args, e);
+	//int_to_stack(e, val->map.args->integer, kaddr);
 	int_to_stack(e, expr->integer, vaddr);
+	
+	emit_map_look(e, fd, kaddr);
+	ebpf_emit(e, JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 8));
+	emit_read(e, vaddr, BPF_REG_0, 8);
+
+	ebpf_emit(e, LDXB(BPF_REG_0, vaddr, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_0, 1));
+	ebpf_emit(e, STXDW(BPF_REG_10, vaddr, BPF_REG_0));
 
 	emit_map_update(e, val->annot.mapid, kaddr, vaddr);
 }
@@ -227,6 +244,7 @@ void compile_sym_assign(node_t* n, ebpf_t* e) {
 void compile_map_load(node_t* n, ebpf_t* e) {
 	sym_t* sym;
 	size_t kaddr = 0;
+	size_t size;
 	int fd;
 
 	sym = symtable_get(e->st, n->name);
@@ -238,11 +256,11 @@ void compile_map_load(node_t* n, ebpf_t* e) {
 	
 	kaddr = sym->addr;
 	fd = sym->annot.mapid;
+	size = sym->annot.size;
 
 	int_to_stack(e, 0, n->annot.addr);	
 	emit_map_look(e, fd, kaddr);
 	ebpf_emit(e, JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 5));
-	
 	emit_read(e, n->annot.addr, BPF_REG_0, 8);
 }
 
