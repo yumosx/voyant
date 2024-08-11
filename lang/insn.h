@@ -57,7 +57,7 @@ typedef enum extract_op {
 #define CALL(_imm) INSN(BPF_JMP|BPF_CALL, 0, 0, 0, _imm)
 
 #define JMP(_op, _dst, _src, _off) INSN(BPF_JMP|BPF_OP((_op)) | BPF_X, _dst, _src, _off, 0)
-#define JMP_IMM(_op, _dst, _imm, _off) INSN(BPF_JMP|BPF_OP((_op))|BPF_K, _dst, 0, _off, _imm)
+#define JMP_IMM(_op, _dst, _imm, _off) INSN(BPF_JMP | BPF_OP((_op)) | BPF_K, _dst, 0, _off, _imm)
 
 #define ALU(_op, _dst, _src)     INSN(BPF_ALU64 | BPF_OP((_op)) | BPF_X, _dst, _src, 0, 0)
 #define ALU_IMM(_op, _dst, _imm) INSN(BPF_ALU64|BPF_OP((_op))|BPF_K, _dst, 0, 0, _imm)

@@ -62,6 +62,9 @@ get_token_seq(token_type t) {
     case TOKEN_ASSIGN:
         return ASSIGN;
         break;
+    case TOKEN_DOT:
+        return DOT;
+        break;
     default:
         return LOWEST;
         break;

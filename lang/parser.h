@@ -14,6 +14,7 @@ typedef enum {
     PREFIX,         //!1
     CALL,
     INDEX,
+    DOT,
 } seq_t;
 
 

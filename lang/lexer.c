@@ -185,7 +185,11 @@ token_t* lexer_next_token(lexer_t* l) {
             t->literal = strdup("*");
             read_char(l);
             break;
-        
+        case '.':
+            t->type = TOKEN_DOT;
+            t->literal = strdup(".");
+            read_char(l);
+            break; 
         case 0:
             t->literal = "";
             t->type = END_OF_FILE;

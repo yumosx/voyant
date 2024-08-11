@@ -18,7 +18,6 @@ enum token_type{
     TOKEN_STRING,
     TOKEN_ILLEGAL,
     TOKEN_PROBE,
-    TOKEN_FILTER,
     TOKEN_SLASH,
     TOKEN_COLON,
     TOKEN_COMMA,
@@ -37,7 +36,7 @@ enum token_type{
     TOKEN_LET,
     TOKEN_PLUS,
     TOKEN_STAR,
-    TOKEN_RETURN,
+    TOKEN_DOT,
     END_OF_FILE
 };
 

@@ -1,4 +1,4 @@
 probe sys_enter_socket{
-    map[1] = 2;
-    out("name: %d %d", pid(), map[1]);
+    map[1] = 1;
+    out("%d", map[1]);
 }
