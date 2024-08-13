@@ -12,9 +12,9 @@ typedef enum {
     SUM,            //+
     PRODUCT,        //*
     PREFIX,         //!1
+    PIPE,
     CALL,
     INDEX,
-    DOT,
 } seq_t;
 
 

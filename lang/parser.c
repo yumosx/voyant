@@ -62,8 +62,8 @@ get_token_seq(token_type t) {
     case TOKEN_ASSIGN:
         return ASSIGN;
         break;
-    case TOKEN_DOT:
-        return DOT;
+    case TOKEN_PIPE:
+        return PIPE;
         break;
     default:
         return LOWEST;
@@ -81,6 +81,9 @@ int get_op(token_type t) {
 
     case TOKEN_PLUS:
         return OP_ADD;
+    
+    case TOKEN_PIPE:
+        return OP_PIPE;
     
     case TOKEN_EQ:
         return JUMP_JEQ;
@@ -189,7 +192,6 @@ node_t* parse_map_expr(parser_t* p, node_t* left) {
     return left;
 }
 
-
 node_t* parse_expr(parser_t* p, seq_t s) {    
     node_t* left;
 
@@ -209,7 +211,7 @@ node_t* parse_expr(parser_t* p, seq_t s) {
     
     while (!next_tok_is(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
         switch (p->next_tok->type) {
-        case TOKEN_EQ:
+        case TOKEN_PIPE:
         case TOKEN_STAR:
         case TOKEN_PLUS:
             p_next_tok(p);

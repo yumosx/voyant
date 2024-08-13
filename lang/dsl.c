@@ -96,6 +96,9 @@ void compile_walk(node_t* n, ebpf_t* e) {
         case NODE_ASSIGN:
             compile_sym_assign(n, e);
             break;
+        case NODE_INFIX_EXPR:
+            compile_map_method(n, e);
+            break;
         case NODE_CALL:
             node_call_walk(n, e);
             break;

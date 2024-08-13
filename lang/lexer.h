@@ -36,7 +36,7 @@ enum token_type{
     TOKEN_LET,
     TOKEN_PLUS,
     TOKEN_STAR,
-    TOKEN_DOT,
+    TOKEN_PIPE,
     END_OF_FILE
 };
 

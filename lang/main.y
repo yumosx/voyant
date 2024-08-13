@@ -1,4 +1,4 @@
 probe sys_enter_execve{
-    map[pid()] = 1;
-    out("name: %s, count: %d", comm(), map[pid()]);
+    map[comm()] |> count();
+    out("name: %-16s %6d", comm(), map[comm()]);
 }

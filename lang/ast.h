@@ -82,6 +82,7 @@ typedef enum annot_type{
     ANNOT_SYM_MAP,
     ANNOT_SYM_ASSIGN,
     ANNOT_MAP_ASSIGN,
+    ANNOT_MAP_METHOD,
 } annot_type;
 
 typedef struct annot_t {

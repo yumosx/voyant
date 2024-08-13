@@ -8,7 +8,6 @@
 #include "ut.h"
 #include "syscall.h"
 
-
 ssize_t get_stack_addr(node_t* n, ebpf_t* e) {
 	if (n->type == NODE_MAP) {
 		e->st->sp -= n->annot.keysize;
@@ -75,7 +74,6 @@ static void printf_spec(const char* spec, const char* term, void* data, node_t* 
 	switch(*term) {
 	case 's':
 		printf(fmt, (char*)data);
-		//printf("\n");
 		break;
 	case 'd':
 		printf(fmt, (int)num);
@@ -133,21 +131,6 @@ void annot_sym(node_t* n, ebpf_t* e) {
 	sym_transfer(e->st, n);	
 }
 
-void annot_map_assign(node_t* p, node_t* n, ebpf_t* e) {
-	ssize_t ksize, vsize;
-	int fd;
-
-	get_annot(n->map.args, e);
-	ksize = n->map.args->annot.size;
-
-	n->annot.keysize = ksize;
-	
-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, ksize, n->annot.size, 1024);
-	n->annot.mapid = fd;
-	p->annot.type = ANNOT_MAP_ASSIGN;
-	symtable_add(e->st, n);
-}
-
 void annot_sym_assign(node_t* n, ebpf_t* e) {
 	sym_t* sym;
 	node_t* var, *expr;
@@ -155,16 +138,43 @@ void annot_sym_assign(node_t* n, ebpf_t* e) {
 	var = n->assign.lval, expr = n->assign.expr;
 	get_annot(expr, e);
 
-
 	var->annot = expr->annot;
-	
-	if (var->type == NODE_MAP) {
-		annot_map_assign(n, var, e);
-		return;
-	}
-
 	symtable_add(e->st, n->assign.lval);
 	n->annot.type = ANNOT_SYM_ASSIGN;
+}
+
+void annot_map(node_t* n, ebpf_t* e) {
+	ssize_t ksize, vsize;
+	int fd;
+
+	get_annot(n->map.args, e);
+	ksize = n->map.args->annot.size;
+	n->annot.keysize = ksize;
+	n->annot.size = 8;
+
+	fd = bpf_map_create(BPF_MAP_TYPE_HASH, ksize, 8, 1024);
+	n->annot.mapid = fd;
+	
+	symtable_add(e->st, n);
+}
+
+void annot_binop(node_t* n, ebpf_t* e) {
+	node_t* left, *right;
+	int op;
+
+	op = n->infix_expr.opcode;
+	left = n->infix_expr.left;
+	right = n->infix_expr.right;
+
+	switch (op) {
+	case OP_PIPE:
+		annot_map(left, e);
+		right->prev = left;
+		n->annot.type = ANNOT_MAP_METHOD;
+		break;
+	default:
+		break;
+	}
 }
 
 void annot_call(node_t* n, ebpf_t* e) {
@@ -201,6 +211,9 @@ void get_annot(node_t* n, ebpf_t* e) {
         case NODE_CALL:
             annot_call(n, e);
 			break;
+		case NODE_INFIX_EXPR:
+			annot_binop(n, e);
+			break;
 		case NODE_MAP:
 		case NODE_VAR:
 			annot_sym(n, e);
@@ -230,12 +243,20 @@ void assign_sym_reg(node_t* n, ebpf_t* e) {
 	n->annot.loc = LOC_REG;
 }
 
-void assign_map_stack(node_t* n, ebpf_t* e) {
+void assign_map(node_t* n, ebpf_t* e) {
 	sym_t* sym;
+	node_t* key;
+	size_t kaddr;
 
-	assign_stack(n->assign.lval, e);
-	sym = symtable_get(e->st, n->assign.lval->name);
-	sym->addr = n->assign.lval->annot.addr;
+	assign_stack(n, e);
+	key = n->map.args;
+	kaddr = n->annot.addr;
+	key->annot.addr = kaddr;
+
+	sym = symtable_get(e->st, n->name);
+	sym->addr = n->annot.addr;
+
+	n->annot.loc = LOC_STACK;
 }
 
 void assign_rec(node_t* n, ebpf_t* e) {
@@ -258,8 +279,8 @@ void loc_assign(node_t* n, ebpf_t* e) {
 	case ANNOT_SYM_ASSIGN:
 		assign_sym_reg(n, e);	
 		break;
-	case ANNOT_MAP_ASSIGN:
-		assign_map_stack(n, e);
+	case ANNOT_MAP_METHOD:
+		assign_map(n->infix_expr.left, e);
 		break;
 	case ANNOT_RSTR:
 		assign_stack(n, e);
