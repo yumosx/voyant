@@ -305,7 +305,7 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 		return -1;
 	}
     
-	evh = checked_calloc(1, sizeof(*evh));
+	evh = vcalloc(1, sizeof(*evh));
     evh->priv = call;
 	evh->handle = event_output;
 	
@@ -321,10 +321,10 @@ void annot_perf_output(node_t* call, ebpf_t* e) {
 }
 
 ebpf_t* ebpf_new() {
-    ebpf_t* e = checked_calloc(1, sizeof(*e));
+    ebpf_t* e = vcalloc(1, sizeof(*e));
     e->st = symtable_new();     
 	e->ip = e->prog;
-    e->evp = checked_calloc(1, sizeof(*e->evp));
+    e->evp = vcalloc(1, sizeof(*e->evp));
 	
 	for (int i = BPF_REG_0; i < __MAX_BPF_REG; i++) {
 		*(int*)(&e->reg[i].reg) = i;

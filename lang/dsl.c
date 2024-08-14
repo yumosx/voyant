@@ -27,7 +27,7 @@ int get_id(char* name) {
     FILE* fp;   
     int number;
 
-    buffer = checked_malloc(256); 
+    buffer = vmalloc(256); 
     sprintf(buffer, "/sys/kernel/debug/tracing/events/syscalls/%s/id", name);
 
     fp = fopen(buffer, "r");
@@ -58,7 +58,7 @@ void node_probe_walk(node_t* p, ebpf_t* e) {
     node_t* n, *stmts;
     p->probe.traceid = get_id(p->probe.name);
 
-    printf("Attaching to probe '%s' with trace id: %d\n", p->probe.name, p->probe.traceid); 
+    printf("Attaching to tracepoint [%s] with trace id: [%d]\n", p->probe.name, p->probe.traceid); 
     
     stmts = p->probe.stmts;
 
@@ -143,6 +143,7 @@ static void term(int sig) {
 
 int main(int argc, char** argv) {
 	char* filename, *input;
+    node_t* map;
 
     if (argc != 2) {
         return 0;
@@ -174,5 +175,9 @@ int main(int argc, char** argv) {
     siginterrupt(SIGINT, 1);
     signal(SIGINT, term);
     evpipe_loop(e->evp, &term_sig, 0);	
+
+    map = n->probe.stmts->infix_expr.left;
+
+    map_dump(map);
     return 0;
 }

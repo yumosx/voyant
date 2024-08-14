@@ -11,9 +11,9 @@
 
 #define _foreach(_n, _in) for ((_n)=(_in); (_n); (_n) = (_n)->next)
 
-extern void* checked_malloc(size_t len);
-extern void* checked_calloc(size_t len1, size_t len2);
-extern void* checked_realloc(void* p, size_t size);
-extern char* ut_str(char* str);
+extern void* vmalloc(size_t len);
+extern void* vcalloc(size_t len1, size_t len2);
+extern void* vrealloc(void* p, size_t size);
+extern char* vstr(char* str);
 
 #endif

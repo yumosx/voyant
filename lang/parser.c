@@ -22,7 +22,7 @@ int next_tok_is(parser_t* p, token_type type) {
 }
 
 parser_t* parser_init(lexer_t* l) {
-    parser_t* p = checked_malloc(sizeof(*p));
+    parser_t* p = vmalloc(sizeof(*p));
     p->lexer = l;
     p->this_tok = NULL;
     p->next_tok = NULL;
@@ -200,10 +200,10 @@ node_t* parse_expr(parser_t* p, seq_t s) {
             left = parse_int_expr(p->this_tok->literal);
 			break;
         case TOKEN_IDENT:
-			left = node_new_var(ut_str(p->this_tok->literal));
+			left = node_new_var(vstr(p->this_tok->literal));
 			break;
         case TOKEN_STRING:
-			left = node_str_new(ut_str(p->this_tok->literal));
+			left = node_str_new(vstr(p->this_tok->literal));
 			break;
         default:
             return NULL;

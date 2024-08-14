@@ -4,10 +4,9 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/queue.h>
-#include <linux/version.h>
 #include <linux/bpf.h>
 #include <inttypes.h>
-#include <inttypes.h>
+#include <linux/version.h>
 
 #include "buffer.h"
 #include "syscall.h"
@@ -95,8 +94,8 @@ int evpipe_init(evpipe_t* evp, size_t qsize) {
 		return evp->mapfd;
 	}
 
-	evp->q = checked_calloc(evp->ncpus, sizeof(*evp->q)); 
-	evp->poll = checked_calloc(evp->ncpus, sizeof(*evp->poll));	
+	evp->q = vcalloc(evp->ncpus, sizeof(*evp->q)); 
+	evp->poll = vcalloc(evp->ncpus, sizeof(*evp->poll));	
 
 	for (cpu = 0; cpu < evp->ncpus; cpu++) {
 		evqueue_init(evp, cpu, qsize);
@@ -184,4 +183,92 @@ int evpipe_loop(evpipe_t* evp, int* sig, int strict) {
 			ready--;
 		}
 	}
+}
+
+static void __key_workaround(int fd, void* key, size_t key_sz, void* val) {
+	FILE* fp;
+	int err;
+
+	fp = fopen("/dev/urandom", "r");
+	
+	while (1) {
+		err = bpf_map_lookup(fd, key, val);
+		if (err)
+			break;
+
+		if (fread(key, key_sz, 1, fp) != 1)
+			break;
+	}
+	fclose(fp);
+}
+
+void dump_str(FILE* fp, node_t* str, void* data) {
+	int size = (int) str->annot.size;
+
+	fprintf(fp, "%-*.*s", size, size, (const char*)data);
+}
+
+void dump_int(FILE* fp, node_t* integer, void* data) {
+	int64_t num;
+
+	memcpy(&num, data, sizeof(num));
+	fprintf(fp, "%8" PRId64, num);
+}
+
+
+void dump(FILE* fp, node_t* n, void* data) {
+	switch (n->annot.type) {
+	case ANNOT_RSTR:
+		dump_str(fp, n, data);
+		break;
+	case ANNOT_INT:
+		break;
+	default:
+		dump_int(fp, n, data);
+		break;
+	}
+}
+
+void map_dump(node_t* n) {
+	node_t* arg;
+	int err, c = 0;
+	size_t fd, rsize, ksize, vsize;
+	char* key, *val, *data;
+
+	arg = n->map.args;
+	fd = n->annot.mapid;
+	ksize = arg->annot.size;
+	vsize = n->annot.size;	
+	rsize = ksize + vsize;
+	
+	data = vmalloc(rsize * 1024);
+	key = data;
+	val = data + ksize;
+	
+	__key_workaround(fd, key, ksize, val);
+	
+	for (err = bpf_map_next(fd, key, key); !err; 
+		err = bpf_map_next(fd, key-rsize, key)) {
+		
+		err = bpf_map_lookup(fd, key, val);
+		if (err) 
+			goto out_free;
+		c++;
+
+		key += rsize;
+		val += rsize;
+	}
+	printf("\n%s\n", n->name);
+	for (key = data, val = data+ksize; c > 0; c--) {
+		dump(stdout, arg, key);
+		fputs("\t", stdout);
+		dump(stdout, n, val);
+		fputs("\n", stdout);
+		
+		key += rsize;
+		val += rsize;
+	}
+
+out_free:
+	free(data);
 }

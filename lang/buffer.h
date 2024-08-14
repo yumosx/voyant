@@ -5,6 +5,8 @@
 #include <sys/queue.h>
 #include <linux/perf_event.h>
 
+#include "ast.h"
+
 typedef struct event {
 	struct perf_event_header hdr;
 	uint32_t size;
@@ -42,5 +44,5 @@ typedef struct evpipe {
 extern int evpipe_init(evpipe_t* evp, size_t qsize);
 extern void evhandler_register(evhandler_t* evh);
 extern int evpipe_loop(evpipe_t* evp, int* sig, int strict);
-
+extern void map_dump(node_t* n);
 #endif

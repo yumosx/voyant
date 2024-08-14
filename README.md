@@ -46,7 +46,7 @@ probe sys_enter_execve {
 ```y
 probe sys_enter_execve {
     map[pid()] = 2;
-    printf("%d", map[pid()]);
+    out("%d", map[pid()]);
 }
 ```
 

@@ -17,9 +17,9 @@ static void sym_init(symtable_t *st)
 symtable_t *symtable_new() {
     symtable_t *st;
 
-    st = checked_malloc(sizeof(*st));
+    st = vmalloc(sizeof(*st));
     st->cap = 16;
-    st->table = checked_calloc(st->cap, sizeof(*st->table));
+    st->table = vcalloc(st->cap, sizeof(*st->table));
 
     sym_init(st);
 

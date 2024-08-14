@@ -2,7 +2,7 @@
 
 #include "ut.h"
 
-void* checked_malloc(size_t len) {
+void* vmalloc(size_t len) {
 	void* obj = malloc(len);
 	if (!obj) {
 		fprintf(stderr, "\n malloc failed\n");
@@ -11,7 +11,7 @@ void* checked_malloc(size_t len) {
 	return obj;
 }
 
-void* checked_realloc(void* p, size_t size) {
+void* vrealloc(void* p, size_t size) {
 	void* obj = realloc(p, size);
 	if (!obj) {
 		fprintf(stderr, "\n Rand out of memory (realloc)\n");
@@ -21,7 +21,7 @@ void* checked_realloc(void* p, size_t size) {
 }
 
 
-void* checked_calloc(size_t num, size_t size) {
+void* vcalloc(size_t num, size_t size) {
 	void* obj = calloc(num, size);
 	if (!obj) {
 		fprintf(stderr, "\n Rand out of memory (calloc)\n");
@@ -30,9 +30,8 @@ void* checked_calloc(size_t num, size_t size) {
 	return obj;
 }
 
-
-char* ut_str(char* s) {
-	char* p = checked_malloc(strlen(s) + 1);
+char* vstr(char* s) {
+	char* p = vmalloc(strlen(s) + 1);
 	strcpy(p, s);
 	return p;
 }
