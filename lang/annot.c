@@ -8,7 +8,7 @@
 #include "ut.h"
 #include "syscall.h"
 
-ssize_t get_stack_addr(node_t* n, ebpf_t* e) {
+ssize_t stack_addr_get(node_t* n, ebpf_t* e) {
 	if (n->type == NODE_MAP) {
 		e->st->sp -= n->annot.keysize;
 	}
@@ -128,7 +128,28 @@ void annot_func_rstr(node_t* n, ebpf_t* e) {
 }
 
 void annot_sym(node_t* n, ebpf_t* e) {
-	sym_transfer(e->st, n);	
+	sym_t* sym;
+
+	sym = symtable_get(e->st, n->name);
+	
+	if (!sym) {
+		symtable_add(e->st, n);
+	}
+	
+	n->annot = sym->vannot;
+}
+
+void annot_assign(node_t* n, ebpf_t* e) {
+	node_t* val, *expr;
+
+	val = n->assign.lval;
+	expr = n->assign.expr;
+
+	annot_sym(val, e);
+	get_annot(expr, e);
+
+	val->annot = expr->annot;
+	//sym_change_annot(e->st, val->name);
 }
 
 void annot_sym_assign(node_t* n, ebpf_t* e) {
@@ -230,7 +251,7 @@ void get_annot(node_t* n, ebpf_t* e) {
 }
 
 void assign_stack(node_t* n, ebpf_t* e) {
-	n->annot.addr = get_stack_addr(n, e);
+	n->annot.addr = stack_addr_get(n, e);
 	n->annot.loc = LOC_STACK;
 }
 

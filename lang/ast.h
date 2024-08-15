@@ -95,11 +95,16 @@ typedef struct annot_t {
     int reg;
 } annot_t;
 
+typedef struct mem_t {
+    loc_t loc;
+    ssize_t addr;
+    int reg;
+} mem_t;
 
 struct node_t {
+    char* name;
     node_type_t type;
     node_t* prev, *next;
-    char* name;
 
     union {
         probe_t probe;
@@ -113,12 +118,12 @@ struct node_t {
     };
 
     annot_t annot;
+    mem_t mem_t;
 };
-
 
 extern node_t* node_new(node_type_t t);
 extern node_t* node_probe_new(char* name, node_t* stmts);
-extern node_t* node_new_var(char* name);
+extern node_t* node_var_new(char* name);
 extern node_t* node_int_new(size_t name);
 extern node_t* node_str_new(char* str);
 extern node_t* node_expr_new(int opcode, node_t* left, node_t* right);

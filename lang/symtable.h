@@ -3,10 +3,20 @@
 
 #include "ast.h"
 
-typedef struct sym sym_t;
+typedef struct reg_t reg_t;
 
-typedef struct reg_t
-{
+typedef struct sym {
+    const char *name;
+    annot_t vannot;
+    annot_t kannot;    
+
+    ssize_t addr;
+    ssize_t size;
+    ssize_t ksize;
+    reg_t *reg;
+} sym_t;
+
+typedef struct reg_t {
     int start;
     int end;
     enum
@@ -24,16 +34,6 @@ typedef struct reg_t
 
     int reg;
 } reg_t;
-
-typedef struct sym
-{
-    const char *name;
-    annot_t annot;
-    ssize_t addr;
-    ssize_t size;
-    ssize_t ksize;
-    reg_t *reg;
-} sym_t;
 
 typedef struct symtable_t
 {

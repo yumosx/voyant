@@ -10,7 +10,7 @@ node_t* node_new(node_type_t t) {
     return n;
 }
 
-node_t* node_new_var(char* name) {
+node_t* node_var_new(char* name) {
     node_t* n = node_new(NODE_VAR);
     n->name = name;
     return n;

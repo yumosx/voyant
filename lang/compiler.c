@@ -266,8 +266,8 @@ void compile_map_load(node_t* n, ebpf_t* e) {
 	}
 	
 	kaddr = sym->addr;
-	fd = sym->annot.mapid;
-	size = sym->annot.size;
+	fd = sym->vannot.mapid;
+	size = sym->vannot.size;
 
 	int_to_stack(e, 0, n->annot.addr);	
 	emit_map_look(e, fd, kaddr);

@@ -1,3 +1,3 @@
-probe sys_enter_execve{
-    map[comm()] |> count();
+probe sys_enter_openat{
+    map[cpu()] |> count();
 }

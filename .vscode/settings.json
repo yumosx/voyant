@@ -1,8 +1,5 @@
 {
-    "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
-        "symtable.h": "c",
-        "ast.h": "c",
-        "annot.h": "c"
+        "symtable.h": "c"
     }
 }

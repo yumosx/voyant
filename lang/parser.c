@@ -200,7 +200,7 @@ node_t* parse_expr(parser_t* p, seq_t s) {
             left = parse_int_expr(p->this_tok->literal);
 			break;
         case TOKEN_IDENT:
-			left = node_new_var(vstr(p->this_tok->literal));
+			left = node_var_new(vstr(p->this_tok->literal));
 			break;
         case TOKEN_STRING:
 			left = node_str_new(vstr(p->this_tok->literal));

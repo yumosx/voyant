@@ -8,10 +8,10 @@ static void sym_init(symtable_t *st)
     sym_t *sym;
 
     sym = &st->table[st->len++];
-    sym->annot.type = ANNOT_INT;
-    sym->annot.size = 8;
+    sym->vannot.type = ANNOT_INT;
+    sym->vannot.size = 8;
     sym->name = "@$";
-    sym->size = sym->annot.size;
+    sym->size = sym->vannot.size;
 }
 
 symtable_t *symtable_new() {
@@ -49,7 +49,7 @@ int sym_transfer(symtable_t *st, node_t *n) {
     }
 
     sym = symtable_get(st, n->name);
-    n->annot = sym->annot;
+    n->annot = sym->vannot;
 
     return 0;
 }
@@ -77,7 +77,7 @@ void symtable_add(symtable_t *st, node_t *n) {
 
     sym = &st->table[st->len++];
     sym->name = n->name;
-    sym->annot = n->annot;
+    sym->vannot = n->annot;
     sym->size = n->annot.size;
 
     if (n->type == NODE_MAP) {
