@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "symtable.h": "c"
+        "compiler.h": "c",
+        "annot.h": "c",
+        "arch.h": "c"
     }
 }

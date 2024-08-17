@@ -176,8 +176,10 @@ int main(int argc, char** argv) {
     signal(SIGINT, term);
     evpipe_loop(e->evp, &term_sig, 0);	
 
-    map = n->probe.stmts->infix_expr.left;
-
-    map_dump(map);
+    if (n->probe.stmts->infix_expr.left) {
+        map = n->probe.stmts->infix_expr.left;
+        map_dump(map);
+    }
+    
     return 0;
 }

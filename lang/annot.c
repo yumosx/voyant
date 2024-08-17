@@ -5,6 +5,7 @@
 #include "symtable.h"
 #include "buffer.h"
 #include "dsl.h"
+#include "arch.h"
 #include "ut.h"
 #include "syscall.h"
 
@@ -88,7 +89,7 @@ static int event_output(event_t* ev, void* _call) {
 	node_t* arg, *call = _call;
 	char* fmt, *spec;
 	void* data = ev->data;
-	
+
 	arg = call->call.args->next->rec.args->next; 
 	for (fmt = call->call.args->name; *fmt; fmt++) {
 		if (*fmt == '%' && arg) {
@@ -149,7 +150,6 @@ void annot_assign(node_t* n, ebpf_t* e) {
 	get_annot(expr, e);
 
 	val->annot = expr->annot;
-	//sym_change_annot(e->st, val->name);
 }
 
 void annot_sym_assign(node_t* n, ebpf_t* e) {
@@ -179,6 +179,20 @@ void annot_map(node_t* n, ebpf_t* e) {
 	symtable_add(e->st, n);
 }
 
+void annot_probe_arg(node_t* n, ebpf_t* e) {
+	node_t* arg;
+	intptr_t reg;
+
+	arg = n->call.args;
+	reg = arch_reg_arg(arg->integer);	
+
+	n->integer = reg;
+	n->annot.type = ANNOT_RINT;
+	//n->annot.size = sizeof(int64_t);
+	n->annot.size = 256;
+}
+
+
 void annot_binop(node_t* n, ebpf_t* e) {
 	node_t* left, *right;
 	int op;
@@ -203,6 +217,10 @@ void annot_call(node_t* n, ebpf_t* e) {
 		annot_func_rstr(n, e);
 	} else if (!strcmp("out", n->name)) { 
 		annot_perf_output(n, e);
+	} else if (!strcmp("arg", n->name)) { 
+		annot_probe_arg(n, e);
+	} else if (!strcmp("str", n->name)) {
+		//annot_probe_str(n, e);
 	} else {
 		annot_func_rint(n, e);
 	}
@@ -216,7 +234,6 @@ void annot_rec(node_t* n, ebpf_t* e) {
 		get_annot(arg, e);
 		size += arg->annot.size;
 	}
-
 	n->annot.size = size;
 	n->annot.type = ANNOT_REC;
 }

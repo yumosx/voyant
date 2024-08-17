@@ -49,6 +49,10 @@ void compile_func_call(node_t* n, ebpf_t* e) {
 		compile_cpu(n, e);
 	} else if (!strcmp(n->name, "comm")) {
 		compile_comm(n, e);
+	} else if (!strcmp(n->name, "arg")) {
+		compile_probe_arg(n, e);
+	} else if (!strcmp(n->name, "str")) {
+		compile_probe_str(n, e);
 	} else {
 		_errmsg("not match the function call");
 	}
@@ -274,6 +278,42 @@ void compile_map_load(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 5));
 	emit_read(e, n->annot.addr, BPF_REG_0, 8);
 }
+
+int probe_reg_compile(node_t* n, ebpf_t* e) {
+	node_t* arg;
+	ssize_t size, addr;
+
+	arg = n->call.args;
+	addr = n->annot.addr;
+	size = sizeof(uintptr_t) * n->integer;
+
+
+	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
+	ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
+	ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_9));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_3, sizeof(uintptr_t)* n->integer));
+	ebpf_emit(e, CALL(BPF_FUNC_probe_read));
+
+	return 0;
+}
+
+int compile_probe_arg(node_t* call, ebpf_t* e) {
+	return probe_reg_compile(call, e);
+}
+
+int compile_probe_str(node_t* call, ebpf_t* e) {
+
+
+	ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_9));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_3, 103));
+
+	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, call->annot.addr));
+	ebpf_emit(e, MOV_IMM(BPF_REG_2, call->annot.size));
+	ebpf_emit(e, CALL(BPF_FUNC_probe_read_user_str));
+}
+
 
 
 void compile_str(node_t* n, ebpf_t* e) {
