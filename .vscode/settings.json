@@ -2,6 +2,12 @@
     "files.associations": {
         "compiler.h": "c",
         "annot.h": "c",
-        "arch.h": "c"
-    }
+        "arch.h": "c",
+        "func.h": "c",
+        "ut.h": "c",
+        "ast.h": "c",
+        "insn.h": "c",
+        "buffer.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }

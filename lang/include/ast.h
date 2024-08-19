@@ -14,6 +14,7 @@ typedef enum node_type_t {
     NODE_SCRIPT,
     NODE_PROBE,
     NODE_PROBE_PRED,
+    NODE_IF,
     NODE_PREFIX_EXPR,
     NODE_INFIX_EXPR,
     NODE_VAR,
@@ -60,6 +61,17 @@ typedef struct rec_t {
 	node_t* args;
 } rec_t;
 
+
+typedef struct iff_t {
+    node_t* cond;
+    node_t* then, *then_last;
+    node_t* els;
+} iff_t;
+
+typedef struct unroll_t {
+    size_t count;
+    node_t* stmts;
+} unroll_t;
 
 typedef struct maphdr {
 	size_t keyszie;
@@ -110,6 +122,7 @@ struct node_t {
         probe_t probe;
         infix_t infix_expr;
         prefix_t prefix_expr;
+        iff_t iff;
         call_t call;
         map_t map;
         rec_t rec;
@@ -127,6 +140,7 @@ extern node_t* node_var_new(char* name);
 extern node_t* node_int_new(size_t name);
 extern node_t* node_str_new(char* str);
 extern node_t* node_expr_new(int opcode, node_t* left, node_t* right);
+extern node_t* node_if_new(node_t* cond, node_t* then, node_t* els);
 extern node_t* node_rec_new(node_t* args);
 extern node_t* node_assign_new(node_t* left, node_t* expr);
 extern void node_print_str(node_type_t type);

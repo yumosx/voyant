@@ -46,28 +46,21 @@ get_token_seq(token_type t) {
     switch (t) {
     case TOKEN_EQ:
         return EQUALS;  
-        break;
     case TOKEN_PLUS:
         return SUM;
-        break;
     case TOKEN_STAR:
         return PRODUCT;
-        break;
     case LEFT_PAREN:
         return CALL;
-        break;
     case TOKEN_LEFT_BRACKET:
         return INDEX;
-        break;
     case TOKEN_ASSIGN:
         return ASSIGN;
         break;
     case TOKEN_PIPE:
         return PIPE;
-        break;
     default:
         return LOWEST;
-        break;
     }
 }
 
@@ -144,7 +137,7 @@ node_t* parse_call_args(parser_t* p) {
     }
 
     if (!expect_peek(p, RIGHT_PAREN)) {
-        err(EXIT_FAILURE, "Expected a right parenthesis but encountered a different token");
+        _errmsg("expect a right paren");
         return NULL;
     }
 
@@ -178,7 +171,7 @@ node_t* parse_map_args(parser_t* p) {
     }
 
     if (!expect_peek(p, TOKEN_RIGHT_BRACKET)) {
-        err(EXIT_FAILURE, "Expected a right backet but encountered a different token");
+        _errmsg("expected a right bucket, but get a different token");
         return NULL;
     }
 
@@ -261,8 +254,31 @@ node_t* parse_block_stmts(parser_t* p) {
     return head;
 }
 
+node_t* parse_if_stmt(parser_t* p) {
+    node_t* cond, *then, els;
+
+    if (!expect_peek(p, LEFT_PAREN)) {
+        return NULL;
+    }
+
+    p_next_tok(p);
+
+    cond = parse_expr(p, LOWEST);
+
+    if (!expect_peek(p, RIGHT_PAREN)) {
+        return NULL;
+    }
+
+    if (!expect_peek(p, TOKEN_RIGHT_BLOCK)) {
+        return NULL;
+    }
+
+    then = parse_block_stmts(p);
+
+    return node_if_new(cond, then, NULL);
+}
+
 node_t* parse_probe(parser_t* p) {
-   	
 	char* name;
 	node_t* stmts, *prev;
     

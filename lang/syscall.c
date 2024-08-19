@@ -1,15 +1,16 @@
 #include <stdio.h>
-#include <sys/syscall.h>
-#include <linux/bpf.h>
+#include <unistd.h>
 #include <sched.h>
-#include <sys/resource.h>
+#include <fcntl.h>
+#include <linux/bpf.h>
 #include <linux/bpf.h>
 #include <linux/version.h>
 #include <linux/perf_event.h>
-#include <fcntl.h>
-#include <unistd.h>
+#include <sys/resource.h>
+#include <sys/syscall.h>
 
 #include "annot.h" 
+#include "syscall.h"
 #include "ut.h"
 
 #define LOG_BUF_SIZE 0x1000
@@ -137,4 +138,42 @@ int bpf_map_delete(int fd, void* key, void* val) {
 
 int bpf_map_close(int fd){
     close(fd);
+}
+
+
+int perf_event_enable(int id) {
+    if (ioctl(id, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP)) {
+        return -1;
+    }
+    return 0;
+}
+
+static char exename[120];
+static fn_t begin_fn;
+static fn_t end_fn;
+
+
+int rgister_special_probes(fn_t begin, fn_t end) {
+    FILE* fp;
+    char buf[120];
+    unsigned long base_addr;
+
+    begin_fn = begin;
+    end_fn = end;
+
+    if (!realpath("/proc/self/exec", exename)) {
+        _errmsg("not found the execname");
+        return -1;
+    }
+
+    fp = fopen("/open/self/maps", "r");
+    
+    if (fp == NULL) {
+        return -1;
+    }
+}
+
+void trigger_begin_probe(int id) {
+    perf_event_enable(id);
+    begin_fn();
 }

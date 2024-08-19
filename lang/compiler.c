@@ -150,6 +150,7 @@ void emit_read(ebpf_t* e, ssize_t to, int from, size_t size) {
 	ebpf_emit(e, CALL(BPF_FUNC_probe_read));
 }
 
+
 int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
 	ebpf_emit(e, CALL(func));
     
@@ -287,14 +288,14 @@ int probe_reg_compile(node_t* n, ebpf_t* e) {
 	addr = n->annot.addr;
 	size = sizeof(uintptr_t) * n->integer;
 
-
 	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
 	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
-	ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
+	ebpf_emit(e, MOV_IMM(BPF_REG_2, arch_reg_width()));
 	ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_9));
-	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_3, sizeof(uintptr_t)* n->integer));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_3, size));
 	ebpf_emit(e, CALL(BPF_FUNC_probe_read));
-
+	
+	ebpf_emit(e, LDXDW(BPF_REG_6, addr, BPF_REG_10));
 	return 0;
 }
 
@@ -302,19 +303,20 @@ int compile_probe_arg(node_t* call, ebpf_t* e) {
 	return probe_reg_compile(call, e);
 }
 
-int compile_probe_str(node_t* call, ebpf_t* e) {
+int compile_probe_str(node_t* n, ebpf_t* e) {
+	size_t addr, size;
+	node_t* arg;
 
-
-	ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_9));
-	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_3, 103));
+	addr = n->annot.addr;
+	size = n->annot.size;
 
 	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
-	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, call->annot.addr));
-	ebpf_emit(e, MOV_IMM(BPF_REG_2, call->annot.size));
-	ebpf_emit(e, CALL(BPF_FUNC_probe_read_user_str));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
+	ebpf_emit(e, MOV_IMM(BPF_REG_2, size));
+	ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_9));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_3, 16));
+	ebpf_emit(e, CALL(BPF_FUNC_probe_read_user_str));	
 }
-
-
 
 void compile_str(node_t* n, ebpf_t* e) {
     str_to_stack(e, n->annot.addr, n->name, n->annot.size);

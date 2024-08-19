@@ -50,6 +50,30 @@ node_t* node_rec_new(node_t* args) {
 	return n;
 }
 
+node_t* node_if_new(node_t* cond, node_t* then, node_t* els) {
+    node_t* c, *n = node_new(NODE_IF);
+
+    n->iff.cond = cond;
+    n->iff.then = then;
+    n->iff.els = els;
+
+    _foreach(c, then) {
+        c->prev = n;
+        if (!c->next) {
+            n->iff.then_last = c;
+        }
+    }
+
+    if (els) {
+        _foreach(c, els) {
+            c->prev = n;
+        }
+    }
+    return n;
+}
+
+
+
 node_t* node_probe_new(char* name, node_t* stmts) {
 	node_t* n = node_new(NODE_PROBE);
 	n->probe.name = name;

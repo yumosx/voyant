@@ -25,6 +25,9 @@ token_type get_type(char *str)
     if (strcmp(str, "probe") == 0)
         return TOKEN_PROBE;
 
+    if (!strcmp(str, "if"))
+        return TOKEN_IF;
+
     if (is_number(str))
         return TOKEN_INT;
 

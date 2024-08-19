@@ -7,6 +7,7 @@
 #include "dsl.h"
 #include "arch.h"
 #include "ut.h"
+#include "func.h"
 #include "syscall.h"
 
 ssize_t stack_addr_get(node_t* n, ebpf_t* e) {
@@ -63,51 +64,6 @@ reg_t* reg_bind_find(node_t* n, ebpf_t* e) {
 	}
 }
 
-static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
-	int64_t num;
-	size_t fmt_len;
-	char* fmt;
-
-	memcpy(&num, data, sizeof(num));
-	fmt_len = term - spec + 1;
-	fmt = strndup(spec, fmt_len);
-	
-	switch(*term) {
-	case 's':
-		printf(fmt, (char*)data);
-		break;
-	case 'd':
-		printf(fmt, (int)num);
-		printf("\n");
-		break;
-	}
-
-	free(fmt);
-}
-
-static int event_output(event_t* ev, void* _call) {
-	node_t* arg, *call = _call;
-	char* fmt, *spec;
-	void* data = ev->data;
-
-	arg = call->call.args->next->rec.args->next; 
-	for (fmt = call->call.args->name; *fmt; fmt++) {
-		if (*fmt == '%' && arg) {
-			spec = fmt;
-			fmt = strpbrk(spec, "scd");
-			if (!fmt) 
-				break;
-			printf_spec(spec, fmt, data, arg);
-			
-			data += arg->annot.size;
-			arg = arg->next;
-		} else {
-			fputc(*fmt, stdout);
-		}
-	}
-	return 0;
-}
-
 void annot_int(node_t* n, ebpf_t* e) {
 	n->annot.type = ANNOT_INT;
 	n->annot.size = sizeof(n->integer);
@@ -116,16 +72,6 @@ void annot_int(node_t* n, ebpf_t* e) {
 void annot_str(node_t* n, ebpf_t* e) {
 	n->annot.type = ANNOT_STR;
 	n->annot.size = _ALIGNED(strlen(n->name) + 1);
-}
-
-void annot_func_rint(node_t* n, ebpf_t* e) {
-	n->annot.type = ANNOT_RINT;
-	n->annot.size = 8;
-}
-
-void annot_func_rstr(node_t* n, ebpf_t* e) {
-	n->annot.type = ANNOT_RSTR;
-	n->annot.size = _ALIGNED(16);
 }
 
 void annot_sym(node_t* n, ebpf_t* e) {
@@ -188,8 +134,12 @@ void annot_probe_arg(node_t* n, ebpf_t* e) {
 
 	n->integer = reg;
 	n->annot.type = ANNOT_RINT;
-	//n->annot.size = sizeof(int64_t);
-	n->annot.size = 256;
+	n->annot.size = sizeof(int64_t);
+}
+
+void annot_probe_str(node_t* n, ebpf_t* e) {
+	node_t* arg;
+	n->annot.size = 128;
 }
 
 
@@ -213,17 +163,9 @@ void annot_binop(node_t* n, ebpf_t* e) {
 }
 
 void annot_call(node_t* n, ebpf_t* e) {
-	if (!strcmp("comm", n->name)) {
-		annot_func_rstr(n, e);
-	} else if (!strcmp("out", n->name)) { 
-		annot_perf_output(n, e);
-	} else if (!strcmp("arg", n->name)) { 
-		annot_probe_arg(n, e);
-	} else if (!strcmp("str", n->name)) {
-		//annot_probe_str(n, e);
-	} else {
-		annot_func_rint(n, e);
-	}
+	int err;
+	
+	err = global_annot(n);
 }
 
 void annot_rec(node_t* n, ebpf_t* e) {
@@ -331,32 +273,6 @@ void loc_assign(node_t* n, ebpf_t* e) {
 	}
 }
 
-void annot_perf_output(node_t* call, ebpf_t* e) {
-	evhandler_t* evh;
-	node_t* meta, *head, *varg, *rec;
-	size_t size; 
-	ssize_t addr;
-
-	varg = call->call.args;
-	if (!varg) {
-		_errmsg("should has a string fromat");
-		return -1;
-	}
-    
-	evh = vcalloc(1, sizeof(*evh));
-    evh->priv = call;
-	evh->handle = event_output;
-	
-	evhandler_register(evh);	
-	
-	meta = node_int_new(evh->type);
-	meta->annot.type = ANNOT_INT;
-	meta->annot.size = 8;
-	meta->next = varg->next;
-	
-	rec = node_rec_new(meta);
-	varg->next = rec;
-}
 
 ebpf_t* ebpf_new() {
     ebpf_t* e = vcalloc(1, sizeof(*e));

@@ -3,6 +3,16 @@
 
 #include "annot.h"
 
+typedef struct vprobe {
+    FILE* ctrl;
+    const char* ctrl_name;
+    char* pattern;
+} vprobe_t; 
+
+
+typedef void (*fn_t)(void);
+
+
 extern long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags); 
 extern int bpf_prog_load(const struct bpf_insn* insns, int insn_cnt); 
 extern int bpf_map_create(enum bpf_map_type type, int key_sz, int val_sz, int entries);

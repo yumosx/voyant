@@ -1,3 +1,3 @@
-probe sys_enter_execve{
-    out("[%s %s] %d", arg(1), comm(), pid());
+probe sys_enter_open{
+    out("%s", comm());
 }
