@@ -15,5 +15,5 @@ extern void* vmalloc(size_t len);
 extern void* vcalloc(size_t len1, size_t len2);
 extern void* vrealloc(void* p, size_t size);
 extern char* vstr(char* str);
-
+extern char* str_escape(char* str);
 #endif

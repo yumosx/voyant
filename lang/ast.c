@@ -72,7 +72,14 @@ node_t* node_if_new(node_t* cond, node_t* then, node_t* els) {
     return n;
 }
 
+node_t* node_unroll_new(size_t count, node_t* stmts) {
+    node_t* c, *n = node_new(NODE_UNROLL);
 
+    n->unroll.count = count;
+    n->unroll.stmts = stmts;
+
+    return n;
+}
 
 node_t* node_probe_new(char* name, node_t* stmts) {
 	node_t* n = node_new(NODE_PROBE);

@@ -15,6 +15,7 @@ typedef enum node_type_t {
     NODE_PROBE,
     NODE_PROBE_PRED,
     NODE_IF,
+    NODE_UNROLL,
     NODE_PREFIX_EXPR,
     NODE_INFIX_EXPR,
     NODE_VAR,
@@ -123,6 +124,7 @@ struct node_t {
         infix_t infix_expr;
         prefix_t prefix_expr;
         iff_t iff;
+        unroll_t unroll;
         call_t call;
         map_t map;
         rec_t rec;

@@ -15,6 +15,28 @@ static int annot_rstr(node_t* n) {
 	n->annot.size = _ALIGNED(16);
 }
 
+static int annot_probe_arg(node_t* n) {
+	node_t* arg;
+	intptr_t reg;
+
+	arg = n->call.args;
+	reg = arch_reg_arg(arg->integer);	
+
+	n->integer = reg;
+	n->annot.type = ANNOT_RINT;
+	n->annot.size = sizeof(int64_t);
+	n->annot.addr = -8;
+}
+
+
+static int annot_probe_str(node_t* n) {
+	node_t* arg;
+
+	n->annot.type = ANNOT_RSTR;
+	n->annot.size = 64;
+}
+
+
 static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
 	int64_t num;
 	size_t fmt_len;
@@ -27,7 +49,6 @@ static void printf_spec(const char* spec, const char* term, void* data, node_t* 
 	switch(*term) {
 	case 's':
 		printf(fmt, (char*)data);
-		printf("\n");
 		break;
 	case 'd':
 		printf(fmt, (int)num);
@@ -39,13 +60,17 @@ static void printf_spec(const char* spec, const char* term, void* data, node_t* 
 
 static int event_output(event_t* ev, void* _call) {
 	node_t* arg, *call = _call;
-	char* fmt, *spec, *name;
+	char* fmt, *spec, *name, *str;
 	void* data = ev->data;
 
 	name = call->call.args->name;
 
 	arg = call->call.args->next->rec.args->next; 
-	for (fmt = call->call.args->name; *fmt; fmt++) {
+	str = call->call.args->name;	
+
+	str_escape(str);	
+	
+	for (fmt = str; *fmt; fmt++) {
 		if (*fmt == '%' && arg) {
 			spec = fmt;
 			fmt = strpbrk(spec, "scd");
@@ -106,6 +131,10 @@ static builtin_t global_builtins[] = {
         .name = "comm",
         .annotate = annot_rstr,
     },
+	{
+		.name = "arg",
+		.annotate = annot_probe_str,
+	},
     {
         .name = "out",
         .annotate = annot_out,

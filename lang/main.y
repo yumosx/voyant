@@ -1,3 +1,4 @@
-probe sys_enter_open{
-    out("%s", comm());
+probe sys_enter_execve{
+    out("%s\n", arg());
 }
+

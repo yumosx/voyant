@@ -64,6 +64,18 @@ reg_t* reg_bind_find(node_t* n, ebpf_t* e) {
 	}
 }
 
+static int type_check(node_t* p) {
+	switch (p->type) {
+	case NODE_ASSIGN:
+		break;
+	case NODE_INFIX_EXPR:
+		break;	
+	default:
+		break;
+	}
+
+}
+
 void annot_int(node_t* n, ebpf_t* e) {
 	n->annot.type = ANNOT_INT;
 	n->annot.size = sizeof(n->integer);
@@ -123,23 +135,6 @@ void annot_map(node_t* n, ebpf_t* e) {
 	n->annot.mapid = fd;
 	
 	symtable_add(e->st, n);
-}
-
-void annot_probe_arg(node_t* n, ebpf_t* e) {
-	node_t* arg;
-	intptr_t reg;
-
-	arg = n->call.args;
-	reg = arch_reg_arg(arg->integer);	
-
-	n->integer = reg;
-	n->annot.type = ANNOT_RINT;
-	n->annot.size = sizeof(int64_t);
-}
-
-void annot_probe_str(node_t* n, ebpf_t* e) {
-	node_t* arg;
-	n->annot.size = 128;
 }
 
 

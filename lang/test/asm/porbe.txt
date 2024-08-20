@@ -1,0 +1,28 @@
+   0: (bf) r9 = r1
+   1: (b7) r0 = 0
+   2: (7b) *(u64 *)(r10 -80) = r0
+   3: (bf) r1 = r10
+   4: (07) r1 += -8
+   5: (b7) r2 = 8
+   6: (bf) r3 = r9
+   7: (07) r3 += 112
+   8: (85) call bpf_probe_read_kernel#-68736
+   9: (bf) r3 = r10
+  10: (07) r3 += -8
+  11: (bf) r1 = r10
+  12: (07) r1 += -72
+  13: (b7) r2 = 64
+  14: (85) call bpf_probe_read_user_str#-68816
+  15: (a5) if r0 < 0x0 goto pc+2
+  16: (bf) r6 = r0
+  17: (7b) *(u64 *)(r10 -72) = r6
+  18: (85) call bpf_get_smp_processor_id#164032
+  19: (bf) r3 = r0
+  20: (bf) r1 = r9
+  21: (18) r2 = map[id:280]
+  23: (bf) r4 = r10
+  24: (07) r4 += -80
+  25: (b7) r5 = 72
+  26: (85) call bpf_perf_event_output_tp#-67408
+  27: (b7) r0 = 0
+  28: (95) exit
