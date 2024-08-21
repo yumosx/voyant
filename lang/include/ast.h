@@ -100,6 +100,7 @@ typedef enum annot_type{
 
 typedef struct annot_t {
     annot_type type;
+    annot_type ktype;
     int mapid;
     size_t keysize;
     ssize_t size;
@@ -108,11 +109,6 @@ typedef struct annot_t {
     int reg;
 } annot_t;
 
-typedef struct mem_t {
-    loc_t loc;
-    ssize_t addr;
-    int reg;
-} mem_t;
 
 struct node_t {
     char* name;
@@ -133,7 +129,6 @@ struct node_t {
     };
 
     annot_t annot;
-    mem_t mem_t;
 };
 
 extern node_t* node_new(node_type_t t);

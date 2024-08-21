@@ -3,15 +3,13 @@
 #include "symtable.h"
 #include "ut.h"
 
-static void sym_init(symtable_t *st)
-{
+static void sym_init(symtable_t *st) {
     sym_t *sym;
 
     sym = &st->table[st->len++];
     sym->vannot.type = ANNOT_INT;
     sym->vannot.size = 8;
     sym->name = "@$";
-    sym->size = sym->vannot.size;
 }
 
 symtable_t *symtable_new() {
@@ -26,8 +24,7 @@ symtable_t *symtable_new() {
     return st;
 }
 
-sym_t *symtable_get(symtable_t *st, const char *name)
-{
+sym_t *symtable_get(symtable_t *st, const char *name) {
     size_t i;
 
     for (i = 0; i < st->len; i++)
@@ -66,8 +63,17 @@ int symtable_map_transfer(symtable_t *st, node_t *m) {
     return 0;
 }
 
-void symtable_add(symtable_t *st, node_t *n) {
-    sym_t *sym;
+void sym_annot(symtable_t* st, sym_type type ,node_t* value) {
+    sym_t* sym;
+
+    sym = symtable_get(st, value->name);
+    sym->type = type;
+    sym->vannot = value->annot;
+}
+
+
+void symtable_add(symtable_t* st, char* name) {
+    sym_t* sym;
 
     if (st->len == st->cap) {
         st->cap += 16;
@@ -76,11 +82,5 @@ void symtable_add(symtable_t *st, node_t *n) {
     }
 
     sym = &st->table[st->len++];
-    sym->name = n->name;
-    sym->vannot = n->annot;
-    sym->size = n->annot.size;
-
-    if (n->type == NODE_MAP) {
-        sym->ksize = n->annot.keysize;
-    }
+    sym->name = name;
 }

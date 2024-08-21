@@ -176,10 +176,9 @@ int evpipe_loop(evpipe_t* evp, int* sig, int strict) {
 			if (!(evp->poll[cpu].revents & POLLIN))
 				continue;
 			err = evqueue_drain(&evp->q[cpu], strict);
-			/*
+			
 			if (err) 
 				return err;
-			*/
 			ready--;
 		}
 	}
@@ -235,6 +234,7 @@ void map_dump(node_t* n) {
 	int err, c = 0;
 	size_t fd, rsize, ksize, vsize;
 	char* key, *val, *data;
+
 
 	arg = n->map.args;
 	fd = n->annot.mapid;

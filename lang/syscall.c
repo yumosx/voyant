@@ -10,7 +10,7 @@
 #include <sys/syscall.h>
 
 #include "annot.h" 
-#include "syscall.h"
+#include "bpfsyscall.h"
 #include "ut.h"
 
 #define LOG_BUF_SIZE 0x1000
@@ -26,6 +26,21 @@ long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int g
 
 int bpf_prog_load(const struct bpf_insn* insns, int insn_cnt) {
     union bpf_attr attr = {
+        .prog_type = BPF_PROG_TYPE_RAW_TRACEPOINT,
+        .insns = ptr_to_u64(insns),
+        .insn_cnt = insn_cnt,
+        .license = ptr_to_u64("GPL"),
+        .log_buf = ptr_to_u64(bpf_log_buf),
+        .log_size = LOG_BUF_SIZE,
+        .log_level = 1,
+        .kern_version = LINUX_VERSION_CODE,
+    };
+    
+	return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
+}
+
+int bpf_prog_load1(const struct bpf_insn* insns, int insn_cnt) {
+    union bpf_attr attr = {
         .prog_type = BPF_PROG_TYPE_TRACEPOINT,
         .insns = ptr_to_u64(insns),
         .insn_cnt = insn_cnt,
@@ -39,6 +54,16 @@ int bpf_prog_load(const struct bpf_insn* insns, int insn_cnt) {
 	return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
 }
 
+
+int bpf_prog_test_run(int prog_fd) {
+    union bpf_attr attr;
+
+    memset(&attr, 0, sizeof(attr));
+    attr.test.prog_fd = prog_fd;
+    
+    return syscall(__NR_bpf, BPF_PROG_TEST_RUN, &attr, sizeof(attr));
+}
+
 int bpf_map_create(enum bpf_map_type type, int ksize, int size, int entries) {
     union bpf_attr attr = {
        .map_type = type,
@@ -50,26 +75,6 @@ int bpf_map_create(enum bpf_map_type type, int ksize, int size, int entries) {
     return syscall(__NR_bpf, BPF_MAP_CREATE, &attr, sizeof(attr));
 }
 
-#define DEBUGFS "/sys/kernal/debug/tracing"
-
-void read_trace_pipe(void) {
-    int trace_fd;
-    trace_fd = open(DEBUGFS, "trace_pipe", O_RDONLY, 0);
-    
-    if (trace_fd < 0)
-        _errmsg("trace fd not found");
-
-    while (1) {
-        static char buf[4096];
-        ssize_t sz;
-        
-        sz = read(trace_fd, buf, sizeof(buf) - 1);
-        if (sz > 0) {
-            buf[sz] = 0;
-            puts(buf);
-        }
-    }
-}
 
 int tracepoint_setup(ebpf_t* e, int id) {
     struct perf_event_attr attr = {};
@@ -82,7 +87,7 @@ int tracepoint_setup(ebpf_t* e, int id) {
     attr.wakeup_events = 1;
     attr.config = id;  
     
-    bd = bpf_prog_load(e->prog, e->ip - e->prog);
+    bd = bpf_prog_load1(e->prog, e->ip - e->prog);
     
     if (bd < 0) {
         perror("bpf");
@@ -109,7 +114,9 @@ int tracepoint_setup(ebpf_t* e, int id) {
     
     return 0;
 }
- 
+
+
+
 static int bpf_map_op(enum bpf_cmd cmd, int fd, void* key, void* val, int flags) {
 	union bpf_attr attr = {
 		.map_fd = fd,
@@ -146,34 +153,4 @@ int perf_event_enable(int id) {
         return -1;
     }
     return 0;
-}
-
-static char exename[120];
-static fn_t begin_fn;
-static fn_t end_fn;
-
-
-int rgister_special_probes(fn_t begin, fn_t end) {
-    FILE* fp;
-    char buf[120];
-    unsigned long base_addr;
-
-    begin_fn = begin;
-    end_fn = end;
-
-    if (!realpath("/proc/self/exec", exename)) {
-        _errmsg("not found the execname");
-        return -1;
-    }
-
-    fp = fopen("/open/self/maps", "r");
-    
-    if (fp == NULL) {
-        return -1;
-    }
-}
-
-void trigger_begin_probe(int id) {
-    perf_event_enable(id);
-    begin_fn();
 }

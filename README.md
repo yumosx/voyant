@@ -20,7 +20,6 @@ make
 sudo ./voyant main.y
 ```
 
-
 ## syntax
 
 ## hello, world
@@ -36,27 +35,27 @@ probe sys_enter_execve {
 ```y
 probe sys_enter_execve {
     a = pid();
-    printf("%d", a);
+    out("%d", a);
 }
 ```
 
+### helper function
+
+```y
+probe sys_enter_execve {
+    out("%s\n", com(), pid(), cpu());    
+}
+```
 
 ### bpf map
 
 ```y
 probe sys_enter_execve {
-    map[pid()] = 2;
+    map[pid()] |> count();
     out("%d", map[pid()]);
 }
-```
 
-
-### pred expression
-
-I use the lower version linux kernal, this program crash, because the bpf insns limit
-
-```y
-probe sys_enter_execve /comm() == "bash"/ {
-    out("%s", comm());
+probe sys_enter_execve {
+    map[cpu()] |> count();
 }
 ```

@@ -64,77 +64,66 @@ reg_t* reg_bind_find(node_t* n, ebpf_t* e) {
 	}
 }
 
-static int type_check(node_t* p) {
-	switch (p->type) {
-	case NODE_ASSIGN:
-		break;
-	case NODE_INFIX_EXPR:
-		break;	
-	default:
-		break;
-	}
-
-}
-
-void annot_int(node_t* n, ebpf_t* e) {
+void annot_int(node_t* n) {
 	n->annot.type = ANNOT_INT;
 	n->annot.size = sizeof(n->integer);
 }
 
-void annot_str(node_t* n, ebpf_t* e) {
+void annot_str(node_t* n) {
 	n->annot.type = ANNOT_STR;
 	n->annot.size = _ALIGNED(strlen(n->name) + 1);
 }
 
-void annot_sym(node_t* n, ebpf_t* e) {
+void annot_sym(node_t* val, ebpf_t* e) {
 	sym_t* sym;
 
-	sym = symtable_get(e->st, n->name);
+	sym = symtable_get(e->st, val->name);
 	
 	if (!sym) {
-		symtable_add(e->st, n);
+		_errmsg("can't found the sym");
 	}
-	
-	n->annot = sym->vannot;
+
+	val->annot = sym->vannot;
 }
 
 void annot_assign(node_t* n, ebpf_t* e) {
 	node_t* val, *expr;
+	sym_t* sym;
 
 	val = n->assign.lval;
 	expr = n->assign.expr;
-
-	annot_sym(val, e);
+	
 	get_annot(expr, e);
+	sym = symtable_get(e->st, val->name);
 
+	if (!sym) {
+		symtable_add(e->st, val->name);
+	}
+	
 	val->annot = expr->annot;
-}
-
-void annot_sym_assign(node_t* n, ebpf_t* e) {
-	sym_t* sym;
-	node_t* var, *expr;
-
-	var = n->assign.lval, expr = n->assign.expr;
-	get_annot(expr, e);
-
-	var->annot = expr->annot;
-	symtable_add(e->st, n->assign.lval);
 	n->annot.type = ANNOT_SYM_ASSIGN;
+	
+	sym_annot(e->st, SYM_VAR, val);	
 }
 
 void annot_map(node_t* n, ebpf_t* e) {
+	node_t* arg;
 	ssize_t ksize, vsize;
 	int fd;
 
-	get_annot(n->map.args, e);
+	arg = n->map.args;
+	get_annot(arg, e);
 	ksize = n->map.args->annot.size;
+	fd = bpf_map_create(BPF_MAP_TYPE_HASH, ksize, 8, 1024);
+	
+	n->annot.mapid = fd;
 	n->annot.keysize = ksize;
 	n->annot.size = 8;
+	n->annot.type = ANNOT_INT;
+	n->annot.ktype = arg->annot.type;
 
-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, ksize, 8, 1024);
-	n->annot.mapid = fd;
-	
-	symtable_add(e->st, n);
+	symtable_add(e->st, n->name);
+	sym_annot(e->st, SYM_MAP, n);
 }
 
 
@@ -157,12 +146,6 @@ void annot_binop(node_t* n, ebpf_t* e) {
 	}
 }
 
-void annot_call(node_t* n, ebpf_t* e) {
-	int err;
-	
-	err = global_annot(n);
-}
-
 void annot_rec(node_t* n, ebpf_t* e) {
 	node_t* arg;
 	ssize_t size = 0;
@@ -178,13 +161,13 @@ void annot_rec(node_t* n, ebpf_t* e) {
 void get_annot(node_t* n, ebpf_t* e) {
      switch(n->type) {
         case NODE_INT:
-            annot_int(n, e);
+            annot_int(n);
 			break;
         case NODE_STRING:
-			annot_str(n, e);
+			annot_str(n);
 			break;
         case NODE_CALL:
-            annot_call(n, e);
+			global_annot(n);
 			break;
 		case NODE_INFIX_EXPR:
 			annot_binop(n, e);
@@ -194,7 +177,7 @@ void get_annot(node_t* n, ebpf_t* e) {
 			annot_sym(n, e);
 			break;
 		case NODE_ASSIGN:
-			annot_sym_assign(n, e);
+			annot_assign(n, e);
 			break;
 		case NODE_REC:
 			annot_rec(n, e);
@@ -229,7 +212,7 @@ void assign_map(node_t* n, ebpf_t* e) {
 	key->annot.addr = kaddr;
 
 	sym = symtable_get(e->st, n->name);
-	sym->addr = n->annot.addr;
+	sym->vannot.addr = n->annot.addr;
 
 	n->annot.loc = LOC_STACK;
 }

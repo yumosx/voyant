@@ -41,7 +41,8 @@ probe sys_enter_execve {
 }
 ```
 
-- 避免创建多个整数变量。这是因为我们的编译器将整数变量分配在寄存器上，而当前的寄存器分配算法尚存在一些待优化之处。若分配多个变量，可能会引起访问数据时的不一致性。
+- 避免创建多个整数变量。这是因为我们的编译器将整数变量分配在寄存器上，但是当前的寄存器分配算法尚存在一些待优化之处。
+    若分配多个变量，可能会引起访问数据时的不一致性。
 - 同时，我们建议不要对单一变量进行重复赋值。由于我们的符号表目前仍处于基础实现阶段，重复赋值可能会导致一些不可预见的问题。
 
 
@@ -55,7 +56,7 @@ probe sys_enter_execve {
 }
 ```
 
-### map
+### BPF hash map
 
 ```c
 //示例1
@@ -68,9 +69,6 @@ probe sys_enter_execve {
     map[cpu()] |> count();
 }
 ```
-
-这段话可以润色为以下形式：
-
 - **Map 键值初始化**: 使用 `map[comm()]` 语句，我们可以创建一个 map，其中键由 `comm()` 函数生成，该函数通常返回当前进程的名称。如果 map 中的某个键尚未被赋值，其对应的值将默认初始化为 0。这种设计简化了对进程特定数据的跟踪和管理。
 
 - **方法调用操作符**: `|>` 是一个特殊的操作符，用于表示方法调用的语义。它的工作方式类似于 Java 中的 `1.add()`，即将数字 1 作为参数传递给 `add()` 方法。这种设计允许我们将操作符用于函数的链式调用，为实现更复杂的数据处理提供了灵活性。
@@ -78,3 +76,44 @@ probe sys_enter_execve {
 - **支持函数组合**: 我们的设计允许通过 `|>` 操作符实现多个函数的层级调用，从而创建组合函数的效果。例如，在表达式 `map[pid()] |> count(1) |> hist();` 中，我们首先通过 `pid()` 获取进程 ID，然后调用 `count(1)` 对每个进程的计数进行累加，最后通过 `hist()` 函数生成一个统计直方图。
 
 - **计数函数**: `count()` 是一个简洁的函数调用，表示每次调用时将对应的计数器值增加 1。这种设计使得对事件或数据点的计数变得直观和易于实现。
+
+
+### 获取跟踪点函数的参数
+
+```c
+probe sys_enter_execve {
+    out("%s", arg(0));
+}
+```
+目前该功能整体上尚未达到完全稳定，但我可以确认，在捕获sys_enter_execve和sys_enter_open系统调用的filename参数方面，其表现是极为可靠的。
+
+
+### BEGIN 表达式
+
+```c
+BEGIN {
+    out("%-18s %-16s %-6s\n", "PID", "COMM", "FILE");
+}
+
+probe sys_enter_execve {
+    out("%-18d %-16s %-6s\n", pid(), comm(), arg());
+}
+```
+输出结果:
+```c
+Attaching to tracepoint [sys_enter_execve] with trace id: [721]
+PID                COMM             FILE  
+1428705            barad_agent      /bin/sh
+1428706            barad_agent      /bin/sh
+1428707            node             /bin/sh
+1428708            sh               /usr/bin/which
+1428709            node             /bin/sh
+1428710            sh               /usr/bin/ps
+1428711            node             /bin/sh
+1428734            start.sh         /usr/bin/whoami
+1428737            start.sh         /usr/bin/grep
+1428738            start.sh         /usr/bin/grep
+1428739            start.sh         /usr/bin/wc
+1428736            start.sh         /usr/bin/ps
+```
+BEGIN是一个特殊的探针类型，它仅在脚本开始执行时触发一次。此处，我们利用BEGIN探针来定义一个立即执行的代码块，该代码块负责输出格式化的表头，包括进程ID（PID）、命令名称（COMM）和文件路径（FILE）。

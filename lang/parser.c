@@ -254,30 +254,6 @@ node_t* parse_block_stmts(parser_t* p) {
     return head;
 }
 
-node_t* parse_if_stmt(parser_t* p) {
-    node_t* cond, *then, els;
-
-    if (!expect_peek(p, LEFT_PAREN)) {
-        return NULL;
-    }
-
-    p_next_tok(p);
-
-    cond = parse_expr(p, LOWEST);
-
-    if (!expect_peek(p, RIGHT_PAREN)) {
-        return NULL;
-    }
-
-    if (!expect_peek(p, TOKEN_RIGHT_BLOCK)) {
-        return NULL;
-    }
-
-    then = parse_block_stmts(p);
-
-    return node_if_new(cond, then, NULL);
-}
-
 node_t* parse_probe(parser_t* p) {
 	char* name;
 	node_t* stmts, *prev;
@@ -303,9 +279,27 @@ node_t* parse_probe(parser_t* p) {
 
 node_t* parse_program(parser_t* p) {
     node_t* n;
-	n = parse_probe(p);
+	char* name;
+
+    n = node_new(NODE_SCRIPT);
+
+    name = p->this_tok->literal;
+
+    if (!strcmp(name, "BEGIN")) {
+        p_next_tok(p);
+        n = parse_block_stmts(p);
+        
+        p_next_tok(p);
+        p_next_tok(p);
+
+        name = p->this_tok->literal;
+    }
+
+    n->next = parse_probe(p);
+
     return n;
 }
+
 
 void free_parser(parser_t* p) {
     free_lexer(p->lexer);

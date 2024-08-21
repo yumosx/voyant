@@ -7,7 +7,10 @@
         "ut.h": "c",
         "ast.h": "c",
         "insn.h": "c",
-        "buffer.h": "c"
+        "buffer.h": "c",
+        "symtable.h": "c",
+        "syscall.h": "c",
+        "dsl.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
