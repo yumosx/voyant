@@ -10,7 +10,11 @@
         "buffer.h": "c",
         "symtable.h": "c",
         "syscall.h": "c",
-        "dsl.h": "c"
+        "dsl.h": "c",
+        "cerrno": "c",
+        "error.h": "c",
+        "bpf.h": "c",
+        "bpfsyscall.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

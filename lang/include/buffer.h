@@ -41,8 +41,14 @@ typedef struct evpipe {
 	evqueue_t* q;
 } evpipe_t;
 
+struct ret_value {
+	int val;
+	unsigned err:1;
+	unsigned exit:1;
+};
+
 extern int evpipe_init(evpipe_t* evp, size_t qsize);
 extern void evhandler_register(evhandler_t* evh);
-extern int evpipe_loop(evpipe_t* evp, int* sig, int strict);
+extern struct ret_value evpipe_loop(evpipe_t* evp, int* sig, int strict);
 extern void map_dump(node_t* n);
 #endif

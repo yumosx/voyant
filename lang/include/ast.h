@@ -30,6 +30,7 @@ typedef enum node_type_t {
 
 typedef struct probe_t {
     char* name;
+    int flag;
     int traceid;
     node_t* stmts;
 } probe_t;

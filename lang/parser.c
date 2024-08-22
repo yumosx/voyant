@@ -259,6 +259,7 @@ node_t* parse_probe(parser_t* p) {
 	node_t* stmts, *prev;
     
     if (!expect_peek(p, TOKEN_IDENT)) {
+        _error("expect a ident for probe");
         return NULL;
     }
 
@@ -277,28 +278,45 @@ node_t* parse_probe(parser_t* p) {
     return node_probe_new(name, stmts);     
 }
 
-node_t* parse_program(parser_t* p) {
-    node_t* n;
-	char* name;
-
-    n = node_new(NODE_SCRIPT);
+node_t* parse_script(parser_t* p) {
+    char* name;
+    node_t* stmts;
 
     name = p->this_tok->literal;
 
     if (!strcmp(name, "BEGIN")) {
         p_next_tok(p);
-        n = parse_block_stmts(p);
-        
+        stmts = parse_block_stmts(p); 
         p_next_tok(p);
         p_next_tok(p);
 
-        name = p->this_tok->literal;
+        return node_probe_new("BEGIN", stmts);
     }
 
-    n->next = parse_probe(p);
-
-    return n;
+    if (!strcmp(name, "probe")) {
+        return parse_probe(p);
+    }
 }
+
+
+node_t* parse_program(parser_t* p) {
+    node_t* n, *head;
+    
+    n = parse_script(p);
+    head = n;
+    
+    while (p->this_tok->type != END_OF_FILE) {
+        node_t* script = parse_script(p);
+        if (script) {
+            n->next = script;
+            n = n->next;
+        }
+        p_next_tok(p); 
+    }
+    
+    return head;
+}
+
 
 
 void free_parser(parser_t* p) {

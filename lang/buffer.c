@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <poll.h>
+#include <assert.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/queue.h>
@@ -9,6 +10,7 @@
 #include <linux/version.h>
 
 #include "buffer.h"
+#include "errno.h"
 #include "syscall.h"
 #include "ut.h"
 
@@ -33,16 +35,17 @@ static evhandler_t* evhandler_find(uint64_t type) {
 	return NULL;
 }
 
-static int event_handle(event_t* ev, size_t size) {
+static struct ret_value event_handle(event_t* ev, size_t size) {
 	evhandler_t* evh;
 	evh = evhandler_find(ev->type);
 	if (!evh) {
 		_error("unknown event: type:%#"PRIx64" size:%#zx\n", 
 				ev->size, size);	
-		return -1;
+		return (struct ret_value) { .err = 1, .val = ENOSYS};
 	}
 
-	return evh->handle(ev, evh->priv);
+	evh->handle(ev, evh->priv);
+	return (struct ret_value) {};
 }
 
 void evqueue_init(evpipe_t* evp, uint32_t cpu, size_t size) {
@@ -116,8 +119,10 @@ static inline void __set_tail(struct perf_event_mmap_page* mem, uint64_t tail) {
 }
 
 
-int evqueue_drain(evqueue_t* q, int strict) {
+struct ret_value evqueue_drain(evqueue_t* q) {
 	struct lost_event* lost;
+	struct ret_value ret = {};
+
 	uint16_t size, offs, head, tail;
 	uint8_t* base, *this, *next;
 	event_t* ev;
@@ -144,44 +149,60 @@ int evqueue_drain(evqueue_t* q, int strict) {
 
 		switch(ev->hdr.type) {
 			case PERF_RECORD_SAMPLE:
-				err = event_handle(ev, ev->hdr.size);
+				ret = event_handle(ev, ev->hdr.size);
 				break;
 			case PERF_RECORD_LOST:
 				lost = (void*) ev;
-				if (strict) {
-					_error("lost");
-				}
+				_error("lost %"PRId64" events\n", lost->lost);
+				ret.err = 1;
+				ret.val = EOVERFLOW;
 				break;
 			default:
-				err = -1;	
-				_error("unknown");
+				_error("unknown perf event %#"PRIx32"\n", ev->hdr.type);
+				ret.err = 1;
+				ret.val = EINVAL;
 				break;
 		}
 
-		if (err)
+		if (ret.err || ret.exit)
 			break;
 	}
-	return err;
+
+	return ret;
 }
 
 
-int evpipe_loop(evpipe_t* evp, int* sig, int strict) {
-	int cpu, err, ready;
+struct ret_value evpipe_loop(evpipe_t* evp, int* sig, int timeout) {
+	struct ret_value ret;
+	int cpu, ready;
 
 	for (;!(*sig);) {
-		ready = poll(evp->poll, evp->ncpus, -1);
-		if (ready <= 0) return ready ? : 0; 
+		ready = poll(evp->poll, evp->ncpus, timeout);
 		
+		if (ready < 0) {
+			ret.err = 1;
+			ret.val = errno;
+			return ret;
+		} 
+
+		if (timeout == -1) {
+			assert(ready);
+		} else if (ready == 0) {
+			return ret;
+		}
+
 		for (cpu = 0; ready && (cpu < evp->ncpus); cpu++) {
 			if (!(evp->poll[cpu].revents & POLLIN))
 				continue;
-			err = evqueue_drain(&evp->q[cpu], strict);
+			ret = evqueue_drain(&evp->q[cpu]);
 			
-			if (err) 
-				return err;
+			if (ret.err | ret.exit) 
+				return ret;
+
 			ready--;
 		}
 	}
+	return ret;
 }
 
 static void __key_workaround(int fd, void* key, size_t key_sz, void* val) {

@@ -59,10 +59,10 @@ void compile_call(node_t *n, ebpf_t *e) {
 
 void node_probe_walk(node_t *p, ebpf_t *e) {
     node_t *n, *stmts;
-    p->probe.traceid = get_id(p->probe.name);
-
-
-    printf("Attaching to tracepoint [%s] with trace id: [%d]\n", p->probe.name, p->probe.traceid);
+    
+    if (strcmp("BEGIN", p->probe.name)) {
+        p->probe.traceid = get_id(p->probe.name);
+    }
 
     stmts = p->probe.stmts;
 
@@ -71,35 +71,29 @@ void node_probe_walk(node_t *p, ebpf_t *e) {
     }
 }
 
-void node_assign_walk(node_t *a, ebpf_t *e)
-{
+void node_assign_walk(node_t *a, ebpf_t *e) {
     node_t *expr = a->assign.expr;
     compile_sym_assign(a, e);
 }
 
-void node_call_walk(node_t *c, ebpf_t *e)
-{
+void node_call_walk(node_t *c, ebpf_t *e) {
     node_t *args, *n;
 
-    if (!strcmp(c->name, "out"))
-    {
+    if (!strcmp(c->name, "out")) {
         node_t *rec = c->call.args->next;
         compile_out(rec, e);
         return;
     }
 
-    _foreach(n, c->call.args)
-    {
+    _foreach(n, c->call.args) {
         compile_walk(n, e);
     }
 
     compile_call(c, e);
 }
 
-void compile_walk(node_t *n, ebpf_t *e)
-{
-    switch (n->type)
-    {
+void compile_walk(node_t *n, ebpf_t *e) {
+    switch (n->type) {
     case NODE_PROBE:
         node_probe_walk(n, e);
         break;
@@ -149,6 +143,15 @@ static void term(int sig) {
     return;
 }
 
+void compile(node_t* n, ebpf_t* e) {
+    evpipe_init(e->evp, 4<<10);
+    ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
+    node_pre_traversal(n, get_annot, loc_assign, e);
+    compile_walk(n, e);
+    compile_return(n, e); 
+}
+
+
 int main(int argc, char **argv) {
     char *filename, *input;
     node_t *map;
@@ -167,42 +170,25 @@ int main(int argc, char **argv) {
 
     lexer_t *l = lexer_init(input);
     parser_t *p = parser_init(l);
-    node_t *n = parse_program(p);
-    ebpf_t *e = ebpf_new();
+    node_t* head, *n = parse_program(p);
+    ebpf_t* e;
+    int id;
 
-    evpipe_init(e->evp, 4 << 10);
+    if (!strcmp("BEGIN", n->probe.name)) {
+        e = ebpf_new();
+        compile(n, e);
+        id = bpf_prog_load(BPF_PROG_TYPE_RAW_TRACEPOINT, e->prog, e->ip-e->prog);
+        bpf_prog_test_run(id);
+        evpipe_loop(e->evp, &term_sig, 0);
+    }
 
-    ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
-
-    node_pre_traversal(n, get_annot, loc_assign, e);
-    compile_walk(n, e);
-    compile_return(n, e);
-
-    int id = bpf_prog_load(e->prog, e->ip-e->prog);
-    
-    bpf_prog_test_run(id);
-
-    /*
+    e = ebpf_new();
+    compile(n->next, e);
     siginterrupt(SIGINT, 1);
     signal(SIGINT, term);
-    evpipe_loop(e->evp, &term_sig, 0);
-    */
+    tracepoint_setup(e, n->next->probe.traceid);
+    evpipe_loop(e->evp, &term_sig, -1);
 
-    //todo will refactor
-    
-    ebpf_t* e1 = ebpf_new();    
-    e1->evp = e->evp;
-    ebpf_emit(e1, MOV(BPF_REG_9, BPF_REG_1));
-
-    node_pre_traversal(n->next, get_annot, loc_assign, e1);
-    compile_walk(n->next, e1);
-    compile_return(n->next, e1); 
-
-    tracepoint_setup(e1, n->next->probe.traceid);
-
-    siginterrupt(SIGINT, 1);
-    signal(SIGINT, term);
-    evpipe_loop(e1->evp, &term_sig, 0);
 
     if (n->next->probe.stmts->infix_expr.left) {
         map = n->next->probe.stmts->infix_expr.left;
