@@ -27,10 +27,8 @@ symtable_t *symtable_new() {
 sym_t *symtable_get(symtable_t *st, const char *name) {
     size_t i;
 
-    for (i = 0; i < st->len; i++)
-    {
-        if (!strcmp(st->table[i].name, name))
-        {
+    for (i = 0; i < st->len; i++) {
+        if (!strcmp(st->table[i].name, name)) {
             return &st->table[i];
         }
     }
@@ -38,28 +36,12 @@ sym_t *symtable_get(symtable_t *st, const char *name) {
     return NULL;
 }
 
-int sym_transfer(symtable_t *st, node_t *n) {
-    sym_t *sym;
-
+int sym_transfer(sym_t* sym, node_t *n) {
     if (n->type != NODE_VAR && n->type != NODE_MAP) {
         return 0;
     }
-
-    sym = symtable_get(st, n->name);
-    n->annot = sym->vannot;
-
-    return 0;
-}
-
-int symtable_map_transfer(symtable_t *st, node_t *m) {
-    node_t *n, *head;
-
-    head = m->map.args;
     
-    _foreach(n, head) {
-        sym_transfer(st, n);
-    }
-
+    n->annot = sym->vannot;
     return 0;
 }
 
@@ -71,8 +53,7 @@ void sym_annot(symtable_t* st, sym_type type ,node_t* value) {
     sym->vannot = value->annot;
 }
 
-
-void symtable_add(symtable_t* st, char* name) {
+sym_t* symtable_add(symtable_t* st, char* name) {
     sym_t* sym;
 
     if (st->len == st->cap) {
@@ -83,4 +64,29 @@ void symtable_add(symtable_t* st, char* name) {
 
     sym = &st->table[st->len++];
     sym->name = name;
+
+    return sym;
+}
+
+void var_ref(symtable_t* st, node_t* n) {
+    sym_t* sym;
+
+    sym = symtable_get(st, n->name);
+    if (sym) {
+        sym_transfer(sym, n);
+    }
+    
+    sym = symtable_add(st, n->name);
+    sym->var = n;
+}
+
+
+void symtable_ref(symtable_t* st, node_t* n) {
+    switch (n->type) {
+    case NODE_VAR:
+        var_ref(n, n);
+        break;
+    default:
+        break;
+    }
 }

@@ -174,10 +174,10 @@ void get_annot(node_t* n, ebpf_t* e) {
 			break;
 		case NODE_MAP:
 		case NODE_VAR:
-			annot_sym(n, e);
+			//annot_sym(n, e);
 			break;
 		case NODE_ASSIGN:
-			annot_assign(n, e);
+			//annot_assign(n, e);
 			break;
 		case NODE_REC:
 			annot_rec(n, e);
@@ -266,10 +266,10 @@ ebpf_t* ebpf_new() {
 	return e;
 }
 
-static int _node_walk_list(node_t *head,
-			 void (*pre) (node_t *n, ebpf_t *ctx),
-			 void (*post)(node_t *n, ebpf_t *ctx), ebpf_t *ctx)
-{
+typedef void (*pre_t) (node_t* n, ebpf_t* ctx);
+typedef void (*post_t) (node_t* n, ebpf_t* ctx);
+
+static int _node_walk_list(node_t *head, pre_t* pre, post_t* post, ebpf_t* ctx) {
 	node_t *elem, *next = head;
 	int err = 0;
 	
@@ -285,9 +285,7 @@ static int _node_walk_list(node_t *head,
 #define do_list(_head)	_node_walk_list(_head, pre, post, e) 
 #define do_walk(_node) 	node_iter(_node, pre, post, e)
 
-void node_pre_traversal(node_t *n, 
-	void (*pre) (node_t *n, ebpf_t *e), 
-	void (*post)(node_t *n, ebpf_t *e), ebpf_t *e) {
+void node_pre_traversal(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
 
 	if (pre) { pre(n, e);}
 	
