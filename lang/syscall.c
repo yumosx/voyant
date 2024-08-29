@@ -39,15 +39,6 @@ int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn* insns, int ins
     return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
 }
 
-int bpf_prog_test_run(int prog_fd) {
-    union bpf_attr attr;
-
-    memset(&attr, 0, sizeof(attr));
-    attr.test.prog_fd = prog_fd;
-    
-    return syscall(__NR_bpf, BPF_PROG_TEST_RUN, &attr, sizeof(attr));
-}
-
 
 int bpf_map_create(enum bpf_map_type type, int ksize, int size, int entries) {
     union bpf_attr attr = {
@@ -61,7 +52,29 @@ int bpf_map_create(enum bpf_map_type type, int ksize, int size, int entries) {
 }
 
 
-int tracepoint_setup(ebpf_t* e, int id) {
+int bpf_prog_setup(int prog_fd) {
+    union bpf_attr attr;
+
+    memset(&attr, 0, sizeof(attr));
+    attr.test.prog_fd = prog_fd;
+    
+    return syscall(__NR_bpf, BPF_PROG_TEST_RUN, &attr, sizeof(attr));
+}
+
+
+int bpf_test_attach(ebpf_t* e) {
+    union bpf_attr attr;
+    int id;
+    
+    memset(&attr, 0, sizeof(attr));
+    id = bpf_prog_load(BPF_PROG_TYPE_RAW_TRACEPOINT, e->prog, e->ip-e->prog);    
+    attr.test.prog_fd = id;
+
+    return syscall(__NR_bpf, BPF_PROG_TEST_RUN, &attr, sizeof(attr));
+}
+
+
+int bpf_probe_setup(ebpf_t* e, int id) {
     struct perf_event_attr attr = {};
     
     int ed, bd;

@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <stdnoreturn.h>
+#include <stdio.h>
 
 #define _size(arr) (sizeof(arr) / sizeof(arr[0]))
 
@@ -20,4 +21,5 @@ extern void* vcalloc(size_t len1, size_t len2);
 extern void* vrealloc(void* p, size_t size);
 extern char* vstr(char* str);
 extern char* str_escape(char* str);
+extern FILE* fopenf(const char* mode, const char* fmt, ...);
 #endif

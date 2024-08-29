@@ -59,10 +59,11 @@ void compile_call(node_t *n, ebpf_t *e) {
 
 void node_probe_walk(node_t *p, ebpf_t *e) {
     node_t *n, *stmts;
-    
+    /* 
     if (strcmp("BEGIN", p->probe.name)) {
         p->probe.traceid = get_id(p->probe.name);
     }
+    */
 
     stmts = p->probe.stmts;
 
@@ -151,10 +152,29 @@ void compile(node_t* n, ebpf_t* e) {
     compile_return(n, e); 
 }
 
+void run(char* name, ebpf_t* e) {
+    int id;
+
+    if (!strcmp(name, "BEGIN")) {
+        bpf_test_attach(e);
+        evpipe_loop(e->evp, &term_sig, 0);
+        return;
+    }
+
+    siginterrupt(SIGINT, 1);
+    signal(SIGINT, term);
+    
+    id = get_id(name);
+    bpf_probe_setup(e, id);
+    evpipe_loop(e->evp, &term_sig, -1);
+}
 
 int main(int argc, char **argv) {
-    char *filename, *input;
-    node_t *map;
+    char *filename, *input, *name;
+    lexer_t* l;
+    parser_t* p;
+    node_t* head, *n, *map;
+    ebpf_t* e;
 
     if (argc != 2) {
         return 0;
@@ -168,31 +188,21 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    lexer_t *l = lexer_init(input);
-    parser_t *p = parser_init(l);
-    node_t* head, *n = parse_program(p);
-    ebpf_t* e;
-    
-    int id;
-    if (!strcmp("BEGIN", n->probe.name)) {
+    l = lexer_init(input);
+    p = parser_init(l);
+    n = parse_program(p);
+
+    _foreach(head, n) {
         e = ebpf_new();
-        compile(n, e);
-        id = bpf_prog_load(BPF_PROG_TYPE_RAW_TRACEPOINT, e->prog, e->ip-e->prog);
-        bpf_prog_test_run(id);
-        evpipe_loop(e->evp, &term_sig, 0);
+        name = head->probe.name;
+        compile(head, e);
+        run(name, e);   
     }
-
-    e = ebpf_new();
-    compile(n->next, e);
-    siginterrupt(SIGINT, 1);
-    signal(SIGINT, term);
-    tracepoint_setup(e, n->next->probe.traceid);
-    evpipe_loop(e->evp, &term_sig, -1);
-
 
     if (n->next->probe.stmts->infix_expr.left) {
         map = n->next->probe.stmts->infix_expr.left;
         map_dump(map);
     }
+
     return 0;
 }

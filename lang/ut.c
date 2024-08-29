@@ -10,6 +10,19 @@ noreturn void verror(char* fmt, ...) {
 	exit(1);
 }
 
+FILE* fopenf(const char* mode, const char* fmt, ...) {
+	va_list ap;
+	FILE* fp;
+	char* path;
+	va_start(ap, fmt);
+	vasprintf(&path, fmt, ap);
+	va_end(ap);
+
+	fp = fopen(path, mode);
+	free(path);
+	return fp;
+}	
+
 void* vmalloc(size_t len) {
 	void* obj = malloc(len);
 	if (!obj) {
