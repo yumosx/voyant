@@ -111,8 +111,7 @@ token_t *lexer_next_token(lexer_t *l)
 
     skip_whitespace(l);
 
-    switch (l->ch)
-    {
+    switch (l->ch) {
     case '"':
         t->type = TOKEN_STRING;
         t->literal = read_string(l);
@@ -171,28 +170,7 @@ token_t *lexer_next_token(lexer_t *l)
         t->literal = strdup(";");
         read_char(l);
         break;
-
-    case '=':
-        if (l->input[l->read_pos] == '=')
-        {
-            t->type = TOKEN_EQ;
-            t->literal = strdup("==");
-            read_char(l);
-            read_char(l);
-            break;
-        }
-
-        t->type = TOKEN_ASSIGN;
-        t->literal = strdup("=");
-        read_char(l);
-        break;
-
-    case ':':
-        t->type = TOKEN_COLON;
-        t->literal = strdup(":");
-        read_char(l);
-        break;
-
+    
     case '+':
         t->type = TOKEN_PLUS;
         t->literal = strdup("+");
@@ -206,14 +184,40 @@ token_t *lexer_next_token(lexer_t *l)
         break;
 
     case '|':
-        if (l->input[l->read_pos] == '>')
-        {
+        if (l->input[l->read_pos] == '>') {
             t->type = TOKEN_PIPE;
             t->literal = strdup("|>");
             read_char(l);
             read_char(l);
             break;
         }
+    case '=':
+        if (l->input[l->read_pos] == '=') {
+            t->type = TOKEN_EQ;
+            t->literal = strdup("==");
+            read_char(l);
+            read_char(l);
+            break;
+        }
+
+        t->type = TOKEN_ASSIGN;
+        t->literal = strdup("=");
+        read_char(l);
+        break;
+
+    case ':':
+        if (l->input[l->read_pos] == '=') {
+            t->type = TOKEN_DEC;
+            t->literal = strdup(":=");
+            read_char(l);
+            read_char(l);
+            break;
+        }
+        t->type = TOKEN_COLON;
+        t->literal = strdup(":");
+        read_char(l);
+        break;
+    
     case 0:
         t->literal = "";
         t->type = END_OF_FILE;

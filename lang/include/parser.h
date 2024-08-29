@@ -6,7 +6,8 @@
 
 typedef enum {
     LOWEST = 1,
-    ASSIGN,
+    DEC,
+    ASSIGN,           //=
     EQUALS,          //==
     LESSGREATERA,    //> or <
     SUM,            //+

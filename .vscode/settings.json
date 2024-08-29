@@ -14,7 +14,16 @@
         "cerrno": "c",
         "error.h": "c",
         "bpf.h": "c",
-        "bpfsyscall.h": "c"
+        "bpfsyscall.h": "c",
+        "array": "c",
+        "deque": "c",
+        "string": "c",
+        "unordered_map": "c",
+        "vector": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "lexer.h": "c",
+        "bpflib.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

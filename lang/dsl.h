@@ -9,9 +9,7 @@
 #include "parser.h"
 #include "ast.h"
 #include "symtable.h"
-#include "testbase.h"
 #include "annot.h"
-
 
 extern void compile_walk(node_t* n, ebpf_t* e);
 

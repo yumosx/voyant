@@ -146,7 +146,7 @@ static void term(int sig) {
 void compile(node_t* n, ebpf_t* e) {
     evpipe_init(e->evp, 4<<10);
     ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
-    node_pre_traversal(n, get_annot, loc_assign, e);
+    visit(n, get_annot, loc_assign, e);
     compile_walk(n, e);
     compile_return(n, e); 
 }
@@ -172,8 +172,8 @@ int main(int argc, char **argv) {
     parser_t *p = parser_init(l);
     node_t* head, *n = parse_program(p);
     ebpf_t* e;
+    
     int id;
-
     if (!strcmp("BEGIN", n->probe.name)) {
         e = ebpf_new();
         compile(n, e);

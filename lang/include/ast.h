@@ -18,6 +18,7 @@ typedef enum node_type_t {
     NODE_UNROLL,
     NODE_PREFIX_EXPR,
     NODE_INFIX_EXPR,
+    NODE_DEC,
     NODE_VAR,
     NODE_MAP,
     NODE_REC, 
@@ -75,10 +76,10 @@ typedef struct unroll_t {
     node_t* stmts;
 } unroll_t;
 
-typedef struct maphdr {
-	size_t keyszie;
-	int mapid;
-} maphdr_t;
+typedef struct dec_t {
+    node_t* var;
+    node_t* expr;
+} dec_t;
 
 typedef enum loc_t {
     LOC_NOWHERE,
@@ -94,6 +95,7 @@ typedef enum annot_type{
     ANNOT_RINT,
     ANNOT_RSTR,
     ANNOT_SYM_MAP,
+    ANNOT_VAR_DEC,
     ANNOT_SYM_ASSIGN,
     ANNOT_MAP_ASSIGN,
     ANNOT_MAP_METHOD,
@@ -120,6 +122,7 @@ struct node_t {
         probe_t probe;
         infix_t infix_expr;
         prefix_t prefix_expr;
+        dec_t dec;
         iff_t iff;
         unroll_t unroll;
         call_t call;
@@ -141,6 +144,7 @@ extern node_t* node_expr_new(int opcode, node_t* left, node_t* right);
 extern node_t* node_if_new(node_t* cond, node_t* then, node_t* els);
 extern node_t* node_rec_new(node_t* args);
 extern node_t* node_assign_new(node_t* left, node_t* expr);
+extern node_t* node_dec_new(node_t* var, node_t* expr);
 extern void node_print_str(node_type_t type);
 
 #endif

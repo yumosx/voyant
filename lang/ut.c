@@ -2,6 +2,14 @@
 
 #include "ut.h"
 
+noreturn void verror(char* fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	exit(1);
+}
+
 void* vmalloc(size_t len) {
 	void* obj = malloc(len);
 	if (!obj) {
@@ -35,7 +43,6 @@ char* vstr(char* s) {
 	strcpy(p, s);
 	return p;
 }
-
 
 char* str_escape(char* str) {
 	char* in, *out;

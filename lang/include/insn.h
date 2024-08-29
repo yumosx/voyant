@@ -41,13 +41,11 @@ typedef enum jump_t
     JUMP_JA = BPF_JA,
 } jump_t;
 
-typedef enum user_op
-{
+typedef enum user_op {
     OP_PIPE = 1,
 } user_op;
 
-typedef enum extract_op
-{
+typedef enum extract_op {
     EXTRACT_OP_NONE,
     EXTRACT_OP_MASK,
     EXTRACT_OP_SHIFT,

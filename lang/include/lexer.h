@@ -33,7 +33,7 @@ enum token_type{
     TOKEN_SEMICOLON,
     TOKEN_IF,
     TOKEN_UNROLL,
-    TOKEN_LET,
+    TOKEN_DEC,
     TOKEN_PLUS,
     TOKEN_STAR,
     TOKEN_PIPE,

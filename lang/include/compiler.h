@@ -7,7 +7,7 @@
 #include "insn.h"
 #include "ast.h"
 #include "annot.h"
-#include "arch.h"
+#include "bpflib.h"
 #include "ut.h"
 
 
@@ -25,7 +25,6 @@ extern int compile_ns(node_t* n, ebpf_t* e);
 
 extern void compile_func_call(node_t* n, ebpf_t* e);
 extern void compile_map_method(node_t* n, ebpf_t* e);
-extern int compile_probe_arg(node_t* n, ebpf_t* e);
 extern int compile_probe_str(node_t* n, ebpf_t* e);
 extern void compile_map_load(node_t* n, ebpf_t* e);
 extern void compile_sym_assign(node_t* n, ebpf_t* e);

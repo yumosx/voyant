@@ -56,7 +56,8 @@ get_token_seq(token_type t) {
         return INDEX;
     case TOKEN_ASSIGN:
         return ASSIGN;
-        break;
+    case TOKEN_DEC:
+        return DEC;
     case TOKEN_PIPE:
         return PIPE;
     default:
@@ -96,11 +97,22 @@ node_t* parse_int_expr(char* name) {
 	return node_int_new(integer);
 }
 
+node_t* parse_dec_expr(parser_t* p, node_t* var) {
+    node_t* expr;
+    int seq;
+
+    seq = get_token_seq(p->this_tok->type);
+    p_next_tok(p);
+    expr = parse_expr(p, seq);    
+    return node_dec_new(var, expr);  
+}
+
 node_t* parse_assign_expr(parser_t* p, node_t* left) {
 	op_t op;
 	node_t* right;
-
-    int seq = get_token_seq(p->this_tok->type);
+    int seq;
+    
+    seq = get_token_seq(p->this_tok->type);
     p_next_tok(p);
     right = parse_expr(p, seq); 
 
@@ -218,6 +230,10 @@ node_t* parse_expr(parser_t* p, seq_t s) {
             p_next_tok(p);
             left = parse_map_expr(p, left);
             break;
+        case TOKEN_DEC:
+            p_next_tok(p);
+            left = parse_dec_expr(p, left);
+            break;
         case TOKEN_ASSIGN:
             p_next_tok(p);
             left = parse_assign_expr(p, left);
@@ -259,7 +275,7 @@ node_t* parse_probe(parser_t* p) {
 	node_t* stmts, *prev;
     
     if (!expect_peek(p, TOKEN_IDENT)) {
-        _error("expect a ident for probe");
+        verror("expect a ident for probe");
         return NULL;
     }
 
@@ -281,7 +297,7 @@ node_t* parse_probe(parser_t* p) {
 node_t* parse_script(parser_t* p) {
     char* name;
     node_t* stmts;
-
+    
     name = p->this_tok->literal;
 
     if (!strcmp(name, "BEGIN")) {
@@ -298,14 +314,13 @@ node_t* parse_script(parser_t* p) {
     }
 }
 
-
 node_t* parse_program(parser_t* p) {
     node_t* n, *head;
     
     n = parse_script(p);
     head = n;
     
-    while (p->this_tok->type != END_OF_FILE) {
+    while (p->next_tok->type != END_OF_FILE) {
         node_t* script = parse_script(p);
         if (script) {
             n->next = script;
@@ -316,8 +331,6 @@ node_t* parse_program(parser_t* p) {
     
     return head;
 }
-
-
 
 void free_parser(parser_t* p) {
     free_lexer(p->lexer);

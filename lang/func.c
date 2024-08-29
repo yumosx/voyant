@@ -15,27 +15,12 @@ static int annot_rstr(node_t* n) {
 	n->annot.size = _ALIGNED(16);
 }
 
-static int annot_probe_arg(node_t* n) {
-	node_t* arg;
-	intptr_t reg;
-
-	arg = n->call.args;
-	reg = arch_reg_arg(arg->integer);	
-
-	n->integer = reg;
-	n->annot.type = ANNOT_RINT;
-	n->annot.size = sizeof(int64_t);
-	n->annot.addr = -8;
-}
-
-
 static int annot_probe_str(node_t* n) {
 	node_t* arg;
 
 	n->annot.type = ANNOT_RSTR;
 	n->annot.size = 64;
 }
-
 
 static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
 	int64_t num;

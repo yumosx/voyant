@@ -9,7 +9,7 @@ static void sym_init(symtable_t *st) {
     sym = &st->table[st->len++];
     sym->vannot.type = ANNOT_INT;
     sym->vannot.size = 8;
-    sym->name = "@$";
+    sym->name = "v";
 }
 
 symtable_t *symtable_new() {
@@ -38,19 +38,11 @@ sym_t *symtable_get(symtable_t *st, const char *name) {
 
 int sym_transfer(sym_t* sym, node_t *n) {
     if (n->type != NODE_VAR && n->type != NODE_MAP) {
-        return 0;
+        error("invalid node type provided");
     }
     
     n->annot = sym->vannot;
     return 0;
-}
-
-void sym_annot(symtable_t* st, sym_type type ,node_t* value) {
-    sym_t* sym;
-
-    sym = symtable_get(st, value->name);
-    sym->type = type;
-    sym->vannot = value->annot;
 }
 
 sym_t* symtable_add(symtable_t* st, char* name) {
@@ -68,23 +60,35 @@ sym_t* symtable_add(symtable_t* st, char* name) {
     return sym;
 }
 
+void sym_annot(symtable_t* st, sym_type type ,node_t* value) {
+    sym_t* sym;
+
+    sym = symtable_get(st, value->name);
+    sym->type = type;
+    sym->vannot = value->annot;
+}
+
+void var_dec(symtable_t* st, node_t* var) {
+    sym_t* sym;
+
+    sym = symtable_add(st, var->name);
+    sym->vannot = var->annot; 
+}
+
 void var_ref(symtable_t* st, node_t* n) {
     sym_t* sym;
 
     sym = symtable_get(st, n->name);
+    
     if (sym) {
         sym_transfer(sym, n);
     }
-    
-    sym = symtable_add(st, n->name);
-    sym->var = n;
 }
-
 
 void symtable_ref(symtable_t* st, node_t* n) {
     switch (n->type) {
     case NODE_VAR:
-        var_ref(n, n);
+        var_ref(st, n);
         break;
     default:
         break;
