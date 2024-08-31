@@ -1,9 +1,10 @@
 #include <stdint.h>
 
 #include "compiler.h"
+#include "func.h"
 
 void ebpf_emit(ebpf_t* e, struct bpf_insn insn) {
-    *(e->ip)++ = insn;
+	*(e->ip)++ = insn;
 }
 
 void reg_value_load(node_t* n, ebpf_t* e, reg_t* r) {
@@ -42,20 +43,6 @@ void int_to_stack(ebpf_t* e, int value, ssize_t at) {
 	ebpf_emit(e, STXDW(BPF_REG_10, at, BPF_REG_0));
 }
 
-void compile_func_call(node_t* n, ebpf_t* e) {
-	if (!strcmp(n->name, "pid")) {
-		compile_pid(n, e);
-	} else if (!strcmp(n->name, "cpu")) {
-		compile_cpu(n, e);
-	} else if (!strcmp(n->name, "comm")) {
-		compile_comm(n, e);
-	} else if (!strcmp(n->name, "arg")) {
-		compile_probe_str(n, e);
-	} else {
-		_errmsg("not match the function call");
-	}
-}
-
 void sym_to_stack(node_t* n, ebpf_t* e, size_t addr) {
 	sym_t* sym;
 
@@ -79,7 +66,7 @@ void compile_arg(node_t* arg, ebpf_t* e) {
 			sym_to_stack(arg, e, arg->annot.addr);
 			break;
 		case NODE_CALL:
-			compile_func_call(arg, e);
+			global_compile(arg, e);
 			break;
 		case NODE_MAP:
 			compile_map_load(arg, e);
@@ -133,10 +120,12 @@ void emit_map_update(ebpf_t* e, int fd, ssize_t key, ssize_t value) {
 }
 
 int emit_map_look(ebpf_t *prog, int fd, ssize_t addr) {
+	
 	emit_ld_mapfd(prog, BPF_REG_1, fd);
 	ebpf_emit(prog, MOV(BPF_REG_2, BPF_REG_10));
 	ebpf_emit(prog, ALU_IMM(BPF_ADD, BPF_REG_2, addr));
 	ebpf_emit(prog, CALL(BPF_FUNC_map_lookup_elem));
+	
 	return 0;
 }
 
@@ -146,52 +135,6 @@ void emit_read(ebpf_t* e, ssize_t to, int from, size_t size) {
 	ebpf_emit(e, MOV_IMM(BPF_REG_2, size));
 	ebpf_emit(e, MOV(BPF_REG_3, from));
 	ebpf_emit(e, CALL(BPF_FUNC_probe_read));
-}
-
-
-int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
-	ebpf_emit(e, CALL(func));
-    
-    switch(op) {
-        case EXTRACT_OP_MASK:
-            ebpf_emit(e, ALU_IMM(OP_AND, BPF_REG_0, 0xffffffff));
-            break;
-        case EXTRACT_OP_SHIFT:
-            ebpf_emit(e, ALU_IMM(OP_RSH, BPF_REG_0, 32));
-            break;
-		case EXTRACT_OP_DIV_1G:
-			ebpf_emit(e, ALU_IMM(OP_DIV, BPF_REG_0, 1000000000));
-        default:
-            break;
-    }
-	
-	ebpf_emit(e, STXDW(BPF_REG_10, n->annot.addr, BPF_REG_0));
-	return 0; 
-}
-
-int compile_pid(node_t* n, ebpf_t* e) {
-    return compile_rint_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
-}
-
-int compile_ns(node_t* n, ebpf_t* e) {
-	return compile_rint_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
-}
-
-int compile_cpu(node_t* n, ebpf_t* e) {
-	return compile_rint_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
-}
-
-void compile_comm(node_t* n, ebpf_t* e) {
-	size_t i;
-	
-	for (i = 0; i < n->annot.size; i += 4) {
-		ebpf_emit(e, STW_IMM(BPF_REG_10, n->annot.addr+i, BPF_REG_0));
-	}
-
-	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
-	ebpf_emit(e, ALU_IMM(OP_ADD, BPF_REG_1, n->annot.addr));
-	ebpf_emit(e, MOV_IMM(BPF_REG_2, n->annot.size));
-	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
 
 void compile_count(ssize_t addr, ebpf_t* e) {
@@ -273,8 +216,7 @@ void compile_map_load(node_t* n, ebpf_t* e) {
 	sym = symtable_get(e->st, n->name);
 	
 	if (!sym) {
-		_errmsg("the map not found");
-		exit(1);
+		verror("map not found");
 	}
 	
 	kaddr = sym->addr;
@@ -287,24 +229,6 @@ void compile_map_load(node_t* n, ebpf_t* e) {
 	emit_read(e, n->annot.addr, BPF_REG_0, 8);
 }
 
-int compile_probe_str(node_t* n, ebpf_t* e) {
-	ssize_t addr, size, from;
-	node_t* arg;
-
-	addr = n->annot.addr;
-	size = n->annot.size;
-	
-	stack_init(n, e);
-	
-	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
-	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
-	ebpf_emit(e, MOV_IMM(BPF_REG_2, size));
-
-	ebpf_emit(e, LDXDW(BPF_REG_3, 16, BPF_REG_9));
-	ebpf_emit(e, CALL(BPF_FUNC_probe_read_user_str));
-}
-
-
 void compile_str(node_t* n, ebpf_t* e) {
     str_to_stack(e, n->annot.addr, n->name, n->annot.size);
 }
@@ -313,4 +237,20 @@ void compile_return(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
 	ebpf_emit(e, EXIT);
 	return 0;
+}
+
+void _walk(node_t *n, ebpf_t *e) {
+    switch (n->type) {
+    case NODE_PROBE:
+        break;
+    case NODE_DEC:
+    case NODE_ASSIGN:
+        break;
+    case NODE_INFIX_EXPR:
+        break;
+    case NODE_CALL:
+        break;
+    default:
+        break;
+    }
 }

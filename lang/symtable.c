@@ -9,7 +9,7 @@ static void sym_init(symtable_t *st) {
     sym = &st->table[st->len++];
     sym->vannot.type = ANNOT_INT;
     sym->vannot.size = 8;
-    sym->name = "v";
+    sym->name = "voyant";
 }
 
 symtable_t *symtable_new() {
@@ -73,9 +73,10 @@ void var_dec(symtable_t* st, node_t* var) {
 
     sym = symtable_add(st, var->name);
     sym->vannot = var->annot; 
+    sym->var = var;
 }
 
-void var_ref(symtable_t* st, node_t* n) {
+int var_ref(symtable_t* st, node_t* n) {
     sym_t* sym;
 
     sym = symtable_get(st, n->name);
@@ -83,12 +84,20 @@ void var_ref(symtable_t* st, node_t* n) {
     if (sym) {
         sym_transfer(sym, n);
     }
+
+    return 0;    
+}
+
+void map_ref(symtable_t* st, node_t* n) {
+    
 }
 
 void symtable_ref(symtable_t* st, node_t* n) {
     switch (n->type) {
     case NODE_VAR:
         var_ref(st, n);
+        break;
+    case NODE_MAP:
         break;
     default:
         break;

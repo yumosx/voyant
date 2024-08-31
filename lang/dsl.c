@@ -9,10 +9,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <linux/bpf.h>
 #include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <sys/resource.h>
-#include <linux/bpf.h>
 #include <linux/version.h>
 #include <linux/perf_event.h>
 
@@ -22,7 +22,6 @@
 #include "ut.h"
 #include "bpfsyscall.h"
 #include "compiler.h"
-
 
 int get_id(char *name) {
     char *buffer;
@@ -74,7 +73,7 @@ void node_assign_walk(node_t *a, ebpf_t *e) {
 void node_call_walk(node_t *c, ebpf_t *e) {
     node_t *args, *n;
 
-    if (!strcmp(c->name, "out")) {
+    if (vstreq(c->name, "out")) {
         node_t *rec = c->call.args->next;
         compile_out(rec, e);
         return;
@@ -150,7 +149,7 @@ void compile(node_t* n, ebpf_t* e) {
 void run(char* name, ebpf_t* e) {
     int id;
 
-    if (!strcmp(name, "BEGIN")) {
+    if (vstreq(name, "BEGIN")) {
         bpf_test_attach(e);
         evpipe_loop(e->evp, &term_sig, 0);
         return;
@@ -179,8 +178,7 @@ int main(int argc, char **argv) {
     input = read_file(filename);
 
     if (!input) {
-        _errmsg("readfile error\n");
-        return 0;
+        verror("can not read file");
     }
 
     l = lexer_init(input);
@@ -193,6 +191,8 @@ int main(int argc, char **argv) {
         compile(head, e);
         run(name, e);   
     }
+
+    printf("size: %d\n", e->st->len);
 
     if (n->next->probe.stmts->infix_expr.left) {
         map = n->next->probe.stmts->infix_expr.left;

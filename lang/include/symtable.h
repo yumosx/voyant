@@ -1,6 +1,7 @@
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
 
+#include <stdbool.h>
 #include "ast.h"
 
 typedef struct reg_t reg_t;
@@ -21,9 +22,9 @@ typedef struct sym {
     sym_type type;
     const char *name;
     
+    reg_t *reg;
     ssize_t addr;
     annot_t vannot;
-    reg_t *reg;
 
     union{
         node_t* var;
@@ -35,7 +36,8 @@ typedef struct sym {
 typedef struct reg_t {
     int start;
     int end;
-    
+    bool spill;
+
     enum {
         BPF_REG_EMPTY,
         BPF_REG_NODE,

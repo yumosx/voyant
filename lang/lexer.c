@@ -6,10 +6,8 @@
 #include "lexer.h"
 #include "ut.h"
 
-static int is_number(char *literal)
-{
-    while (1)
-    {
+static int is_number(char *literal){
+    while (1) {
         char c = *literal;
         if (!c)
             break;

@@ -1,8 +1,8 @@
 #ifndef AST_H
 #define AST_H
 
-#include "insn.h"
 #include <unistd.h>
+#include "insn.h"
 
 typedef struct node_t node_t;
 typedef struct call_t call_t;
@@ -28,10 +28,8 @@ typedef enum node_type_t {
     NODE_INT,
 } node_type_t;
 
-
 typedef struct probe_t {
     char* name;
-    int flag;
     int traceid;
     node_t* stmts;
 } probe_t;
@@ -145,6 +143,5 @@ extern node_t* node_if_new(node_t* cond, node_t* then, node_t* els);
 extern node_t* node_rec_new(node_t* args);
 extern node_t* node_assign_new(node_t* left, node_t* expr);
 extern node_t* node_dec_new(node_t* var, node_t* expr);
-extern void node_print_str(node_type_t type);
 
 #endif

@@ -135,13 +135,23 @@ void assign_stack(node_t* n, ebpf_t* e) {
 
 void assign_var_reg(node_t* n, ebpf_t* e) {
 	node_t* var;
+	sym_t* sym;
 	reg_t* reg;
 
 	var = n->dec.var;
-	reg = reg_get(e);
-	reg_bind(var, e, reg);
+	sym = symtable_get(e->st, var->name);
 
-	n->annot.loc = LOC_REG;
+	switch (sym->vannot.type) {
+	case ANNOT_STR:	
+		break;
+	case ANNOT_INT:
+		reg = reg_get(e);
+		reg_bind(var, e, reg);
+		n->annot.loc = LOC_REG;
+		break;
+	default:
+		break;
+	}
 }
 
 void assign_map(node_t* n, ebpf_t* e) {
@@ -211,7 +221,6 @@ static int visit_list(node_t *head, pre_t* pre, post_t* post, ebpf_t* ctx) {
 #define do_walk(_node) 	visit(_node, pre, post, e)
 
 void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
-
 	if (pre) { pre(n, e);}
 	
 	switch (n->type) {

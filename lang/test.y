@@ -1,7 +1,10 @@
 BEGIN {
-    out("%s\n", "map count");
+    out("%s\n", "交替输出");
 }
 
 probe sys_enter_open {
-    map[comm()] |> count();
+    a := 1;
+    out("%d\n", a);
+    a = 2;
+    out("%d\n", a);
 }

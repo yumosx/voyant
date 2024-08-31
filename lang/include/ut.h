@@ -16,6 +16,12 @@
 
 #define _foreach(_n, _in) for ((_n)=(_in); (_n); (_n) = (_n)->next)
 
+typedef struct vec_t {
+	int len;
+	int cap;
+	void** data;
+} vec_t;
+
 extern noreturn void verror(char* fmt, ...);
 extern void* vmalloc(size_t len);
 extern void* vcalloc(size_t len1, size_t len2);
