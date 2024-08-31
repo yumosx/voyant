@@ -71,9 +71,10 @@ node_t* node_unroll_new(size_t count, node_t* stmts) {
 
 node_t* node_dec_new(node_t* var, node_t* expr) {
     node_t* n = node_new(NODE_DEC);
+    
     n->dec.var = var;
     n->dec.expr = expr;
-
+    
     return n;
 }
 

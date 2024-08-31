@@ -60,10 +60,10 @@ void annot_dec(node_t* n, ebpf_t* e) {
 	sym_t* sym;
 	node_t* expr;
 
-	n->annot.type = ANNOT_VAR_DEC;
-	name = n->dec.var->name;
 	expr = n->dec.expr;
-	
+	name = n->dec.var->name;
+	n->annot.type = ANNOT_VAR_DEC;
+
 	get_annot(expr, e);
 	sym = symtable_add(e->st, name);		
 	sym->vannot = expr->annot;
@@ -100,7 +100,7 @@ void annot_rec(node_t* n, ebpf_t* e) {
 void get_annot(node_t* n, ebpf_t* e) {
      switch(n->type) {
         case NODE_INT:
-            annot_int(n);
+			annot_int(n);
 			break;
         case NODE_STRING:
 			annot_str(n);
@@ -138,7 +138,6 @@ void assign_var_reg(node_t* n, ebpf_t* e) {
 	reg_t* reg;
 
 	var = n->dec.var;
-	
 	reg = reg_get(e);
 	reg_bind(var, e, reg);
 

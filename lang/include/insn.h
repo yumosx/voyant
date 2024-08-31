@@ -6,6 +6,8 @@
 #define _ALIGN sizeof(int64_t)
 #define _ALIGNED(_size) (((_size) + _ALIGN - 1) & ~(_ALIGN - 1))
 
+#define BPF_CTX_REG BPF_REG_9
+
 #define INSN(_code, _dst, _src, _off, _imm) \
     ((struct bpf_insn){                     \
         .code = _code,                      \

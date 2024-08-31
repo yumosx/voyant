@@ -244,15 +244,24 @@ void compile_map_assign(node_t* n, ebpf_t* e) {
 
 
 void compile_sym_assign(node_t* n, ebpf_t* e) {
+	node_t* var, *expr;
 	reg_t* dst;
 
-	if (n->assign.lval->type == NODE_MAP) {
-		compile_map_assign(n, e);
-		return;
+	switch (n->type) {
+	case NODE_DEC:
+		var = n->dec.var; 
+		expr = n->dec.expr;
+		break;
+	case NODE_ASSIGN:
+		var = n->assign.lval;
+		expr = n->assign.expr;
+		break;
+	default:
+		break;
 	}
 
-	dst = reg_bind_find(n->assign.lval, e);
-	reg_value_load(n->assign.expr, e, dst);
+	dst = reg_bind_find(var, e);
+	reg_value_load(expr, e, dst);
 }
 
 void compile_map_load(node_t* n, ebpf_t* e) {

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sched.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <linux/bpf.h>
 #include <linux/bpf.h>
@@ -20,6 +21,13 @@ static __u64 ptr_to_u64(const void* ptr) {
     return (__u64) (unsigned long) ptr;
 }
 
+int _bpf(enum bpf_cmd cmd, union bpf_attr *attr) {
+    int r = (int) syscall(__NR_bpf, cmd, attr, sizeof(*attr));
+    if (r < 0)
+        return -errno;
+    return r;
+}
+
 long perf_event_open(struct perf_event_attr* hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
     return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
@@ -36,7 +44,7 @@ int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn* insns, int ins
         .kern_version = LINUX_VERSION_CODE, 
     };
 
-    return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
+    return _bpf(BPF_PROG_LOAD, &attr);
 }
 
 
@@ -48,19 +56,8 @@ int bpf_map_create(enum bpf_map_type type, int ksize, int size, int entries) {
        .max_entries = entries,
     };
 
-    return syscall(__NR_bpf, BPF_MAP_CREATE, &attr, sizeof(attr));
+    return _bpf(BPF_MAP_CREATE, &attr);
 }
-
-
-int bpf_prog_setup(int prog_fd) {
-    union bpf_attr attr;
-
-    memset(&attr, 0, sizeof(attr));
-    attr.test.prog_fd = prog_fd;
-    
-    return syscall(__NR_bpf, BPF_PROG_TEST_RUN, &attr, sizeof(attr));
-}
-
 
 int bpf_test_attach(ebpf_t* e) {
     union bpf_attr attr;
@@ -70,11 +67,11 @@ int bpf_test_attach(ebpf_t* e) {
     id = bpf_prog_load(BPF_PROG_TYPE_RAW_TRACEPOINT, e->prog, e->ip-e->prog);    
     attr.test.prog_fd = id;
 
-    return syscall(__NR_bpf, BPF_PROG_TEST_RUN, &attr, sizeof(attr));
+    return _bpf(BPF_PROG_TEST_RUN, &attr);
 }
 
 
-int bpf_probe_setup(ebpf_t* e, int id) {
+int bpf_probe_attach(ebpf_t* e, int id) {
     struct perf_event_attr attr = {};
     
     int ed, bd;
@@ -113,8 +110,6 @@ int bpf_probe_setup(ebpf_t* e, int id) {
     return 0;
 }
 
-
-
 static int bpf_map_op(enum bpf_cmd cmd, int fd, void* key, void* val, int flags) {
 	union bpf_attr attr = {
 		.map_fd = fd,
@@ -122,7 +117,8 @@ static int bpf_map_op(enum bpf_cmd cmd, int fd, void* key, void* val, int flags)
 		.value = ptr_to_u64(val),
 		.flags = flags,
 	};
-	return syscall(__NR_bpf, cmd, &attr, sizeof(attr));
+    
+    return _bpf(cmd, &attr);
 }
 
 int bpf_map_lookup(int fd, void* key, void* val) {
@@ -144,7 +140,6 @@ int bpf_map_delete(int fd, void* key, void* val) {
 int bpf_map_close(int fd){
     close(fd);
 }
-
 
 int perf_event_enable(int id) {
     if (ioctl(id, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP)) {

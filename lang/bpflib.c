@@ -31,6 +31,8 @@ reg_t* reg_get(ebpf_t* e) {
 			return r;
 		}
 	}
+
+	return NULL;
 }
 
 void reg_bind(node_t* n, ebpf_t* e, reg_t* r) {

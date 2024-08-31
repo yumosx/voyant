@@ -59,14 +59,8 @@ void compile_call(node_t *n, ebpf_t *e) {
 
 void node_probe_walk(node_t *p, ebpf_t *e) {
     node_t *n, *stmts;
-    /* 
-    if (strcmp("BEGIN", p->probe.name)) {
-        p->probe.traceid = get_id(p->probe.name);
-    }
-    */
-
+    
     stmts = p->probe.stmts;
-
     _foreach(n, stmts) {
         compile_walk(n, e);
     }
@@ -98,6 +92,7 @@ void compile_walk(node_t *n, ebpf_t *e) {
     case NODE_PROBE:
         node_probe_walk(n, e);
         break;
+    case NODE_DEC:
     case NODE_ASSIGN:
         compile_sym_assign(n, e);
         break;
@@ -146,7 +141,7 @@ static void term(int sig) {
 
 void compile(node_t* n, ebpf_t* e) {
     evpipe_init(e->evp, 4<<10);
-    ebpf_emit(e, MOV(BPF_REG_9, BPF_REG_1));
+    ebpf_emit(e, MOV(BPF_CTX_REG, BPF_REG_1));
     visit(n, get_annot, loc_assign, e);
     compile_walk(n, e);
     compile_return(n, e); 
@@ -165,7 +160,7 @@ void run(char* name, ebpf_t* e) {
     signal(SIGINT, term);
     
     id = get_id(name);
-    bpf_probe_setup(e, id);
+    bpf_probe_attach(e, id);
     evpipe_loop(e->evp, &term_sig, -1);
 }
 
