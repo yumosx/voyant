@@ -7,6 +7,7 @@
 typedef struct reg_t reg_t;
 
 typedef enum {
+    SYM_NONE,
     SYM_MAP,
     SYM_VAR,
 } sym_type;
@@ -60,8 +61,9 @@ typedef struct symtable_t {
 extern symtable_t *symtable_new();
 extern sym_t *symtable_get(symtable_t *st, const char *name);
 extern int sym_transfer(sym_t *st, node_t *n);
-
-extern void sym_annot(symtable_t* st, sym_type type, node_t* value);
+extern void sym_annot(sym_t* sym, sym_type type, node_t* value);
+extern void var_dec(symtable_t* st, char* name, node_t* value);
+extern void map_dec(symtable_t* st, node_t* n);
 extern sym_t* symtable_add(symtable_t* st, char* name);
 extern void symtable_ref(symtable_t* st, node_t* n);
 

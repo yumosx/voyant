@@ -103,8 +103,10 @@ typedef struct annot_t {
     annot_type type;
     annot_type ktype;
     int mapid;
-    size_t keysize;
+    
+    size_t ksize;
     ssize_t size;
+    
     loc_t loc;
     ssize_t addr;
     int reg;

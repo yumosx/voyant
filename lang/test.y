@@ -1,5 +1,5 @@
 BEGIN {
-    out("%s\n", "交替输出");
+   out("%s\n", "------------");
 }
 
 probe sys_enter_open {

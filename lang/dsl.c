@@ -168,6 +168,7 @@ int main(int argc, char **argv) {
     lexer_t* l;
     parser_t* p;
     node_t* head, *n, *map;
+    symtable_t* st;
     ebpf_t* e;
 
     if (argc != 2) {
@@ -186,17 +187,19 @@ int main(int argc, char **argv) {
     n = parse_program(p);
 
     _foreach(head, n) {
+        int i;
         e = ebpf_new();
+        st = e->st;
+
         name = head->probe.name;
         compile(head, e);
         run(name, e);   
-    }
 
-    printf("size: %d\n", e->st->len);
-
-    if (n->next->probe.stmts->infix_expr.left) {
-        map = n->next->probe.stmts->infix_expr.left;
-        map_dump(map);
+        for (i = 0; i < st->len; i++) {
+            if (st->table[i].type == SYM_MAP) {
+                map_dump(st->table[i].map->map);
+            }
+        }
     }
 
     return 0;

@@ -3,7 +3,9 @@
         "bpflib.h": "c",
         "ut.h": "c",
         "annot.h": "c",
-        "func.h": "c"
+        "func.h": "c",
+        "typeinfo": "c",
+        "symtable.h": "c"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }

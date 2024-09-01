@@ -18,7 +18,7 @@ ebpf_t* ebpf_new() {
 ssize_t stack_addr_get(node_t* n, ebpf_t* e) {
 	
 	if (n->type == NODE_MAP) {
-		e->sp -= n->annot.keysize;
+		e->sp -= n->annot.ksize;
 	}
 	
 	e->sp -= n->annot.size;

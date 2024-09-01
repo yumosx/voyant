@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdlib.h>
+
 #include "symtable.h"
 #include "ut.h"
 
@@ -60,36 +61,86 @@ sym_t* symtable_add(symtable_t* st, char* name) {
     return sym;
 }
 
-void sym_annot(symtable_t* st, sym_type type ,node_t* value) {
-    sym_t* sym;
-
-    sym = symtable_get(st, value->name);
+void sym_annot(sym_t* sym, sym_type type, node_t* value) {
+    switch (type) {
+    case SYM_MAP:
+        break;
+    case SYM_VAR:
+        sym->var = value;
+        break;
+    default:
+        break;
+    }
+    
     sym->type = type;
     sym->vannot = value->annot;
 }
 
-void var_dec(symtable_t* st, node_t* var) {
+void var_dec(symtable_t* st, char* name, node_t* value) {
     sym_t* sym;
 
-    sym = symtable_add(st, var->name);
-    sym->vannot = var->annot; 
-    sym->var = var;
+    sym = symtable_add(st, name);
+    
+    sym->type = SYM_VAR;
+    sym->vannot = value->annot; 
+    sym->var = value;
 }
 
-int var_ref(symtable_t* st, node_t* n) {
+smap_t* map_create(node_t* map) {
+    ssize_t ksize, vsize;
+    smap_t* smap;
+
+    ksize = map->annot.ksize;
+    vsize = map->annot.size;
+
+    map->annot.mapid = bpf_map_create(
+        BPF_MAP_TYPE_HASH, ksize, vsize, 1024);
+
+    smap = calloc(1, sizeof(*smap));
+
+    smap->ksize = ksize;
+    smap->vsize = vsize;
+    smap->id = map->annot.mapid;
+    smap->map = map;
+
+    return smap;
+}
+
+void map_dec(symtable_t* st, node_t* map) {
+    sym_t* sym;
+    smap_t* smap;
+
+    smap = map_create(map);
+    
+    sym = symtable_add(st, map->name);
+    sym->type = SYM_MAP;
+    sym->vannot = map->annot;
+    sym->map = smap;
+}
+
+int var_ref(symtable_t* st, node_t* var) {
+    sym_t* sym;
+
+    sym = symtable_get(st, var->name);
+    
+    if (sym) {
+        sym_transfer(sym, var);
+        return 0; 
+    }
+
+    return 0;    
+}
+
+int map_ref(symtable_t* st, node_t* n) {
+    struct smap_t* map; 
     sym_t* sym;
 
     sym = symtable_get(st, n->name);
     
     if (sym) {
         sym_transfer(sym, n);
+        return 0;
     }
-
-    return 0;    
-}
-
-void map_ref(symtable_t* st, node_t* n) {
-    
 }
 
 void symtable_ref(symtable_t* st, node_t* n) {
@@ -98,6 +149,7 @@ void symtable_ref(symtable_t* st, node_t* n) {
         var_ref(st, n);
         break;
     case NODE_MAP:
+        map_ref(st, n);
         break;
     default:
         break;

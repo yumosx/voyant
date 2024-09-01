@@ -15,24 +15,23 @@ void annot_str(node_t* n) {
 	n->annot.size = _ALIGNED(strlen(n->name) + 1);
 }
 
-void annot_map(node_t* n, ebpf_t* e) {
+void annot_map(node_t* n, node_t* value, ebpf_t* e) {
 	node_t* arg;
 	ssize_t ksize, vsize;
-	int fd;
 
 	arg = n->map.args;
 	get_annot(arg, e);
-	ksize = n->map.args->annot.size;
-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, ksize, 8, 1024);
-	
-	n->annot.mapid = fd;
-	n->annot.keysize = ksize;
-	n->annot.size = 8;
-	n->annot.type = ANNOT_INT;
-	n->annot.ktype = arg->annot.type;
 
-	symtable_add(e->st, n->name);
-	sym_annot(e->st, SYM_MAP, n);
+	ksize = arg->annot.size;
+
+	n->annot.type = ANNOT_SYM_MAP;
+	n->annot.ksize = ksize;
+	
+	if (!value) {
+		n->annot.size = 8;
+	}
+	
+	map_dec(e->st, n);
 }
 
 
@@ -46,7 +45,7 @@ void annot_binop(node_t* n, ebpf_t* e) {
 
 	switch (op) {
 	case OP_PIPE:
-		annot_map(left, e);
+		annot_map(left, NULL, e);
 		right->prev = left;
 		n->annot.type = ANNOT_MAP_METHOD;
 		break;
@@ -55,7 +54,7 @@ void annot_binop(node_t* n, ebpf_t* e) {
 	}
 }
 
-void annot_dec(node_t* n, ebpf_t* e) {
+void annot_var_dec(node_t* n, ebpf_t* e) {
 	char* name;
 	sym_t* sym;
 	node_t* expr;
@@ -65,8 +64,7 @@ void annot_dec(node_t* n, ebpf_t* e) {
 	n->annot.type = ANNOT_VAR_DEC;
 
 	get_annot(expr, e);
-	sym = symtable_add(e->st, name);		
-	sym->vannot = expr->annot;
+	var_dec(e->st, name, expr);
 }
 
 void annot_assign(node_t* n, ebpf_t* e) {
@@ -112,7 +110,7 @@ void get_annot(node_t* n, ebpf_t* e) {
 			annot_binop(n, e);
 			break;
 		case NODE_DEC:
-			annot_dec(n, e);
+			annot_var_dec(n, e);
 			break;
 		case NODE_VAR:
 			symtable_ref(e->st, n);

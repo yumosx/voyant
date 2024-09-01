@@ -153,7 +153,7 @@ void compile_map_method(node_t* n, ebpf_t* e) {
 	right = n->infix_expr.right;
 
 	kaddr = left->annot.addr;
-	vaddr = kaddr + left->annot.keysize;
+	vaddr = kaddr + left->annot.ksize;
 	fd = left->annot.mapid;
 
 	compile_arg(key, e);
