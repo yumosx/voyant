@@ -58,12 +58,34 @@ void compile_call(node_t *n, ebpf_t *e) {
 
 void node_probe_walk(node_t *p, ebpf_t *e) {
     node_t *n, *stmts;
-    
+ 
     stmts = p->probe.stmts;
     _foreach(n, stmts) {
         compile_walk(n, e);
     }
 }
+
+void node_unroll_walk(node_t* u, ebpf_t* e) {
+    int i, j;
+    node_t* n, *stmts;
+    struct bpf_insn* start, *at;
+    ptrdiff_t insns;
+
+    start = e->ip;
+    stmts = u->unroll.stmts;
+    
+    _foreach(n, stmts) {
+        compile_walk(n, e);
+    }
+    insns = e->ip - start;
+
+    for (at = start, i = 1; i < u->unroll.count; i++) {
+        for (j = 0; j < insns; j++) {
+            ebpf_emit(e, *at++);
+        }
+    }
+}
+
 
 void node_assign_walk(node_t *a, ebpf_t *e) {
     node_t *expr = a->assign.expr;
@@ -97,6 +119,9 @@ void compile_walk(node_t *n, ebpf_t *e) {
         break;
     case NODE_INFIX_EXPR:
         compile_map_method(n, e);
+        break;
+    case NODE_UNROLL:
+        node_unroll_walk(n, e);
         break;
     case NODE_CALL:
         node_call_walk(n, e);

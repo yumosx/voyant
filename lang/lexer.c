@@ -6,7 +6,7 @@
 #include "lexer.h"
 #include "ut.h"
 
-static int is_number(char *literal){
+static int is_number(char *literal) {
     while (1) {
         char c = *literal;
         if (!c)
@@ -18,13 +18,15 @@ static int is_number(char *literal){
     return 1;
 }
 
-token_type get_type(char *str)
-{
+token_type get_type(char *str) {
     if (strcmp(str, "probe") == 0)
         return TOKEN_PROBE;
 
     if (!strcmp(str, "if"))
         return TOKEN_IF;
+
+    if (!strcmp(str, "unroll"))
+        return TOKEN_UNROLL;
 
     if (is_number(str))
         return TOKEN_INT;
@@ -32,8 +34,7 @@ token_type get_type(char *str)
     return TOKEN_IDENT;
 }
 
-lexer_t *lexer_init(char *s)
-{
+lexer_t *lexer_init(char *s) {
     lexer_t *l = vmalloc(sizeof(*l));
     
     l->input = vstr(s);
@@ -44,20 +45,16 @@ lexer_t *lexer_init(char *s)
     return l;
 }
 
-static void read_char(lexer_t *l)
-{
-    if (l->ch)
-    {
+static void read_char(lexer_t *l) {
+    if (l->ch) {
         l->pos = l->read_pos;
         l->read_pos++;
         l->ch = l->input[l->pos];
     }
 }
 
-static void skip_whitespace(lexer_t *l)
-{
-    while (l->ch && (l->ch == ' ' || l->ch == '\n' || l->ch == '\r' || l->ch == '\t'))
-    {
+static void skip_whitespace(lexer_t *l) {
+    while (l->ch && (l->ch == ' ' || l->ch == '\n' || l->ch == '\r' || l->ch == '\t')) {
         read_char(l);
     }
 }
@@ -84,8 +81,7 @@ char *read_string(lexer_t *l)
     return str;
 }
 
-char *read_ident(lexer_t *l)
-{
+char *read_ident(lexer_t *l) {
     size_t pos = l->pos;
 
     while (is_char(l->input[l->pos]))

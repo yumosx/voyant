@@ -33,7 +33,6 @@ typedef struct sym {
     };
 } sym_t;
 
-
 typedef struct reg_t {
     int start;
     int end;
@@ -55,10 +54,12 @@ typedef struct reg_t {
 
 typedef struct symtable_t {
     size_t cap, len;
-    sym_t *table;
+    sym_t* table;
+    struct symtable_t* out;
 } symtable_t;
 
 extern symtable_t *symtable_new();
+extern symtable_t* symtable_create(symtable_t* out);
 extern sym_t *symtable_get(symtable_t *st, const char *name);
 extern int sym_transfer(sym_t *st, node_t *n);
 extern void sym_annot(sym_t* sym, sym_type type, node_t* value);

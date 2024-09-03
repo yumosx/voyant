@@ -186,14 +186,14 @@ void assign_rec(node_t* n, ebpf_t* e) {
 
 void loc_assign(node_t* n, ebpf_t* e) {
 	switch (n->annot.type) {
+	case ANNOT_RSTR:
+		assign_stack(n, e);
+		break;
 	case ANNOT_VAR_DEC:
 		assign_var_reg(n, e);
 		break;
 	case ANNOT_MAP_METHOD:
 		assign_map(n->infix_expr.left, e);
-		break;
-	case ANNOT_RSTR:
-		assign_stack(n, e);
 		break;
 	case ANNOT_REC:
 		assign_rec(n, e);
@@ -205,15 +205,14 @@ void loc_assign(node_t* n, ebpf_t* e) {
 
 static int visit_list(node_t *head, pre_t* pre, post_t* post, ebpf_t* ctx) {
 	node_t *elem, *next = head;
-	int err = 0;
 	
-	for (elem = next; !err && elem;) {
+	for (elem = next; elem;) {
 		next = elem->next;
 		visit(elem, pre, post, ctx);
 		elem = next;
 	}
 
-	return err;
+	return 0;
 }
 
 #define do_list(_head)	visit_list(_head, pre, post, e) 
@@ -228,6 +227,9 @@ void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
 		break;
 	case NODE_CALL:
 		do_list(n->call.args);
+		break;
+	case NODE_UNROLL:
+		do_list(n->unroll.stmts);
 		break;
 	default:
 		break;

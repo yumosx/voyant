@@ -1,9 +1,11 @@
 #include <stdint.h>
+#include <assert.h>
 
 #include "compiler.h"
 #include "func.h"
 
 void ebpf_emit(ebpf_t* e, struct bpf_insn insn) {
+	assert(e != NULL);
 	*(e->ip)++ = insn;
 }
 
@@ -184,7 +186,6 @@ void compile_map_assign(node_t* n, ebpf_t* e) {
 	
 	emit_map_update(e, val->annot.mapid, kaddr, vaddr);
 }
-
 
 void compile_sym_assign(node_t* n, ebpf_t* e) {
 	node_t* var, *expr;

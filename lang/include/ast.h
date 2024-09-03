@@ -142,6 +142,7 @@ extern node_t* node_int_new(size_t name);
 extern node_t* node_str_new(char* str);
 extern node_t* node_expr_new(int opcode, node_t* left, node_t* right);
 extern node_t* node_if_new(node_t* cond, node_t* then, node_t* els);
+extern node_t* node_unroll_new(size_t count, node_t* stmts);
 extern node_t* node_rec_new(node_t* args);
 extern node_t* node_assign_new(node_t* left, node_t* expr);
 extern node_t* node_dec_new(node_t* var, node_t* expr);

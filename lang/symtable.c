@@ -10,7 +10,7 @@ static void sym_init(symtable_t *st) {
     sym = &st->table[st->len++];
     sym->vannot.type = ANNOT_INT;
     sym->vannot.size = 8;
-    sym->name = "voyant";
+    sym->name = "stack";
 }
 
 symtable_t *symtable_new() {
@@ -22,6 +22,18 @@ symtable_t *symtable_new() {
 
     sym_init(st);
 
+    return st;
+}
+
+symtable_t* symtable_create(symtable_t* out) {
+    symtable_t* st;
+
+    st = vmalloc(sizeof(*st));
+    st->cap = 16;
+    st->table = vcalloc(st->cap, sizeof(*st->table));
+    st->out = out;
+
+    sym_init(st);
     return st;
 }
 

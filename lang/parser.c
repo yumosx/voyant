@@ -197,6 +197,32 @@ node_t* parse_map_expr(parser_t* p, node_t* left) {
     return left;
 }
 
+node_t* parse_unroll_stmts(parser_t* p) {
+    char* str;
+    node_t* stmts;
+    size_t count = 0;
+
+    if (!expect_peek(p, LEFT_PAREN)) {
+        return NULL;
+    }
+    str = p->next_tok->literal;
+
+    while (*str != '\0') {
+        count = (count * 10) + (*str++ - '0');
+    }
+    p_next_tok(p);
+
+    if (!expect_peek(p, RIGHT_PAREN)) {
+        return NULL;
+    }
+    p_next_tok(p);
+
+    stmts = parse_block_stmts(p);
+
+    return node_unroll_new(count, stmts);
+}
+
+
 node_t* parse_expr(parser_t* p, seq_t s) {    
     node_t* left;
 
@@ -210,6 +236,9 @@ node_t* parse_expr(parser_t* p, seq_t s) {
         case TOKEN_STRING:
 			left = node_str_new(vstr(p->this_tok->literal));
 			break;
+        case TOKEN_UNROLL:
+            left = parse_unroll_stmts(p);
+            break;
         default:
             return NULL;
     }
