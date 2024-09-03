@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sched.h>
 #include <errno.h>
+#include <string.h>
 #include <fcntl.h>
 #include <linux/bpf.h>
 #include <linux/bpf.h>
@@ -109,6 +110,47 @@ int bpf_probe_attach(ebpf_t* e, int id) {
     
     return 0;
 }
+
+
+int read_field(char* name) {
+    FILE* fmt;
+    int offs;
+    char line[0x80];
+
+    fmt = fopenf("r", "/sys/kernel/debug/traceing/events/%s/format", name); 
+
+    if (!fmt) {
+        fclose(fmt);
+        error("can't open the file");
+        return;
+    }
+    
+    char* save, *offs_s, *size_s, *sign_s;
+    char* type_s, *str;
+
+
+    while (fgets(line, sizeof(line), fmt)) {
+        if (!strstr(line, "field:"))
+            continue;
+
+        type_s = strtok_r(line, ";", &save);
+        offs_s = strtok_r(NULL, ";", &save);
+        size_s = strtok_r(NULL, ";", &save);
+        sign_s = strtok_r(NULL, ";", &save);
+
+        type_s += sizeof("field:");
+        
+        printf("type: %s\n", type_s);
+        offs_s += sizeof("offset:");
+        printf("offs: %s\n", offs_s);
+        size_s += sizeof("size:");
+        sign_s += sizeof("signed:");
+    }
+    
+    return 0;
+}
+
+
 
 static int bpf_map_op(enum bpf_cmd cmd, int fd, void* key, void* val, int flags) {
 	union bpf_attr attr = {

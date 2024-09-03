@@ -300,7 +300,7 @@ node_t* parse_script(parser_t* p) {
     
     name = p->this_tok->literal;
 
-    if (!strcmp(name, "BEGIN")) {
+    if (vstreq(name, "BEGIN")) {
         p_next_tok(p);
         stmts = parse_block_stmts(p); 
         p_next_tok(p);
@@ -309,7 +309,16 @@ node_t* parse_script(parser_t* p) {
         return node_probe_new("BEGIN", stmts);
     }
 
-    if (!strcmp(name, "probe")) {
+    if (vstreq(name, "END")) {
+        p_next_tok(p);
+        stmts = parse_block_stmts(p);
+        p_next_tok(p);
+        p_next_tok(p);
+
+        return node_probe_new("END", stmts);
+    }
+
+    if (vstreq(name, "probe")) {
         return parse_probe(p);
     }
 }

@@ -18,6 +18,8 @@ FILE* fopenf(const char* mode, const char* fmt, ...) {
 	vasprintf(&path, fmt, ap);
 	va_end(ap);
 
+	printf("%s\n", path);
+
 	fp = fopen(path, mode);
 	free(path);
 	return fp;

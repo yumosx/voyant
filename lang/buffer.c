@@ -171,7 +171,6 @@ struct ret_value evqueue_drain(evqueue_t* q) {
 	return ret;
 }
 
-
 struct ret_value evpipe_loop(evpipe_t* evp, int* sig, int timeout) {
 	struct ret_value ret;
 	int cpu, ready;

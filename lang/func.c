@@ -19,7 +19,7 @@ static int annot_probe_str(node_t* n) {
 	node_t* arg;
 
 	n->annot.type = ANNOT_RSTR;
-	n->annot.size = 64;
+	n->annot.size = 16;
 }
 
 static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
@@ -168,6 +168,7 @@ static builtin_t global_builtins[] = {
 	builtin("comm", annot_rstr, compile_comm),
 	builtin("arg", annot_probe_str, compile_probe_str),	
 	builtin("out", annot_out, NULL),
+	builtin("close", NULL, NULL),
 };
 
 int global_annot(node_t* n) {

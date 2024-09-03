@@ -155,6 +155,16 @@ void run(char* name, ebpf_t* e) {
         return;
     }
 
+    if (vstreq(name, "END")) {
+        term_sig = 0;
+        siginterrupt(SIGINT, 1);
+        signal(SIGINT, term);
+
+        bpf_test_attach(e);
+        evpipe_loop(e->evp, &term_sig, 0);
+        return;
+    }
+
     siginterrupt(SIGINT, 1);
     signal(SIGINT, term);
     
@@ -185,7 +195,7 @@ int main(int argc, char **argv) {
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p);
-
+    
     _foreach(head, n) {
         int i;
         e = ebpf_new();
@@ -201,6 +211,6 @@ int main(int argc, char **argv) {
             }
         }
     }
-
+    
     return 0;
 }

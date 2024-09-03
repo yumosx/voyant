@@ -158,6 +158,7 @@ void assign_map(node_t* n, ebpf_t* e) {
 	size_t kaddr;
 
 	assign_stack(n, e);
+	
 	key = n->map.args;
 	kaddr = n->annot.addr;
 	key->annot.addr = kaddr;
