@@ -239,19 +239,3 @@ void compile_return(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, EXIT);
 	return 0;
 }
-
-void _walk(node_t *n, ebpf_t *e) {
-    switch (n->type) {
-    case NODE_PROBE:
-        break;
-    case NODE_DEC:
-    case NODE_ASSIGN:
-        break;
-    case NODE_INFIX_EXPR:
-        break;
-    case NODE_CALL:
-        break;
-    default:
-        break;
-    }
-}

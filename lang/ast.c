@@ -94,5 +94,10 @@ node_t* node_probe_new(char* name, node_t* stmts) {
 
 void probe_free(node_t* n) {
     node_t* head;
-	free(n->probe.name);
+
+    _foreach(head, n->probe.stmts) {
+        if (head->name) {
+            free(head->name);
+        }
+    }
 }

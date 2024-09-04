@@ -1,9 +1,9 @@
 BEGIN {
-    out("%s", "the unroll test");
+    out("%s\n", "the unroll test");
 }
 
 probe sys_enter_execve {
-    unroll(3) {
+    unroll(6) {
         out("%s\n", "1");
     }
     out("%s\n", "----------");

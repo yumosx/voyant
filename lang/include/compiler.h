@@ -18,10 +18,6 @@ extern void str_to_stack(ebpf_t* e, void* data, ssize_t at, size_t size);
 extern void compile_rec(node_t* n, ebpf_t* e);
 
 extern void compile_out(node_t* n, ebpf_t* e);
-extern void compile_comm(node_t* n, ebpf_t* e);
-extern int compile_pid(node_t* n, ebpf_t* e);
-extern int compile_cpu(node_t* n, ebpf_t* e);
-extern int compile_ns(node_t* n, ebpf_t* e);
 
 extern void compile_map_method(node_t* n, ebpf_t* e);
 extern int  compile_probe_str(node_t* n, ebpf_t* e);

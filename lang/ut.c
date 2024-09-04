@@ -74,6 +74,9 @@ char* str_escape(char* str) {
 		case 'n':
 			*out = '\n';
 			break;
+		case 'r':
+			*out = '\r';
+			break;
 		case 't':
 			*out = '\t';
 			break;

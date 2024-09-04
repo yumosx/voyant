@@ -43,6 +43,7 @@ int get_id(char *name) {
         fclose(fp);
         return 1;
     }
+    
     free(buffer);
     return number;
 }
@@ -50,8 +51,7 @@ int get_id(char *name) {
 void compile_call(node_t *n, ebpf_t *e) {
     if (!strcmp(n->name, "pid")) {
         compile_pid(n, e);
-    }
-    else if (!strcmp(n->name, "cpu")) {
+    } else if (!strcmp(n->name, "cpu")) {
         compile_cpu(n, e);
     }
 }
@@ -86,7 +86,6 @@ void node_unroll_walk(node_t* u, ebpf_t* e) {
     }
 }
 
-
 void node_assign_walk(node_t *a, ebpf_t *e) {
     node_t *expr = a->assign.expr;
     compile_sym_assign(a, e);
@@ -105,7 +104,7 @@ void node_call_walk(node_t *c, ebpf_t *e) {
         compile_walk(n, e);
     }
 
-    compile_call(c, e);
+    global_compile(c, e);
 }
 
 void compile_walk(node_t *n, ebpf_t *e) {
