@@ -35,6 +35,7 @@ enum {
   IR_STORE_ARG,
   IR_STORE_SPILL,
   IR_NOP,
+  IR_VAR_DEC,
 };
 
 typedef struct reg_t {
@@ -81,11 +82,18 @@ typedef struct ir_t {
 
 typedef struct prog_t{
     char* name;
-    node_t* node;
+    
+    node_t* ast;
     vec_t* vars;
     vec_t* bbs;
+    
+    int sp;
 } prog_t;
 
+typedef struct code_t {
+    struct bpf_insn* ip;
+    struct bpf_insn prog[BPF_MAXINSNS];
+} code_t;
 
 reg_t* emit_expr(node_t* n);
 int gen_ir(node_t* n);

@@ -2,6 +2,8 @@
 
 #include "ir.h"
 #include "ut.h"
+#include "insn.h"
+#include "bpfsyscall.h"
 
 static prog_t* prog;
 static bb_t* out;
@@ -9,6 +11,8 @@ static int nreg = 1;
 int nlabel = 1;
 static int regnum = 3;
 static int sp = 0;
+int bpfregs[3] = {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
+
 
 static bb_t* new_bb() {
     bb_t* bb = calloc(1, sizeof(*bb));
@@ -134,13 +138,12 @@ int gen_ir(node_t* n) {
         emit_expr(head);
     }
     
-    new_ir(IR_RETURN)->r2 = imm(0);
     return 0; 
 }
 
 prog_t* prog_new(node_t* n) {
     prog_t* p = vmalloc(sizeof(*p));
-    p->node = n;
+    p->ast = n;
     p->vars = vec_new();
     p->bbs = vec_new();
     return p; 
@@ -387,7 +390,8 @@ void regs_alloc(prog_t* prog) {
     //get the regs
     regs = collect(prog);
     scan(regs);
-
+    
+    /*
     for (i = 0; i < regs->len; i++) {
         reg_t* reg = regs->data[i];
         if (!reg->spill)
@@ -401,6 +405,61 @@ void regs_alloc(prog_t* prog) {
         bb = prog->bbs->data[i];
         emit_spill_code(bb);
     }
+    */
+}
+
+void code_emit(ebpf_t* code, struct bpf_insn insn) {
+    assert(code != NULL);
+    *(code->ip)++ = insn;
+}
+
+void compile_ir(ir_t* ir, ebpf_t* code) {
+    int r0 = ir->r0 ? ir->r0->rn : 0;
+    int r1 = ir->r1 ? ir->r1->rn : 0; 
+    int r2 = ir->r2 ? ir->r2->rn : 0;
+
+    switch (ir->op) {
+    case IR_IMM:
+        printf("mov: reg(%d) imm(%d)\n", bpfregs[r0], ir->imm);
+        code_emit(code, MOV_IMM(bpfregs[r0], ir->imm));
+        break;
+    case IR_ADD:
+        printf("add: reg(%d) reg(%d)\n", bpfregs[r0], bpfregs[r2]);
+        code_emit(code, ALU(BPF_ADD, bpfregs[r0], bpfregs[r2]));
+        break;
+    case IR_BPREL:
+        printf("alloc var reg(%d)\n", bpfregs[r0]);
+        break;
+    case IR_STORE:
+        printf("mov: reg(%d) reg(%d)\n", bpfregs[r1], bpfregs[r2]);
+        code_emit(code, MOV(bpfregs[r1], bpfregs[r2]));
+        break;
+    case IR_RETURN:
+        printf("%s\n", "exit"); 
+        break;
+    default:
+        break;
+    }
+}
+
+ebpf_t* compile(prog_t* prog) {
+    int i, j;
+    bb_t* bb;
+    ir_t* ir;
+    ebpf_t* e;
+
+    e = ebpf_new();
+
+    for (i = 0; i < prog->bbs->len; i++) {
+        bb = prog->bbs->data[i];     
+
+        for (j = 0; j < bb->ir->len; j++) {
+            ir = bb->ir->data[j];
+            compile_ir(ir, e);
+        }
+    }
+
+    return e;
 }
 
 int main() {
@@ -408,8 +467,10 @@ int main() {
     lexer_t* l;
     parser_t* p;
     node_t* n;
-    
-    input = "probe sys{ a := 1 + 2;}";  
+    code_t* code;
+    ebpf_t* e;
+
+    input = "probe sys{ a := 1 + 2; b := 2; c := 2;}";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 
@@ -418,6 +479,11 @@ int main() {
     gen_ir(n);
     liveness(prog);
     regs_alloc(prog);
+    code = compile(prog);
 
+    code_emit(code, MOV_IMM(BPF_REG_0, 0));
+	code_emit(code, EXIT);
+
+    //bpf_probe_attach(code, 721); 
     return 0;
 }
