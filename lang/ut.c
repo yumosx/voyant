@@ -10,6 +10,42 @@ noreturn void verror(char* fmt, ...) {
 	exit(1);
 }
 
+vec_t* vec_new() {
+    vec_t* vec = vmalloc(sizeof(vec));
+    vec->data = vmalloc(sizeof(void*) * 16);
+    vec->cap = 16;
+    vec->len = 0;
+    return vec;
+}
+
+void vec_push(vec_t* v, void* elem) {
+    if (v->len == v->cap) {
+        v->cap *= 2;
+        v->data = realloc(v->data, sizeof(void*)*v->cap);
+    }
+    v->data[v->len++] = elem;
+}
+
+bool vec_contains(vec_t* v, void* elem) {
+	int i;
+
+	for (i = 0; i < v->len; i++) {
+		if (v->data[i] == elem) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool vec_union(vec_t* v, void* elem) {
+	if (vec_contains(v, elem)) {
+		return false;
+	}
+	vec_push(v, elem);
+	
+	return true;
+}
+
 FILE* fopenf(const char* mode, const char* fmt, ...) {
 	va_list ap;
 	FILE* fp;

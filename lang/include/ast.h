@@ -5,10 +5,6 @@
 #include "insn.h"
 
 typedef struct node_t node_t;
-typedef struct call_t call_t;
-typedef struct infix_t infix_t;
-typedef struct prefix_t prefix_t;
-typedef struct assign_t assign_t;
 
 typedef enum node_type_t {
     NODE_SCRIPT,
@@ -34,34 +30,32 @@ typedef struct probe_t {
     node_t* stmts;
 } probe_t;
 
-struct call_t {
+typedef struct call_t {
    node_t* args; 
-};
+} call_t;
 
-struct infix_t {
+typedef struct infix_t {
     int opcode;
     node_t* left, *right;
-};
+} infix_t;
 
-struct prefix_t {
+typedef struct prefix_t {
     int opcode;
     node_t* right;
-};
+} prefix_t;
 
-struct assign_t {
+typedef struct assign_t {
     op_t op;
     node_t* lval, *expr;
-};
+} assign_t;
 
 typedef struct map_t {
     node_t* args;
 } map_t;
 
-
 typedef struct rec_t {
 	node_t* args;
 } rec_t;
-
 
 typedef struct iff_t {
     node_t* cond;
@@ -92,9 +86,9 @@ typedef enum annot_type{
     ANNOT_SYM,
     ANNOT_RINT,
     ANNOT_RSTR,
-    ANNOT_SYM_MAP,
+    ANNOT_MAP,
     ANNOT_VAR_DEC,
-    ANNOT_SYM_ASSIGN,
+    ANNOT_VAR_ASSIGN,
     ANNOT_MAP_ASSIGN,
     ANNOT_MAP_METHOD,
 } annot_type;

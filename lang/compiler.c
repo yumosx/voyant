@@ -9,7 +9,7 @@ void ebpf_emit(ebpf_t* e, struct bpf_insn insn) {
 	*(e->ip)++ = insn;
 }
 
-void reg_value_load(node_t* n, ebpf_t* e, reg_t* r) {
+void reg_value_load(node_t* n, ebpf_t* e, xreg_t* r) {
 	switch (n->type) {
 	case NODE_INT:
 		ebpf_emit(e, MOV_IMM(r->reg, n->integer));
@@ -189,7 +189,7 @@ void compile_map_assign(node_t* n, ebpf_t* e) {
 
 void compile_sym_assign(node_t* n, ebpf_t* e) {
 	node_t* var, *expr;
-	reg_t* dst;
+	xreg_t* dst;
 
 	switch (n->type) {
 	case NODE_DEC:

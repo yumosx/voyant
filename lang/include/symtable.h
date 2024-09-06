@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "ast.h"
 
-typedef struct reg_t reg_t;
+typedef struct xreg_t xreg_t;
 
 typedef enum {
     SYM_NONE,
@@ -23,7 +23,7 @@ typedef struct sym {
     sym_type type;
     const char *name;
     
-    reg_t *reg;
+    xreg_t *reg;
     ssize_t addr;
     annot_t vannot;
 
@@ -33,7 +33,7 @@ typedef struct sym {
     };
 } sym_t;
 
-typedef struct reg_t {
+typedef struct xreg_t {
     int start;
     int end;
     bool spill;
@@ -50,7 +50,7 @@ typedef struct reg_t {
     };
 
     int reg;
-} reg_t;
+} xreg_t;
 
 typedef struct symtable_t {
     size_t cap, len;

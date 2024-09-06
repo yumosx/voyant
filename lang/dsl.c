@@ -219,7 +219,8 @@ int main(int argc, char **argv) {
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p);
-    
+
+    /*
     _foreach(head, n) {
         int i;
         e = ebpf_new();
@@ -235,6 +236,7 @@ int main(int argc, char **argv) {
             }
         }
     }
+    */
     
     return 0;
 }

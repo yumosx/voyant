@@ -25,8 +25,8 @@ ssize_t stack_addr_get(node_t* n, ebpf_t* e) {
 	return e->sp;
 }
 
-reg_t* reg_get(ebpf_t* e) {
-	reg_t* r;
+xreg_t* reg_get(ebpf_t* e) {
+	xreg_t* r;
 	
 	for (r = &e->reg[BPF_REG_8]; r >= &e->reg[BPF_REG_6]; r--) {
 		if (r->type == BPF_REG_EMPTY) {
@@ -37,7 +37,7 @@ reg_t* reg_get(ebpf_t* e) {
 	return NULL;
 }
 
-void reg_bind(node_t* n, ebpf_t* e, reg_t* r) {
+void reg_bind(node_t* n, ebpf_t* e, xreg_t* r) {
 	if (n->type == NODE_VAR) {
 		sym_t* sym;
 		sym = symtable_get(e->st, n->name);
@@ -50,8 +50,8 @@ void reg_bind(node_t* n, ebpf_t* e, reg_t* r) {
 	}
 }
 
-reg_t* reg_bind_find(node_t* n, ebpf_t* e) {
-	reg_t* reg;
+xreg_t* reg_bind_find(node_t* n, ebpf_t* e) {
+	xreg_t* reg;
 	int type;
 	sym_t* sym;
 

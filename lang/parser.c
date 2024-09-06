@@ -5,11 +5,12 @@
 #include "parser.h"
 #include "ut.h"
 
-void p_next_tok(parser_t* p) {    
+void next_tok(parser_t* p) {    
     if (p->this_tok != NULL) {
 		free_token(p->this_tok);
 	}
-	p->this_tok = p->next_tok;
+	
+    p->this_tok = p->next_tok;
     p->next_tok = lexer_next_token(p->lexer);
 }
 
@@ -27,15 +28,15 @@ parser_t* parser_init(lexer_t* l) {
     p->this_tok = NULL;
     p->next_tok = NULL;
 
-    p_next_tok(p);
-    p_next_tok(p);
+    next_tok(p);
+    next_tok(p);
 
     return p;
 }
 
 int expect_peek(parser_t* p, token_type t) {
     if (next_tok_is(p, t)) {
-        p_next_tok(p);
+        next_tok(p);
         return 1;
     }
     return 0;
@@ -102,7 +103,7 @@ node_t* parse_dec_expr(parser_t* p, node_t* var) {
     int seq;
 
     seq = get_token_seq(p->this_tok->type);
-    p_next_tok(p);
+    next_tok(p);
     expr = parse_expr(p, seq);    
     return node_dec_new(var, expr);  
 }
@@ -113,7 +114,7 @@ node_t* parse_assign_expr(parser_t* p, node_t* left) {
     int seq;
     
     seq = get_token_seq(p->this_tok->type);
-    p_next_tok(p);
+    next_tok(p);
     right = parse_expr(p, seq); 
 
     return node_assign_new(left, right);
@@ -126,7 +127,7 @@ node_t* parse_infix_expr(parser_t* p, node_t* left) {
     
 	opcode = get_op(p->this_tok->type);
     seq = get_token_seq(p->this_tok->type);
-    p_next_tok(p);
+    next_tok(p);
     
     right = parse_expr(p, seq);
     
@@ -136,14 +137,14 @@ node_t* parse_infix_expr(parser_t* p, node_t* left) {
 node_t* parse_call_args(parser_t* p) {
     node_t* n, *head;
     
-    p_next_tok(p);
+    next_tok(p);
     
     n = parse_expr(p, LOWEST);
     head = n;
         
     while (next_tok_is(p, TOKEN_COMMA)) {
-        p_next_tok(p);
-        p_next_tok(p);
+        next_tok(p);
+        next_tok(p);
         n->next = parse_expr(p, LOWEST);
         n = n->next;
     }
@@ -160,14 +161,13 @@ node_t* parse_call_expr(parser_t* p, node_t* left) {
     left->type = NODE_CALL;
     
 	if (next_tok_is(p, RIGHT_PAREN)) {
-		p_next_tok(p);
+		next_tok(p);
 		return left;
 	}
 
 	left->call.args = parse_call_args(p);
     return left;
 }
-
 
 node_t* parse_map_args(parser_t* p) {
     node_t* n, *head;
@@ -176,8 +176,8 @@ node_t* parse_map_args(parser_t* p) {
     head = n;
     
     while (next_tok_is(p, TOKEN_COMMA)) {
-        p_next_tok(p);
-        p_next_tok(p);
+        next_tok(p);
+        next_tok(p);
         n->next = parse_expr(p, LOWEST);
         n = n->next;
     }
@@ -192,7 +192,7 @@ node_t* parse_map_args(parser_t* p) {
 
 node_t* parse_map_expr(parser_t* p, node_t* left) {
     left->type = NODE_MAP;
-    p_next_tok(p);
+    next_tok(p);
     left->map.args = parse_map_args(p);
     return left;
 }
@@ -210,12 +210,12 @@ node_t* parse_unroll_stmts(parser_t* p) {
     while (*str != '\0') {
         count = (count * 10) + (*str++ - '0');
     }
-    p_next_tok(p);
+    next_tok(p);
 
     if (!expect_peek(p, RIGHT_PAREN)) {
         return NULL;
     }
-    p_next_tok(p);
+    next_tok(p);
 
     stmts = parse_block_stmts(p);
 
@@ -248,23 +248,23 @@ node_t* parse_expr(parser_t* p, seq_t s) {
         case TOKEN_PIPE:
         case TOKEN_STAR:
         case TOKEN_PLUS:
-            p_next_tok(p);
+            next_tok(p);
             left = parse_infix_expr(p, left);
             break;
         case LEFT_PAREN:
-            p_next_tok(p);
+            next_tok(p);
             left = parse_call_expr(p, left);
             break;
         case TOKEN_LEFT_BRACKET:
-            p_next_tok(p);
+            next_tok(p);
             left = parse_map_expr(p, left);
             break;
         case TOKEN_DEC:
-            p_next_tok(p);
+            next_tok(p);
             left = parse_dec_expr(p, left);
             break;
         case TOKEN_ASSIGN:
-            p_next_tok(p);
+            next_tok(p);
             left = parse_assign_expr(p, left);
             break;
         default:
@@ -278,12 +278,12 @@ node_t* parse_expr(parser_t* p, seq_t s) {
 node_t* parse_block_stmts(parser_t* p) {
     node_t* n, *head;
     
-    p_next_tok(p);
+    next_tok(p);
 
     n = parse_expr(p, LOWEST);
     head = n;
     
-    p_next_tok(p);
+    next_tok(p);
     
     while (!next_tok_is(p, TOKEN_RIGHT_BLOCK) && !next_tok_is(p, END_OF_FILE)) {
         node_t* stmts = parse_expr(p, LOWEST);
@@ -293,9 +293,10 @@ node_t* parse_block_stmts(parser_t* p) {
             n = n->next;
         }
 
-        p_next_tok(p);
+        next_tok(p);
     }
 
+    next_tok(p);
     return head;
 }
 
@@ -309,13 +310,13 @@ node_t* parse_probe(parser_t* p) {
     }
 
     name = strdup(p->this_tok->literal);
-	p_next_tok(p);
+	next_tok(p);
 	
 	if (p->this_tok->type == TOKEN_SLASH) {
-        p_next_tok(p);
+        next_tok(p);
 		prev = parse_expr(p, LOWEST);
-        p_next_tok(p);
-        p_next_tok(p);
+        next_tok(p);
+        next_tok(p);
     }
     
     stmts = parse_block_stmts(p);
@@ -329,22 +330,14 @@ node_t* parse_script(parser_t* p) {
     
     name = p->this_tok->literal;
 
-    if (vstreq(name, "BEGIN")) {
-        p_next_tok(p);
+    if (vstreq(name, "BEGIN") || vstreq(name, "END")) {
+        name = strdup(name);
+        next_tok(p);
+        
         stmts = parse_block_stmts(p); 
-        p_next_tok(p);
-        p_next_tok(p);
+        next_tok(p);
 
-        return node_probe_new("BEGIN", stmts);
-    }
-
-    if (vstreq(name, "END")) {
-        p_next_tok(p);
-        stmts = parse_block_stmts(p);
-        p_next_tok(p);
-        p_next_tok(p);
-
-        return node_probe_new("END", stmts);
+        return node_probe_new(name, stmts);
     }
 
     if (vstreq(name, "probe")) {
@@ -364,9 +357,10 @@ node_t* parse_program(parser_t* p) {
             n->next = script;
             n = n->next;
         }
-        p_next_tok(p); 
+        next_tok(p); 
     }
-    
+
+    free_parser(p);
     return head;
 }
 

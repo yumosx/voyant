@@ -24,7 +24,7 @@ void annot_map(node_t* n, node_t* value, ebpf_t* e) {
 
 	ksize = arg->annot.size;
 
-	n->annot.type = ANNOT_SYM_MAP;
+	n->annot.type = ANNOT_MAP;
 	n->annot.ksize = ksize;
 	
 	if (!value) {
@@ -134,7 +134,7 @@ void assign_stack(node_t* n, ebpf_t* e) {
 void assign_var_reg(node_t* n, ebpf_t* e) {
 	node_t* var;
 	sym_t* sym;
-	reg_t* reg;
+	xreg_t* reg;
 
 	var = n->dec.var;
 	sym = symtable_get(e->st, var->name);

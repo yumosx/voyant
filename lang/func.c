@@ -161,6 +161,9 @@ int compile_probe_str(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, CALL(BPF_FUNC_probe_read_user_str));
 }
 
+int annot_strcmp(node_t* node) {
+}
+
 static builtin_t global_builtins[] = {
 	builtin("pid", annot_rint, compile_pid),
 	builtin("cpu", annot_rint, compile_cpu),
@@ -168,7 +171,7 @@ static builtin_t global_builtins[] = {
 	builtin("comm", annot_rstr, compile_comm),
 	builtin("arg", annot_probe_str, compile_probe_str),	
 	builtin("out", annot_out, NULL),
-	builtin("close", NULL, NULL),
+	builtin("scmp", NULL, NULL),
 };
 
 int global_annot(node_t* n) {
