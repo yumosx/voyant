@@ -10,9 +10,8 @@ static bb_t* out;
 static int nreg = 1;
 int nlabel = 1;
 static int regnum = 3;
-static int sp = 0;
-int bpfregs[3] = {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
-
+int gregs[3] =  {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
+int argregs[5] = {BPF_REG_1, BPF_REG_2, BPF_REG_3, BPF_REG_4, BPF_REG_5};
 
 static bb_t* new_bb() {
     bb_t* bb = calloc(1, sizeof(*bb));
@@ -77,12 +76,18 @@ static reg_t* imm(int imm) {
 }
 
 reg_t* lval(node_t* var) {
-    ir_t* ir = new_ir(IR_BPREL);
+    ir_t* ir;
     
+    ir = new_ir(IR_BPREL);
     ir->r0 = new_reg();
     ir->var = var;
+    
+    return ir->r0;    
+}
 
-    return ir->r0;
+void load(node_t* node, reg_t* dst, reg_t* src) {
+    ir_t* ir = emit(IR_LOAD, dst, NULL, src);
+    ir->size = node->annot.size;
 }
 
 static reg_t* binop(int op, node_t* node) {
@@ -100,6 +105,8 @@ reg_t* emit_binop(node_t* n) {
         return binop(IR_ADD, n);
     case OP_MUL:
         return binop(IR_MUL, n);
+    case OP_DIV:
+        return binop(IR_DIV, n);
     default:
         break;
     }
@@ -111,8 +118,12 @@ reg_t* emit_expr(node_t* n) {
         return imm(n->integer);
     case NODE_INFIX_EXPR:
         return emit_binop(n);
-    case NODE_CALL:
-        return NULL;
+    case NODE_VAR:{
+        reg_t* r = new_reg();
+        load(n, r, lval(n));
+        return r;
+    }
+    case NODE_ASSIGN:
     case NODE_DEC: {
         reg_t* r1 = emit_expr(n->dec.expr);
         reg_t* r2 = lval(n->dec.var);
@@ -120,7 +131,15 @@ reg_t* emit_expr(node_t* n) {
         ir->size = 8;
         return r1;
     }
+    case NODE_CALL: {
+        ir_t* ir;
+        ir = new_ir(IR_CALL);
+        ir->r0 = new_reg();
+        ir->name = n->name;
+        return ir->r0;
+    }
     default:
+        verror("unknown ast type");
         break;
     }
 }
@@ -148,7 +167,6 @@ prog_t* prog_new(node_t* n) {
     p->bbs = vec_new();
     return p; 
 }
-
 
 static void add_edges(bb_t* bb) {
     if (bb->succ->len > 0)
@@ -277,9 +295,10 @@ static vec_t* collect(prog_t* prog) {
             set_end(ir->r2, ic);
             set_end(ir->bbarg, ic);
             
-            if (ir->op == IR_CALL)
-                for (k = 0; k < ir->nargs; j++)
+            if (ir->op == IR_CALL) {
+                for (k = 0; k < ir->nargs; k++)
                     set_end(ir->args[k], ic);
+            }
         }
         
         for (j = 0; j < bb->out_regs->len; j++) {
@@ -387,11 +406,9 @@ void regs_alloc(prog_t* prog) {
         trans(bb);
     }
     
-    //get the regs
     regs = collect(prog);
     scan(regs);
     
-    /*
     for (i = 0; i < regs->len; i++) {
         reg_t* reg = regs->data[i];
         if (!reg->spill)
@@ -400,17 +417,29 @@ void regs_alloc(prog_t* prog) {
         reg->var = var;
         vec_push(prog->vars, var);
     }
-
+    
     for (i = 0; i < prog->bbs->len; i++) {
         bb = prog->bbs->data[i];
         emit_spill_code(bb);
     }
-    */
 }
 
 void code_emit(ebpf_t* code, struct bpf_insn insn) {
     assert(code != NULL);
     *(code->ip)++ = insn;
+}
+
+void code_ld_mapfd(ebpf_t* e, int reg, int fd) {
+    ebpf_emit(e, INSN(BPF_LD|BPF_DW|BPF_IMM, reg, BPF_PSEUDO_MAP_FD, 0, fd));
+    ebpf_emit(e, INSN(0, 0, 0, 0, 0));
+}
+
+void call_emit(ir_t* ir, ebpf_t* code) {
+}
+
+
+void compile_out(ir_t* ir, ebpf_t* code) {
+    int i = 0; 
 }
 
 void compile_ir(ir_t* ir, ebpf_t* code) {
@@ -420,19 +449,25 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
 
     switch (ir->op) {
     case IR_IMM:
-        printf("mov: reg(%d) imm(%d)\n", bpfregs[r0], ir->imm);
-        code_emit(code, MOV_IMM(bpfregs[r0], ir->imm));
+        printf("mov: reg(%d) imm(%d)\n", gregs[r0], ir->imm);
+        code_emit(code, MOV_IMM(gregs[r0], ir->imm));
         break;
     case IR_ADD:
-        printf("add: reg(%d) reg(%d)\n", bpfregs[r0], bpfregs[r2]);
-        code_emit(code, ALU(BPF_ADD, bpfregs[r0], bpfregs[r2]));
+        printf("add: reg(%d) reg(%d)\n", gregs[r0], gregs[r2]);
+        code_emit(code, ALU(BPF_ADD, gregs[r0], gregs[r2]));
         break;
     case IR_BPREL:
-        printf("alloc var reg(%d)\n", bpfregs[r0]);
+        printf("store addr in %d\n", gregs[r0]);
+        code_emit(code, MOV(gregs[r0], BPF_REG_10));
+        code_emit(code, ALU_IMM(bpfregs[r0], BPF_REG_10, ir->var->annot.addr));
         break;
     case IR_STORE:
-        printf("mov: reg(%d) reg(%d)\n", bpfregs[r1], bpfregs[r2]);
-        code_emit(code, MOV(bpfregs[r1], bpfregs[r2]));
+        printf("mov: reg(%d) reg(%d)\n", gregs[r1], gregs[r2]);
+        code_emit(code, MOV(gregs[r1], gregs[r2]));
+        break;
+    case IR_CALL:
+        printf("call: %s\n", ir->name);
+        call_emit(ir, code);
         break;
     case IR_RETURN:
         printf("%s\n", "exit"); 
@@ -470,11 +505,15 @@ int main() {
     code_t* code;
     ebpf_t* e;
 
-    input = "probe sys{ a := 1 + 2; b := 2; c := 2;}";  
+    /*
+    out: addr-->reg1
+    */
+    input = "probe sys{ a := pid();}";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 
     prog = prog_new(n); 
+
 
     gen_ir(n);
     liveness(prog);
