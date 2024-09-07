@@ -12,6 +12,8 @@ enum {
   IR_MUL,
   IR_DIV,
   IR_IMM,
+  IR_STR,
+  IR_MAP,
   IR_BPREL,
   IR_MOV,
   IR_RETURN,
@@ -43,7 +45,11 @@ typedef struct reg_t {
     int rn;
     int def;
     int end;
+
+    bool issp;    
     bool spill;
+    
+    char* str;
     node_t* var;
 } reg_t;
 

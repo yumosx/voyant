@@ -13,7 +13,7 @@ typedef enum node_type_t {
     NODE_IF,
     NODE_UNROLL,
     NODE_PREFIX_EXPR,
-    NODE_INFIX_EXPR,
+    NODE_EXPR,
     NODE_DEC,
     NODE_VAR,
     NODE_MAP,

@@ -11,7 +11,6 @@ static int nreg = 1;
 int nlabel = 1;
 static int regnum = 3;
 int gregs[3] =  {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
-int argregs[5] = {BPF_REG_1, BPF_REG_2, BPF_REG_3, BPF_REG_4, BPF_REG_5};
 
 static bb_t* new_bb() {
     bb_t* bb = calloc(1, sizeof(*bb));
@@ -37,6 +36,7 @@ static ir_t* new_ir(int op) {
 
 static reg_t* new_reg() {
     reg_t* reg = calloc(1, sizeof(*reg));
+    reg->issp = false;
     reg->vn = nreg++;
     reg->rn = -1;
     return reg;
@@ -75,6 +75,16 @@ static reg_t* imm(int imm) {
     return ir->r0;
 }
 
+static reg_t* str(node_t* str) {
+    ir_t* ir = new_ir(IR_STR);
+
+    ir->r0 = new_reg(); 
+    ir->r0->issp = true;
+    ir->r0->var = str;
+    
+    return ir->r0;
+}
+
 reg_t* lval(node_t* var) {
     ir_t* ir;
     
@@ -87,7 +97,7 @@ reg_t* lval(node_t* var) {
 
 void load(node_t* node, reg_t* dst, reg_t* src) {
     ir_t* ir = emit(IR_LOAD, dst, NULL, src);
-    ir->size = node->annot.size;
+    ir->size = node->annot.addr;
 }
 
 static reg_t* binop(int op, node_t* node) {
@@ -116,8 +126,10 @@ reg_t* emit_expr(node_t* n) {
     switch (n->type) {
     case NODE_INT:
         return imm(n->integer);
-    case NODE_INFIX_EXPR:
+    case NODE_EXPR:
         return emit_binop(n);
+    case NODE_STRING:
+        return str(n); 
     case NODE_VAR:{
         reg_t* r = new_reg();
         load(n, r, lval(n));
@@ -133,9 +145,21 @@ reg_t* emit_expr(node_t* n) {
     }
     case NODE_CALL: {
         ir_t* ir;
+        int i = 0;
+        node_t* head;
+        reg_t* args[6];
+        
+        _foreach(head, n->call.args) {
+            args[i] = emit_expr(head);
+            i += 1;
+        }
+        
         ir = new_ir(IR_CALL);
         ir->r0 = new_reg();
-        ir->name = n->name;
+        ir->var = n;
+        ir->nargs = i;
+        
+        memcpy(ir->args, args, sizeof(args));
         return ir->r0;
     }
     default:
@@ -248,7 +272,6 @@ static void set_end(reg_t* reg, int ic) {
     }
 }
 
-
 static void trans(bb_t* bb) {
     vec_t* v = vec_new();
     int i;
@@ -328,7 +351,12 @@ void scan(vec_t* regs) {
     for (i = 0; i < regs->len; i++) {
         reg_t* reg = regs->data[i];
         found = false;
-        
+
+        if (reg->issp) {
+            reg->rn = 10;
+            continue;
+        }
+
         for (j = 0; j < regnum - 1; j++) {
             if (used[j] && reg->def < used[j]->end) {
                 continue;
@@ -429,17 +457,16 @@ void code_emit(ebpf_t* code, struct bpf_insn insn) {
     *(code->ip)++ = insn;
 }
 
-void code_ld_mapfd(ebpf_t* e, int reg, int fd) {
-    ebpf_emit(e, INSN(BPF_LD|BPF_DW|BPF_IMM, reg, BPF_PSEUDO_MAP_FD, 0, fd));
-    ebpf_emit(e, INSN(0, 0, 0, 0, 0));
-}
+void store_str(ebpf_t* e, node_t* n, char* str) {
+    ssize_t size, at, left;
 
-void call_emit(ir_t* ir, ebpf_t* code) {
-}
+    at = n->annot.addr;
+    size = n->annot.size;
+    left = size / sizeof(*str);
 
-
-void compile_out(ir_t* ir, ebpf_t* code) {
-    int i = 0; 
+    for (; left; left--, str++, at += sizeof(*str)) {
+        code_emit(e, STW_IMM(BPF_REG_10, at, *str));
+    }
 }
 
 void compile_ir(ir_t* ir, ebpf_t* code) {
@@ -457,17 +484,16 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         code_emit(code, ALU(BPF_ADD, gregs[r0], gregs[r2]));
         break;
     case IR_BPREL:
-        printf("store addr in %d\n", gregs[r0]);
+        printf("lea reg(%d) addr: %d\n", gregs[r0], ir->var->annot.addr);
         code_emit(code, MOV(gregs[r0], BPF_REG_10));
-        code_emit(code, ALU_IMM(bpfregs[r0], BPF_REG_10, ir->var->annot.addr));
+        code_emit(code, ALU_IMM(gregs[r0], BPF_REG_10, ir->var->annot.addr));
         break;
     case IR_STORE:
         printf("mov: reg(%d) reg(%d)\n", gregs[r1], gregs[r2]);
         code_emit(code, MOV(gregs[r1], gregs[r2]));
         break;
     case IR_CALL:
-        printf("call: %s\n", ir->name);
-        call_emit(ir, code);
+        printf("call: %s\n", ir->var->name);
         break;
     case IR_RETURN:
         printf("%s\n", "exit"); 
@@ -505,15 +531,14 @@ int main() {
     code_t* code;
     ebpf_t* e;
 
-    /*
-    out: addr-->reg1
-    */
-    input = "probe sys{ a := pid();}";  
+    input = "probe sys{ a := 1+2; b := \"w\"; }";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 
+    e = ebpf_new();
     prog = prog_new(n); 
 
+    visit(n, get_annot, loc_assign, e);
 
     gen_ir(n);
     liveness(prog);

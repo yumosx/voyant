@@ -9,13 +9,6 @@
 #include "symtable.h"
 #include "buffer.h"
 
-typedef struct infer_fn_t {
-    node_type_t type; 
-
-    int(*annot_fn)(node_t* n, ebpf_t* e);
-    int(*assign_fn)(node_t* n, ebpf_t* e);
-} infer_fn_t;
-
 extern void get_annot(node_t *n, ebpf_t *e);
 extern void loc_assign(node_t *n, ebpf_t *e);
 

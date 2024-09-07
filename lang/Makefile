@@ -1,7 +1,7 @@
 .PHONY: all clean
 
 HEADERS = include/*.h
-SRCS = ut.c bpflib.c buffer.c ir.c syscall.c func.c lexer.c ast.c parser.c symtable.c annot.c compiler.c
+SRCS = ut.c bpflib.c buffer.c ir.c syscall.c func.c lexer.c ast.c parser.c symtable.c annot.c
 CFLAGS = -Wall -g
 OBJS = $(SRCS:.c=.o)
 

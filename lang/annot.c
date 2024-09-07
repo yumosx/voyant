@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "annot.h"
 #include "func.h"
@@ -15,45 +16,6 @@ void annot_str(node_t* n) {
 	n->annot.size = _ALIGNED(strlen(n->name) + 1);
 }
 
-void annot_map(node_t* n, node_t* value, ebpf_t* e) {
-	node_t* arg;
-	ssize_t ksize, vsize;
-
-	arg = n->map.args;
-	get_annot(arg, e);
-
-	ksize = arg->annot.size;
-
-	n->annot.type = ANNOT_MAP;
-	n->annot.ksize = ksize;
-	
-	if (!value) {
-		n->annot.size = 8;
-	}
-	
-	map_dec(e->st, n);
-}
-
-
-void annot_binop(node_t* n, ebpf_t* e) {
-	node_t* left, *right;
-	int op;
-
-	op = n->infix_expr.opcode;
-	left = n->infix_expr.left;
-	right = n->infix_expr.right;
-
-	switch (op) {
-	case OP_PIPE:
-		annot_map(left, NULL, e);
-		right->prev = left;
-		n->annot.type = ANNOT_MAP_METHOD;
-		break;
-	default:
-		break;
-	}
-}
-
 void annot_var_dec(node_t* n, ebpf_t* e) {
 	char* name;
 	sym_t* sym;
@@ -64,6 +26,7 @@ void annot_var_dec(node_t* n, ebpf_t* e) {
 	n->annot.type = ANNOT_VAR_DEC;
 
 	get_annot(expr, e);
+
 	var_dec(e->st, name, expr);
 }
 
@@ -77,22 +40,21 @@ void annot_assign(node_t* n, ebpf_t* e) {
 	get_annot(expr, e);
 	symtable_ref(e->st, var);
 
-	if (expr->annot.type != var->annot.type) {
-		verror("left value and right value not match");
-	}
+	assert(expr->annot.type != var->annot.type);
 }
 
-void annot_rec(node_t* n, ebpf_t* e) {
-	node_t* arg;
-	ssize_t size = 0;
+void annot_expr(node_t* n, ebpf_t* e) {
+	node_t* left;
+	node_t* right;
+
+	left = n->infix_expr.left;
+	right = n->infix_expr.right;
 	
-	_foreach(arg, n->rec.args) {
-		get_annot(arg, e);
-		size += arg->annot.size;
-	}
-	
-	n->annot.size = size;
-	n->annot.type = ANNOT_REC;
+	get_annot(left, e);
+	get_annot(right, e);
+
+	assert(left->annot.type == right->annot.type);
+	n->annot = left->annot;
 }
 
 void get_annot(node_t* n, ebpf_t* e) {
@@ -103,11 +65,8 @@ void get_annot(node_t* n, ebpf_t* e) {
         case NODE_STRING:
 			annot_str(n);
 			break;
-        case NODE_CALL:
-			global_annot(n);
-			break;
-		case NODE_INFIX_EXPR:
-			annot_binop(n, e);
+		case NODE_EXPR:
+			annot_expr(n, e);
 			break;
 		case NODE_DEC:
 			annot_var_dec(n, e);
@@ -117,9 +76,6 @@ void get_annot(node_t* n, ebpf_t* e) {
 			break;
 		case NODE_ASSIGN:
 			annot_assign(n, e);
-			break;
-		case NODE_REC:
-			annot_rec(n, e);
 			break;
 		default:
             break;
@@ -131,72 +87,28 @@ void assign_stack(node_t* n, ebpf_t* e) {
 	n->annot.loc = LOC_STACK;
 }
 
-void assign_var_reg(node_t* n, ebpf_t* e) {
-	node_t* var;
+void assign_var_stack(node_t* n, ebpf_t* e) {
+	node_t* var, *expr;
 	sym_t* sym;
-	xreg_t* reg;
 
 	var = n->dec.var;
+	expr = n->dec.expr;
+
 	sym = symtable_get(e->st, var->name);
-
-	switch (sym->vannot.type) {
-	case ANNOT_STR:	
-		break;
-	case ANNOT_INT:
-		reg = reg_get(e);
-		reg_bind(var, e, reg);
-		n->annot.loc = LOC_REG;
-		break;
-	default:
-		break;
-	}
-}
-
-void assign_map(node_t* n, ebpf_t* e) {
-	sym_t* sym;
-	node_t* key;
-	size_t kaddr;
-
-	assign_stack(n, e);
+	sym->vannot.addr = stack_addr_get(expr, e); 
 	
-	key = n->map.args;
-	kaddr = n->annot.addr;
-	key->annot.addr = kaddr;
-
-	sym = symtable_get(e->st, n->name);
-	sym->vannot.addr = n->annot.addr;
-
-	n->annot.loc = LOC_STACK;
-}
-
-void assign_rec(node_t* n, ebpf_t* e) {
-	node_t* head;
-	size_t offs;
-	assign_stack(n, e);
-
-	offs = n->annot.addr;
-	
-	_foreach(head, n->rec.args) {		
-		head->annot.addr = offs;
-		offs += head->annot.size;
-	}
-
-	n->annot.loc = LOC_STACK;
+	var->annot.addr = sym->vannot.addr;
 }
 
 void loc_assign(node_t* n, ebpf_t* e) {
 	switch (n->annot.type) {
+	case ANNOT_STR:
+		break;
 	case ANNOT_RSTR:
 		assign_stack(n, e);
 		break;
 	case ANNOT_VAR_DEC:
-		assign_var_reg(n, e);
-		break;
-	case ANNOT_MAP_METHOD:
-		assign_map(n->infix_expr.left, e);
-		break;
-	case ANNOT_REC:
-		assign_rec(n, e);
+		assign_var_stack(n, e);
 		break;
 	default:
 		break;
@@ -216,7 +128,6 @@ static int visit_list(node_t *head, pre_t* pre, post_t* post, ebpf_t* ctx) {
 }
 
 #define do_list(_head)	visit_list(_head, pre, post, e) 
-#define do_walk(_node) 	visit(_node, pre, post, e)
 
 void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
 	if (pre) { pre(n, e);}
@@ -227,9 +138,6 @@ void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
 		break;
 	case NODE_CALL:
 		do_list(n->call.args);
-		break;
-	case NODE_UNROLL:
-		do_list(n->unroll.stmts);
 		break;
 	default:
 		break;

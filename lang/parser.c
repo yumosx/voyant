@@ -105,6 +105,7 @@ node_t* parse_dec_expr(parser_t* p, node_t* var) {
     seq = get_token_seq(p->this_tok->type);
     next_tok(p);
     expr = parse_expr(p, seq);    
+
     return node_dec_new(var, expr);  
 }
 
@@ -218,7 +219,6 @@ node_t* parse_unroll_stmts(parser_t* p) {
     next_tok(p);
 
     stmts = parse_block_stmts(p);
-
     return node_unroll_new(count, stmts);
 }
 
@@ -234,8 +234,8 @@ node_t* parse_expr(parser_t* p, seq_t s) {
 			left = node_var_new(vstr(p->this_tok->literal));
 			break;
         case TOKEN_STRING:
-			left = node_str_new(vstr(p->this_tok->literal));
-			break;
+            left = node_str_new(vstr(p->this_tok->literal));
+            break;
         case TOKEN_UNROLL:
             left = parse_unroll_stmts(p);
             break;

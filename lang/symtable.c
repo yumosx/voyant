@@ -92,7 +92,7 @@ void var_dec(symtable_t* st, char* name, node_t* value) {
     sym_t* sym;
 
     sym = symtable_add(st, name);
-    
+
     sym->type = SYM_VAR;
     sym->vannot = value->annot; 
     sym->var = value;
