@@ -92,8 +92,7 @@ typedef struct prog_t{
     node_t* ast;
     vec_t* vars;
     vec_t* bbs;
-    
-    int sp;
+    ebpf_t* e; 
 } prog_t;
 
 typedef struct code_t {

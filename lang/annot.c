@@ -103,6 +103,7 @@ void assign_var_stack(node_t* n, ebpf_t* e) {
 void loc_assign(node_t* n, ebpf_t* e) {
 	switch (n->annot.type) {
 	case ANNOT_STR:
+		assign_stack(n, e);
 		break;
 	case ANNOT_RSTR:
 		assign_stack(n, e);
