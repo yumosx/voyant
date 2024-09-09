@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include "insn.h"
 
-typedef struct node_t node_t;
 
 typedef enum node_type_t {
     NODE_SCRIPT,
@@ -24,6 +23,7 @@ typedef enum node_type_t {
     NODE_INT,
 } node_type_t;
 
+typedef struct node_t node_t;
 typedef struct probe_t {
     char* name;
     int traceid;
@@ -95,7 +95,6 @@ typedef enum annot_type{
 
 typedef struct annot_t {
     annot_type type;
-    annot_type ktype;
     int mapid;
     
     size_t ksize;
@@ -103,7 +102,6 @@ typedef struct annot_t {
     
     loc_t loc;
     ssize_t addr;
-    int reg;
 } annot_t;
 
 

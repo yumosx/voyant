@@ -11,6 +11,7 @@ enum {
   IR_SUB,
   IR_MUL,
   IR_DIV,
+  IR_GT,
   IR_IMM,
   IR_STR,
   IR_MAP,
@@ -101,6 +102,6 @@ typedef struct code_t {
 } code_t;
 
 reg_t* emit_expr(node_t* n);
-int gen_ir(node_t* n);
+int emit_ir(node_t* n);
 
 #endif

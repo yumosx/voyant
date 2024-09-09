@@ -104,7 +104,6 @@ reg_t* load(node_t* var) {
     return ir->r0;
 }
 
-
 static reg_t* binop(int op, node_t* node) {
     reg_t* r1 = new_reg();
     reg_t* r2 = emit_expr(node->infix_expr.left);
@@ -118,10 +117,10 @@ reg_t* emit_binop(node_t* n) {
     switch (n->infix_expr.opcode) {
     case OP_ADD:
         return binop(IR_ADD, n);
-    case OP_MUL:
-        return binop(IR_MUL, n);
     case OP_DIV:
         return binop(IR_DIV, n);
+    case JUMP_JGT:
+        return binop(IR_GT, n);
     default:
         break;
     }
@@ -143,9 +142,10 @@ reg_t* emit_expr(node_t* n) {
             return str(n->dec.expr);
         }
         reg_t* r1 = emit_expr(n->dec.expr);
-        reg_t* r2 = lval(n->dec.var);
+        reg_t* r2 = new_reg(); 
         ir_t* ir = emit(IR_STORE, NULL, r2, r1);        
-        ir->var = n;
+        
+        lval(n->dec.var);
         return r1;
     }
     case NODE_CALL: {
@@ -173,7 +173,34 @@ reg_t* emit_expr(node_t* n) {
     }
 }
 
-int gen_ir(node_t* n) {
+void emit_stmt(node_t* n) {
+    switch (n->type) {
+    case NODE_IF: {
+        bb_t* then = new_bb();
+        bb_t* els = new_bb();
+        bb_t* last = new_bb();
+
+        br(emit_expr(n->iff.cond), then, els);
+        out = then;
+        emit_stmt(n->iff.then);
+        jmp(last);
+        
+        out = els;
+        if (n->iff.els)
+            emit_stmt(n->iff.els);
+        jmp(last);
+        
+        out = last;
+        
+        return;
+    }
+    default:
+        emit_expr(n);
+        break;
+    }
+}
+
+int emit_ir(node_t* n) {
     node_t* head;
 
     out = new_bb();
@@ -183,7 +210,7 @@ int gen_ir(node_t* n) {
     out = bb;
 
     _foreach(head, n->probe.stmts) {
-        emit_expr(head);
+        emit_stmt(head);
     }
     
     return 0; 
@@ -229,7 +256,7 @@ static void init_def_regs(bb_t* bb) {
     }
 }
 
-static void propagate(bb_t* bb, reg_t* reg) {
+static void cfg(bb_t* bb, reg_t* reg) {
     if (!reg || vec_contains(bb->def_regs, reg))
         return;
     
@@ -240,7 +267,7 @@ static void propagate(bb_t* bb, reg_t* reg) {
         bb_t* pred = bb->pred->data[i];
 
         if (vec_union(pred->out_regs, reg)) {
-            propagate(pred, reg);
+            cfg(pred, reg);
         }
     }
 }
@@ -248,25 +275,28 @@ static void propagate(bb_t* bb, reg_t* reg) {
 static void init_it_regs(bb_t* bb, ir_t* ir) {
     int i;
     
-    propagate(bb, ir->r1);
-    propagate(bb, ir->r2);
-    propagate(bb, ir->bbarg);
+    cfg(bb, ir->r1);
+    cfg(bb, ir->r2);
+    cfg(bb, ir->bbarg);
 
     if (ir->op == IR_CALL)
         for (i = 0; i < ir->nargs; i++)
-            propagate(bb, ir->args[i]);
+            cfg(bb, ir->args[i]);
 
 }
 
 void liveness(prog_t* prog) {
     int i, j;
+    bb_t* bb;
+    ir_t* ir;
+
     for (i = 0; i < prog->bbs->len; i++) {
-        bb_t* bb = prog->bbs->data[i];
+        bb = prog->bbs->data[i];
         
         init_def_regs(bb);
 
         for (j = 0; j < bb->ir->len; j++) {
-            ir_t* ir = bb->ir->data[j];
+            ir = bb->ir->data[j];
             init_it_regs(bb, ir);
         }
     }
@@ -289,6 +319,7 @@ static void trans(bb_t* bb) {
             vec_push(v, ir);
             continue;
         }
+        
         assert(ir->r0 != ir->r1);
         
         ir_t* ir2 = calloc(1, sizeof(*ir2));
@@ -481,11 +512,13 @@ void emit_call(ebpf_t* e, ir_t* ir) {
 
     emit_code(e, MOV(BPF_REG_1, BPF_REG_10));
     emit_code(e, ALU_IMM(BPF_ADD, BPF_REG_1, -16));
-    emit_code(e, MOV_IMM(BPF_REG_2, size));
    
-    emit_code(e, LDXDW(3, -8, 10));
+    emit_code(e, LDXB(3, -8, 10));
+
+    emit_code(e, MOV_IMM(BPF_REG_2, size));
     emit_code(e, CALL(BPF_FUNC_trace_printk));
 }
+
 
 void stack_init(node_t* n, ebpf_t* e) {
 	size_t i;
@@ -498,7 +531,6 @@ void stack_init(node_t* n, ebpf_t* e) {
 		emit_code(e, STXDW(BPF_REG_10, -8+i, BPF_REG_0));	
 	}
 }
-
 
 void compile_ir(ir_t* ir, ebpf_t* code) {
     int r0 = ir->r0 ? ir->r0->rn : 0;
@@ -515,15 +547,19 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_ADD:
         emit_code(code, ALU(BPF_ADD, gregs[r0], gregs[r2]));
         break;
-    case IR_MUL:
-        emit_code(code, ALU(BPF_MUL, gregs[r0], gregs[r2]));
+    case IR_GT:
+        emit_code(code, JMP(JUMP_JGT, gregs[r0], gregs[r2], 2));
+        emit_code(code, MOV_IMM(gregs[r0], 0));
+        emit_code(code, JMP_IMM(BPF_JA, 0, 0, 1));
+        emit_code(code, MOV_IMM(gregs[r0], 1));
         break;
     case IR_BPREL:
-        emit_code(code, STW_IMM(BPF_REG_10, -8, 0));
+        emit_code(code, STXDW(BPF_REG_10, ir->var->annot.addr, gregs[r0]));
         break;
     case IR_STORE:
         emit_code(code, MOV(gregs[r1], gregs[r2]));
-        emit_code(code, STXDW(BPF_REG_10, -8, gregs[r1]));
+        break;
+    case IR_BR:
         break;
     case IR_CALL:
         emit_call(code, ir);
@@ -541,8 +577,13 @@ void compile(prog_t* prog) {
 
     e = prog->e;
 
+    printf("block: %d\n", prog->bbs->len);
+
+
     for (i = 0; i < prog->bbs->len; i++) {
         bb = prog->bbs->data[i];     
+
+        printf("%d\n", bb->ir->len);
 
         for (j = 0; j < bb->ir->len; j++) {
             ir = bb->ir->data[j];
@@ -559,7 +600,7 @@ int main() {
     node_t* n;
     ebpf_t* e;
 
-    input = "probe sys{ a := 1 + 3 * 3; trace(\"%d\", a);}";  
+    input = "probe sys{ if(2 > 1){ trace(\"%d\n\", a);};}";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 
@@ -567,7 +608,7 @@ int main() {
 
     visit(n, get_annot, loc_assign, prog->e);
 
-    gen_ir(n);
+    emit_ir(n);
     liveness(prog);
     regs_alloc(prog);
     compile(prog);
@@ -575,7 +616,7 @@ int main() {
     emit_code(prog->e, MOV_IMM(BPF_REG_0, 0));
 	emit_code(prog->e, EXIT);
 
-    bpf_probe_attach(prog->e, 721); 
+    //bpf_probe_attach(prog->e, 721); 
     
     return 0;
 }

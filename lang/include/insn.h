@@ -2,6 +2,8 @@
 #define INSN_H
 
 #include <linux/bpf.h>
+#include <stddef.h>
+#include <inttypes.h>
 
 #define _ALIGN sizeof(int64_t)
 #define _ALIGNED(_size) (((_size) + _ALIGN - 1) & ~(_ALIGN - 1))
@@ -71,5 +73,9 @@ typedef enum extract_op {
 
 #define LDXDW(_dst, _off, _src)     INSN(BPF_LDX | BPF_SIZE(BPF_DW) | BPF_MEM, _dst, _src, _off, 0)
 #define LDXB(_dst, _off, _src)      INSN(BPF_LDX | BPF_SIZE(BPF_B) | BPF_MEM, _dst, _src, _off, 0)
+
+
+/*const struct bpf_insn if_then_insn =
+    JMP_IMM(BPF_JA, 0xf, INT32_MIN, INT16_MIN+2)*/
 
 #endif

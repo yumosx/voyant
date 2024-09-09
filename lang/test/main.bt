@@ -1,3 +1,0 @@
-tracepoint:syscalls:sys_enter_open { 
-   printf("%s\n", str(args->filename)); 
-}

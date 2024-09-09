@@ -63,6 +63,12 @@ node_t* node_if_new(node_t* cond, node_t* then, node_t* els) {
     n->iff.then = then;
     n->iff.els = els;
 
+    _foreach(c, then) {
+        if (!c->next) {
+            n->iff.then_last = c;
+        }
+    }
+    
     return n;
 }
 

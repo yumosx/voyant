@@ -57,6 +57,19 @@ void annot_expr(node_t* n, ebpf_t* e) {
 	n->annot = left->annot;
 }
 
+void annot_rec(node_t* n, ebpf_t* e) {
+	node_t* arg;
+	ssize_t size;
+
+	_foreach(arg, n->rec.args) {
+		get_annot(arg, e);
+		size += arg->annot.size;
+	}
+
+	n->annot.size = size;
+	n->annot.type = ANNOT_REC;
+}
+
 void get_annot(node_t* n, ebpf_t* e) {
      switch(n->type) {
         case NODE_INT:
@@ -76,6 +89,9 @@ void get_annot(node_t* n, ebpf_t* e) {
 			break;
 		case NODE_ASSIGN:
 			annot_assign(n, e);
+			break;
+		case NODE_REC:
+			annot_rec(n, e);
 			break;
 		default:
             break;
@@ -129,6 +145,7 @@ static int visit_list(node_t *head, pre_t* pre, post_t* post, ebpf_t* ctx) {
 }
 
 #define do_list(_head)	visit_list(_head, pre, post, e) 
+#define do_walk(_node) 	visit(_node, pre, post, e)
 
 void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
 	if (pre) { pre(n, e);}
@@ -139,6 +156,10 @@ void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
 		break;
 	case NODE_CALL:
 		do_list(n->call.args);
+		break;
+	case NODE_IF:
+		do_list(n->iff.cond);
+		do_list(n->iff.then);
 		break;
 	default:
 		break;

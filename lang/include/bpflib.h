@@ -14,12 +14,8 @@ typedef struct ebpf_t{
     evpipe_t *evp;
     struct bpf_insn *ip;
     struct bpf_insn prog[BPF_MAXINSNS];
-    struct xreg_t reg[__MAX_BPF_REG];
 } ebpf_t;
 
 extern ebpf_t *ebpf_new();
 extern ssize_t stack_addr_get(node_t* n, ebpf_t* e);
-extern xreg_t* reg_get(ebpf_t* e); 
-extern void reg_bind(node_t* n, ebpf_t* e, xreg_t* r);
-extern xreg_t* reg_bind_find(node_t* n, ebpf_t* e);
 #endif

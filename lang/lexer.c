@@ -54,7 +54,11 @@ static void read_char(lexer_t *l) {
 }
 
 static void skip_whitespace(lexer_t *l) {
-    while (l->ch && (l->ch == ' ' || l->ch == '\n' || l->ch == '\r' || l->ch == '\t')) {
+    while (l->ch && (l->ch == ' ' 
+        || l->ch == '\n' 
+        || l->ch == '\r' 
+        || l->ch == '\t')) {
+        
         read_char(l);
     }
 }
@@ -118,6 +122,12 @@ token_t* lexer_next_token(lexer_t *l) {
         t->literal = strdup("/");
         read_char(l);
         return t;
+    
+    case '>':
+        t->type = TOKEN_GT;
+        t->literal = strdup(">");
+        read_char(l);
+        return t; 
     
     case '(':
         t->type = LEFT_PAREN;
