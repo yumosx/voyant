@@ -6,11 +6,20 @@
 #include "bpfsyscall.h"
 
 static prog_t* prog;
-static bb_t* out;
+static bb_t* curbb;
 static int nreg = 1;
 int nlabel = 1;
 static int regnum = 3;
 int gregs[3] =  {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
+
+const struct bpf_insn break_insn =
+	JMP_IMM(BPF_JA, 0xf, INT32_MIN, INT16_MIN);
+const struct bpf_insn continue_insn =
+	JMP_IMM(BPF_JA, 0xf, INT32_MIN, INT16_MIN + 1);
+const struct bpf_insn if_then_insn =
+	JMP_IMM(BPF_JA, 0xf, INT32_MIN, INT16_MIN + 2);
+const struct bpf_insn if_else_insn =
+	JMP_IMM(BPF_JA, 0xf, INT32_MIN, INT16_MIN + 3);
 
 static bb_t* new_bb() {
     bb_t* bb = calloc(1, sizeof(*bb));
@@ -30,7 +39,7 @@ static bb_t* new_bb() {
 static ir_t* new_ir(int op) {
     ir_t* ir = calloc(1, sizeof(*ir));
     ir->op = op;
-    vec_push(out->ir, ir);
+    vec_push(curbb->ir, ir);
     return ir;
 }
 
@@ -47,6 +56,26 @@ static ir_t* emit(int op, reg_t* r0, reg_t* r1, reg_t* r2) {
     ir->r0 = r0;
     ir->r1 = r1;
     ir->r2 = r2;
+    return ir;
+}
+
+static ir_t* if_then() {
+    ir_t* ir = new_ir(IR_IF_THEN);
+    return ir;
+}
+
+static ir_t* if_els() {
+    ir_t* ir = new_ir(IR_IF_END);
+    return ir;
+}
+
+static ir_t* els_then() {
+    ir_t* ir = new_ir(IR_ELSE_THEN);
+    return ir;
+}
+
+static ir_t* els_end() {
+    ir_t* ir = new_ir(IR_ELSE_END);
     return ir;
 }
 
@@ -84,6 +113,12 @@ static reg_t* str(node_t* str) {
     return ir->r0;
 }
 
+static ir_t* rec(node_t* rec) {
+    ir_t* ir = new_ir(IR_REC);
+    ir->var = rec;
+    return ir;
+}
+
 reg_t* lval(node_t* var) {
     ir_t* ir;
     
@@ -108,6 +143,7 @@ static reg_t* binop(int op, node_t* node) {
     reg_t* r1 = new_reg();
     reg_t* r2 = emit_expr(node->infix_expr.left);
     reg_t* r3 = emit_expr(node->infix_expr.right); 
+    
     emit(op, r1, r2, r3);
 
     return r1;
@@ -148,15 +184,23 @@ reg_t* emit_expr(node_t* n) {
         lval(n->dec.var);
         return r1;
     }
+    case NODE_REC: {
+        break;
+    }
     case NODE_CALL: {
         ir_t* ir;
         int i = 0;
         node_t* head;
         reg_t* args[6];
-        
-        _foreach(head, n->call.args) {
-            args[i] = emit_expr(head);
-            i += 1;
+
+        if (!vstreq("out", n->name)) { 
+            _foreach(head, n->call.args) {
+                args[i] = emit_expr(head);
+                i += 1;
+            }
+        } else {
+            rec(n);
+            break;
         }
         
         ir = new_ir(IR_CALL);
@@ -181,18 +225,24 @@ void emit_stmt(node_t* n) {
         bb_t* last = new_bb();
 
         br(emit_expr(n->iff.cond), then, els);
-        out = then;
+        curbb = then;
+        
+        if_then();
         emit_stmt(n->iff.then);
         jmp(last);
-        
-        out = els;
-        if (n->iff.els)
+        if_els();
+
+        curbb = els;
+        if (n->iff.els) {
+            els_then();
             emit_stmt(n->iff.els);
+            els_end();
+        }
+        
         jmp(last);
         
-        out = last;
-        
-        return;
+        curbb = last;
+        break;    
     }
     default:
         emit_expr(n);
@@ -203,11 +253,11 @@ void emit_stmt(node_t* n) {
 int emit_ir(node_t* n) {
     node_t* head;
 
-    out = new_bb();
+    curbb = new_bb();
     
     bb_t* bb = new_bb();
     jmp(bb);
-    out = bb;
+    curbb = bb;
 
     _foreach(head, n->probe.stmts) {
         emit_stmt(head);
@@ -489,6 +539,11 @@ void emit_code(ebpf_t* code, struct bpf_insn insn) {
     *(code->ip)++ = insn;
 }
 
+void emit_at(ebpf_t* code, struct bpf_insn* at, struct bpf_insn insn) {
+    *at = insn;
+}
+
+
 void store_str(ebpf_t* e, node_t* n) {
     ssize_t size, at, left;
     int32_t* str;
@@ -504,19 +559,7 @@ void store_str(ebpf_t* e, node_t* n) {
 }
 
 void emit_call(ebpf_t* e, ir_t* ir) {
-    int i;
-    int reg;
-    size_t size;
 
-    size = strlen("%d")+1;
-
-    emit_code(e, MOV(BPF_REG_1, BPF_REG_10));
-    emit_code(e, ALU_IMM(BPF_ADD, BPF_REG_1, -16));
-   
-    emit_code(e, LDXB(3, -8, 10));
-
-    emit_code(e, MOV_IMM(BPF_REG_2, size));
-    emit_code(e, CALL(BPF_FUNC_trace_printk));
 }
 
 
@@ -532,6 +575,10 @@ void stack_init(node_t* n, ebpf_t* e) {
 	}
 }
 
+int then = 0, els = 0, next = 0;
+struct bpf_insn* at;
+struct bpf_insn* end;
+
 void compile_ir(ir_t* ir, ebpf_t* code) {
     int r0 = ir->r0 ? ir->r0->rn : 0;
     int r1 = ir->r1 ? ir->r1->rn : 0; 
@@ -539,29 +586,46 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
 
     switch (ir->op) {
     case IR_IMM:
+        printf("mov %d, [%d]\n", ir->imm, gregs[r0]);
         emit_code(code, MOV_IMM(gregs[r0], ir->imm));
         break;
     case IR_STR:
+        printf("push str %s\n", ir->var->name);
+        printf("addr: %d\n", ir->var->annot.addr);
         store_str(code, ir->var);
         break;
     case IR_ADD:
         emit_code(code, ALU(BPF_ADD, gregs[r0], gregs[r2]));
         break;
     case IR_GT:
+        printf("the answer reg is %d\n", gregs[r0]);
         emit_code(code, JMP(JUMP_JGT, gregs[r0], gregs[r2], 2));
         emit_code(code, MOV_IMM(gregs[r0], 0));
         emit_code(code, JMP_IMM(BPF_JA, 0, 0, 1));
         emit_code(code, MOV_IMM(gregs[r0], 1));
         break;
     case IR_BPREL:
+        printf("push [%d]\n", gregs[r0]);
         emit_code(code, STXDW(BPF_REG_10, ir->var->annot.addr, gregs[r0]));
         break;
     case IR_STORE:
+        printf("store: [%d] [%d]\n", gregs[r1], gregs[r2]);
         emit_code(code, MOV(gregs[r1], gregs[r2]));
         break;
     case IR_BR:
+        printf("br: %d\n", gregs[r2]);
+        emit_code(code, MOV(BPF_REG_0, gregs[r2]));
+        break;
+    case IR_IF_THEN:
+        at = code->ip;
+        emit_at(code, at, if_else_insn);
+        break; 
+    case IR_IF_END:
+        printf("end if (%d)\n", code->ip-at-1);
+        emit_at(code, at, JMP_IMM(BPF_JEQ, 0, 0, code->ip-at-1));
         break;
     case IR_CALL:
+        printf("call\n");
         emit_call(code, ir);
         break;
     default:
@@ -577,20 +641,13 @@ void compile(prog_t* prog) {
 
     e = prog->e;
 
-    printf("block: %d\n", prog->bbs->len);
-
-
     for (i = 0; i < prog->bbs->len; i++) {
         bb = prog->bbs->data[i];     
-
-        printf("%d\n", bb->ir->len);
-
         for (j = 0; j < bb->ir->len; j++) {
             ir = bb->ir->data[j];
             compile_ir(ir, e);
         }
     }
-
 }
 
 int main() {
@@ -600,7 +657,7 @@ int main() {
     node_t* n;
     ebpf_t* e;
 
-    input = "probe sys{ if(2 > 1){ trace(\"%d\n\", a);};}";  
+    input = "probe sys{ if(2 > 1){out(\"%d\", 1)}}";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 
@@ -616,7 +673,7 @@ int main() {
     emit_code(prog->e, MOV_IMM(BPF_REG_0, 0));
 	emit_code(prog->e, EXIT);
 
-    //bpf_probe_attach(prog->e, 721); 
+    bpf_probe_attach(prog->e, 721); 
     
     return 0;
 }

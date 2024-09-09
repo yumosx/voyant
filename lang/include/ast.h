@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include "insn.h"
 
-
 typedef enum node_type_t {
     NODE_SCRIPT,
     NODE_PROBE,

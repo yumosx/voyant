@@ -90,6 +90,9 @@ void get_annot(node_t* n, ebpf_t* e) {
 		case NODE_ASSIGN:
 			annot_assign(n, e);
 			break;
+		case NODE_CALL:
+			global_annot(n);
+			break;
 		case NODE_REC:
 			annot_rec(n, e);
 			break;
@@ -116,6 +119,21 @@ void assign_var_stack(node_t* n, ebpf_t* e) {
 	var->annot.addr = sym->vannot.addr;
 }
 
+void assign_rec(node_t* n, ebpf_t* e) {
+	node_t* head;
+	size_t offs;
+	assign_stack(n, e);
+
+	offs = n->annot.addr;
+	
+	_foreach(head, n->rec.args) {		
+		head->annot.addr = offs;
+		offs += head->annot.size;
+	}
+	
+	n->annot.loc = LOC_STACK;
+}
+
 void loc_assign(node_t* n, ebpf_t* e) {
 	switch (n->annot.type) {
 	case ANNOT_STR:
@@ -126,6 +144,9 @@ void loc_assign(node_t* n, ebpf_t* e) {
 		break;
 	case ANNOT_VAR_DEC:
 		assign_var_stack(n, e);
+		break;
+	case ANNOT_REC:
+		assign_rec(n, e);
 		break;
 	default:
 		break;
