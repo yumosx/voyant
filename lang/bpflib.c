@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #include "bpflib.h"
 
 ebpf_t* ebpf_new() {
@@ -10,11 +12,81 @@ ebpf_t* ebpf_new() {
 	return e;
 }
 
-ssize_t stack_addr_get(node_t* n, ebpf_t* e) {
+void ebpf_emit(ebpf_t* code, struct bpf_insn insn) {
+    assert(code != NULL);
+    *(code->ip)++ = insn;
+}
+
+void ebpf_emit_at(struct bpf_insn* at, struct bpf_insn insn) {
+	assert(at != NULL);
+	*at = insn;
+}
+
+void ebpf_emit_mapld(ebpf_t* e, int reg, int fd) {
+	ebpf_emit(e, INSN(BPF_LD|BPF_DW|BPF_IMM, reg, BPF_PSEUDO_MAP_FD, 0, fd));
+    ebpf_emit(e, INSN(0, 0, 0, 0, 0));
+}
+
+ssize_t ebpf_addr_get(node_t* n, ebpf_t* e) {
 	if (n->type == NODE_MAP) {
 		e->sp -= n->annot.ksize;
 	}
 	
 	e->sp -= n->annot.size;
 	return e->sp;
+}
+
+void ebpf_stack_zero(node_t* value, ebpf_t* e) {
+	size_t i;
+	annot_t to = value->annot;
+	size_t len = 8;
+
+	ebpf_emit(e, MOV_IMM(BPF_REG_0, 0));
+
+	for (i = 0; i < len; i += sizeof(int64_t)) {
+		ebpf_emit(e, STXDW(BPF_REG_10, -8 + i, BPF_REG_0));
+	}
+}
+
+static void int_to_stack(ebpf_t* e, node_t* value) {
+	ebpf_emit(e, MOV_IMM(BPF_REG_0, value->integer));
+	ebpf_emit(e, STXDW(BPF_REG_10, value->annot.addr, BPF_REG_0));
+}
+
+static void str_to_stack(ebpf_t* e, node_t* value) {
+	ssize_t size, at, left;
+    int32_t* str;
+
+    at = value->annot.addr;
+    size = value->annot.size;
+    str = value->name;
+    left = size / sizeof(*str);
+    
+    for (; left; left--, str++, at += sizeof(*str)) {
+        ebpf_emit(e, STW_IMM(BPF_REG_10, at, *str));
+    }
+}
+
+static void rec_to_stack(ebpf_t* e, node_t* value) {
+	node_t* arg;
+
+	_foreach(arg, value->rec.args) {
+		ebpf_value_to_stack(e, arg);
+	}	
+}
+
+void ebpf_value_to_stack(ebpf_t* e, node_t* value) {
+	switch (value->type) {
+	case NODE_INT:
+		int_to_stack(e, value);		
+		break;
+	case NODE_STR:
+		str_to_stack(e, value);
+		break;
+	case NODE_REC:
+		rec_to_stack(e, value);	
+		break;
+	default:
+		break;
+	}
 }

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "ut.h"
 
@@ -126,4 +127,40 @@ char* str_escape(char* str) {
 	if (out < in)
 		*out = '\0';
 	return str;
+}
+
+
+static void print_line(char* buf, char* path, char* pos) {
+	char* start, *p;
+	int line = 0;
+	int col = 0;
+	int linelen = 0;
+	int i = 0;
+
+
+	start = buf;
+
+	for (p = buf; p; p++) {
+		if (*p == '\n') {
+			start = p + 1;
+			line++;
+			col = 0;
+			continue;
+		}
+
+		if (p != pos) {
+			col++;
+			continue;
+		}
+
+		fprintf(stderr, "error at %s:%d:%d\n\n", path, line+1, col+1);
+		linelen = strchr(p, '\n') - start;
+		fprintf(stderr, "%.*s\n", linelen, start);
+
+		for (i = 0; i < col; i++) {
+			fprintf(stderr, (start[i] == '\t') ? "\t" : " ");
+		}
+		fprintf(stderr, "^\n\n");
+		return;
+	}	
 }

@@ -249,17 +249,17 @@ void dump(FILE* fp, node_t* n, void* data) {
 	}
 }
 
-void map_dump(node_t* n) {
+void map_dump(node_t* map) {
 	node_t* arg;
 	int err, c = 0;
 	size_t fd, rsize, ksize, vsize;
 	char* key, *val, *data;
 
 
-	arg = n->map.args;
-	fd = n->annot.mapid;
+	arg = map->map.args;
+	fd = map->annot.mapid;
 	ksize = arg->annot.size;
-	vsize = n->annot.size;	
+	vsize = map->annot.size;	
 	rsize = ksize + vsize;
 	
 	data = vmalloc(rsize * 1024);
@@ -279,11 +279,11 @@ void map_dump(node_t* n) {
 		key += rsize;
 		val += rsize;
 	}
-	printf("\n%s\n", n->name);
+	printf("\n%s\n", map->name);
 	for (key = data, val = data+ksize; c > 0; c--) {
 		dump(stdout, arg, key);
 		fputs("\t", stdout);
-		dump(stdout, n, val);
+		dump(stdout, map, val);
 		fputs("\n", stdout);
 		
 		key += rsize;

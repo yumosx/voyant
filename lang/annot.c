@@ -6,28 +6,77 @@
 #include "func.h"
 #include "ut.h"
 
-void annot_int(node_t* n) {
-	n->annot.type = ANNOT_INT;
-	n->annot.size = sizeof(n->integer);
+static
+void check_int(node_t* n) {
+	node_type_t ty;
+
+	ty = n->type;
+	if (ty != NODE_INT) {
+
+	}
 }
 
-void annot_str(node_t* n) {
-	n->annot.type = ANNOT_STR;
-	n->annot.size = _ALIGNED(strlen(n->name) + 1);
+static
+void annot_value(node_t* value) {
+	switch (value->type) {
+	case NODE_INT:
+		value->annot.type = ANNOT_INT;
+		value->annot.size = sizeof(value->integer);
+		break;
+	case NODE_STR:
+		value->annot.type = ANNOT_STR;
+		value->annot.size = _ALIGNED(strlen(value->name) + 1);
+		break;
+	default:
+		error("error value");
+		break;
+	}
 }
 
-void annot_var_dec(node_t* n, ebpf_t* e) {
-	char* name;
-	sym_t* sym;
-	node_t* expr;
+static
+void annot_map(node_t* map, ebpf_t* e) {
+	node_t* arg;
+	ssize_t ksize;
 
-	expr = n->dec.expr;
-	name = n->dec.var->name;
-	n->annot.type = ANNOT_VAR_DEC;
+	arg = map->map.args;
+	get_annot(arg, e);
+
+	ksize = arg->annot.size;
+
+	map->annot.type = ANNOT_MAP;	
+	map->annot.ksize = ksize;
+	map->annot.size = 8;
+}
+
+void annot_var(node_t* var, ebpf_t* e) {
+	var->annot.type = ANNOT_VAR;
+	var->annot.size = 8;	
+}
+
+void annot_dec(node_t* n, ebpf_t* e) {
+	node_t* var, *expr;
+	
+	var = n->dec.var;
+	expr = n->dec.expr;	
 
 	get_annot(expr, e);
 
-	var_dec(e->st, name, expr);
+	switch (var->type) {
+	case NODE_VAR:
+		annot_var(var, e);
+		n->annot.size = expr->annot.size; 
+		var_dec(e->st, var->name, expr);
+		break;
+	case NODE_MAP:
+		annot_map(var, e);
+		n->annot.size = expr->annot.size;
+		map_dec(e->st, var);
+		break;
+	default:
+		error("erro left type");
+		break;
+	}
+	n->annot.type = ANNOT_DEC;
 }
 
 void annot_assign(node_t* n, ebpf_t* e) {
@@ -72,20 +121,19 @@ void annot_rec(node_t* n, ebpf_t* e) {
 
 void get_annot(node_t* n, ebpf_t* e) {
      switch(n->type) {
-        case NODE_INT:
-			annot_int(n);
+		case NODE_INT:
+		case NODE_STR:
+			annot_value(n);
 			break;
-        case NODE_STRING:
-			annot_str(n);
+		case NODE_VAR:
+		case NODE_MAP:
+			symtable_ref(e->st, n);
 			break;
 		case NODE_EXPR:
 			annot_expr(n, e);
 			break;
 		case NODE_DEC:
-			annot_var_dec(n, e);
-			break;
-		case NODE_VAR:
-			symtable_ref(e->st, n);
+			annot_dec(n, e);
 			break;
 		case NODE_ASSIGN:
 			annot_assign(n, e);
@@ -97,12 +145,12 @@ void get_annot(node_t* n, ebpf_t* e) {
 			annot_rec(n, e);
 			break;
 		default:
-            break;
+			break;
     }
 }
 
 void assign_stack(node_t* n, ebpf_t* e) {
-	n->annot.addr = stack_addr_get(n, e);
+	n->annot.addr = ebpf_addr_get(n, e);
 	n->annot.loc = LOC_STACK;
 }
 
@@ -114,9 +162,23 @@ void assign_var_stack(node_t* n, ebpf_t* e) {
 	expr = n->dec.expr;
 
 	sym = symtable_get(e->st, var->name);
-	sym->vannot.addr = stack_addr_get(expr, e); 
+	sym->vannot.addr = ebpf_addr_get(expr, e); 
 	
 	var->annot.addr = sym->vannot.addr;
+}
+
+void assign_dec(node_t* dec, ebpf_t* e) {
+	node_t* var, *expr;
+	ssize_t addr;
+	sym_t* sym;
+
+	var = dec->dec.var;
+	expr = dec->dec.expr;
+	sym = symtable_get(e->st, var->name);
+	addr = ebpf_addr_get(var, e);
+
+	var->annot.addr = addr;
+	sym->vannot.addr = addr;
 }
 
 void assign_rec(node_t* n, ebpf_t* e) {
@@ -136,14 +198,11 @@ void assign_rec(node_t* n, ebpf_t* e) {
 
 void loc_assign(node_t* n, ebpf_t* e) {
 	switch (n->annot.type) {
-	//case ANNOT_STR:
-	//	assign_stack(n, e);
-	//	break;
 	case ANNOT_RSTR:
 		assign_stack(n, e);
 		break;
-	case ANNOT_VAR_DEC:
-		assign_var_stack(n, e);
+	case ANNOT_DEC:
+		assign_dec(n, e);
 		break;
 	case ANNOT_REC:
 		assign_rec(n, e);

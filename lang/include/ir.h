@@ -12,6 +12,7 @@ enum {
   IR_MUL,
   IR_DIV,
   IR_GT,
+  IR_GE,
   IR_IMM,
   IR_STR,
   IR_MAP,
@@ -80,7 +81,7 @@ typedef struct ir_t {
 
     int imm;
     int label;
-    node_t* var;
+    node_t* binding;
     bb_t* bb1;
     bb_t* bb2;
 
@@ -95,7 +96,6 @@ typedef struct ir_t {
 
 typedef struct prog_t{
     char* name;
-    
     node_t* ast;
     vec_t* vars;
     vec_t* bbs;
@@ -107,8 +107,8 @@ typedef struct code_t {
     struct bpf_insn prog[BPF_MAXINSNS];
 } code_t;
 
-reg_t* emit_expr(node_t* n);
+reg_t* gen_expr(node_t* n);
 void compile_ir(ir_t* ir, ebpf_t* code);
-int emit_ir(node_t* n);
+int gen_ir(node_t* n);
 
 #endif

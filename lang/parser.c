@@ -5,7 +5,7 @@
 #include "parser.h"
 #include "ut.h"
 
-void advance(parser_t* p) {    
+static void advance(parser_t* p) {    
     if (p->this_tok != NULL) {
 		free_token(p->this_tok);
 	}
@@ -14,13 +14,11 @@ void advance(parser_t* p) {
     p->next_tok = lexer_next_token(p->lexer);
 }
 
-static int 
-current_token_is(parser_t* p, token_type type) {
+static int current_token_is(parser_t* p, token_type type) {
     return p->this_tok->type == type;
 }
 
-static int  
-next_token_is(parser_t* p, token_type type) {
+static int expect(parser_t* p, token_type type) {
     return p->next_tok->type == type;
 }
 
@@ -37,7 +35,7 @@ parser_t* parser_init(lexer_t* l) {
 }
 
 int expect_next_token(parser_t* p, token_type t) {
-    if (next_token_is(p, t)) {
+    if (expect(p, t)) {
         advance(p);
         return 1;
     }
@@ -85,10 +83,10 @@ int get_op(token_type t) {
         return OP_PIPE;
 
     case TOKEN_GT:
-        return JUMP_JGT;
+        return OP_GT;
 
     case TOKEN_EQ:
-        return JUMP_JEQ;
+        return OP_EQ;
     default:
         break;
     }
@@ -150,7 +148,7 @@ node_t* parse_call_args(parser_t* p) {
     n = parse_expr(p, LOWEST);
     head = n;
         
-    while (next_token_is(p, TOKEN_COMMA)) {
+    while (expect(p, TOKEN_COMMA)) {
         advance(p);
         advance(p);
         n->next = parse_expr(p, LOWEST);
@@ -168,7 +166,7 @@ node_t* parse_call_args(parser_t* p) {
 node_t* parse_call_expr(parser_t* p, node_t* left) {
     left->type = NODE_CALL;
     
-	if (next_token_is(p, RIGHT_PAREN)) {
+	if (expect(p, RIGHT_PAREN)) {
 		advance(p);
 		return left;
 	}
@@ -183,7 +181,7 @@ node_t* parse_map_args(parser_t* p) {
     n = parse_expr(p, LOWEST);
     head = n;
     
-    while (next_token_is(p, TOKEN_COMMA)) {
+    while (expect(p, TOKEN_COMMA)) {
         advance(p);
         advance(p);
         n->next = parse_expr(p, LOWEST);
@@ -268,7 +266,7 @@ node_t* parse_expr(parser_t* p, seq_t s) {
             return NULL;
     }
     
-    while (!next_token_is(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
+    while (!expect(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
         switch (p->next_tok->type) {
         case TOKEN_GT:
         case TOKEN_PIPE:
@@ -311,7 +309,7 @@ node_t* parse_block_stmts(parser_t* p) {
     
     advance(p);
     
-    while (!next_token_is(p, TOKEN_RIGHT_BLOCK) && !next_token_is(p, END_OF_FILE)) {
+    while (!expect(p, TOKEN_RIGHT_BLOCK) && !expect(p, END_OF_FILE)) {
         node_t* stmts = parse_expr(p, LOWEST);
 
         if (stmts != NULL) {

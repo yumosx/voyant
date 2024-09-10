@@ -17,5 +17,10 @@ typedef struct ebpf_t{
 } ebpf_t;
 
 extern ebpf_t *ebpf_new();
-extern ssize_t stack_addr_get(node_t* n, ebpf_t* e);
+extern ssize_t ebpf_addr_get(node_t *n, ebpf_t *e);
+extern void ebpf_emit_mapld(ebpf_t *e, int reg, int fd);
+extern void ebpf_stack_zero(node_t *value, ebpf_t *code);
+extern void ebpf_emit(ebpf_t *code, struct bpf_insn insn);
+extern void ebpf_emit_at(struct bpf_insn *at, struct bpf_insn insn);
+extern void ebpf_value_to_stack(ebpf_t *code, node_t *value);
 #endif

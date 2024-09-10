@@ -18,7 +18,7 @@ typedef enum node_type_t {
     NODE_REC, 
 	NODE_ASSIGN,
     NODE_CALL,
-    NODE_STRING,
+    NODE_STR,
     NODE_INT,
 } node_type_t;
 
@@ -85,10 +85,10 @@ typedef enum annot_type{
     ANNOT_SYM,
     ANNOT_RINT,
     ANNOT_RSTR,
+    ANNOT_VAR,
     ANNOT_MAP,
-    ANNOT_VAR_DEC,
-    ANNOT_VAR_ASSIGN,
-    ANNOT_MAP_ASSIGN,
+    ANNOT_DEC,
+    ANNOT_ASSIGN,
     ANNOT_MAP_METHOD,
 } annot_type;
 

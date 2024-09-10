@@ -10,7 +10,7 @@ static void sym_init(symtable_t *st) {
     sym = &st->table[st->len++];
     sym->vannot.type = ANNOT_INT;
     sym->vannot.size = 8;
-    sym->name = "stack";
+    sym->name = "#";
 }
 
 symtable_t *symtable_new() {
@@ -73,21 +73,6 @@ sym_t* symtable_add(symtable_t* st, char* name) {
     return sym;
 }
 
-void sym_annot(sym_t* sym, sym_type type, node_t* value) {
-    switch (type) {
-    case SYM_MAP:
-        break;
-    case SYM_VAR:
-        sym->var = value;
-        break;
-    default:
-        break;
-    }
-    
-    sym->type = type;
-    sym->vannot = value->annot;
-}
-
 void var_dec(symtable_t* st, char* name, node_t* value) {
     sym_t* sym;
 
@@ -130,7 +115,7 @@ void map_dec(symtable_t* st, node_t* map) {
     sym->map = smap;
 }
 
-int var_ref(symtable_t* st, node_t* var) {
+int sym_ref(symtable_t* st, node_t* var) {
     sym_t* sym;
 
     sym = symtable_get(st, var->name);
@@ -143,25 +128,13 @@ int var_ref(symtable_t* st, node_t* var) {
     return 0;    
 }
 
-int map_ref(symtable_t* st, node_t* n) {
-    struct smap_t* map; 
-    sym_t* sym;
-
-    sym = symtable_get(st, n->name);
-    
-    if (sym) {
-        sym_transfer(sym, n);
-        return 0;
-    }
-}
-
 void symtable_ref(symtable_t* st, node_t* n) {
     switch (n->type) {
     case NODE_VAR:
-        var_ref(st, n);
+        sym_ref(st, n);
         break;
     case NODE_MAP:
-        map_ref(st, n);
+        sym_ref(st, n);
         break;
     default:
         break;

@@ -6,8 +6,8 @@
 
 node_t* node_new(node_type_t t) {
     node_t* n = vmalloc(sizeof(*n));
-    n->type = t;
     
+    n->type = t;
     return n;
 }
 
@@ -19,7 +19,7 @@ node_t* node_var_new(char* name) {
 }
 
 node_t* node_str_new(char* str) {
-	node_t* n = node_new(NODE_STRING);
+	node_t* n = node_new(NODE_STR);
 	n->name = str;
 	return n;
 }
@@ -110,7 +110,7 @@ void node_probe_free(node_t* n) {
 
 void node_stmts_free(node_t* n) {
     switch (n->type) {
-    case NODE_STRING:
+    case NODE_STR:
         free(n->name);
         break;
     case NODE_INT:

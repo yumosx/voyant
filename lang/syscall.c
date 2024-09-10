@@ -150,8 +150,6 @@ int read_field(char* name) {
     return 0;
 }
 
-
-
 static int bpf_map_op(enum bpf_cmd cmd, int fd, void* key, void* val, int flags) {
 	union bpf_attr attr = {
 		.map_fd = fd,
