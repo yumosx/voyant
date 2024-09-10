@@ -108,11 +108,6 @@ int bpf_probe_attach(ebpf_t* e, int id) {
         return 1;
      } 
 
-     while (1) {
-        system("cat /sys/kernel/debug/tracing/trace_pipe");
-        getchar(); 
-    }
-
     return 0;
 }
 

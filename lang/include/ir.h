@@ -38,6 +38,7 @@ enum {
   IR_ELSE_END,
   IR_REC,
   IR_LOAD,
+  IR_PUSH,
   IR_LOAD_SPILL,
   IR_STORE,
   IR_STORE_ARG,
@@ -107,6 +108,7 @@ typedef struct code_t {
 } code_t;
 
 reg_t* emit_expr(node_t* n);
+void compile_ir(ir_t* ir, ebpf_t* code);
 int emit_ir(node_t* n);
 
 #endif

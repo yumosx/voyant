@@ -4,6 +4,8 @@
 #include "ut.h"
 #include "insn.h"
 #include "bpfsyscall.h"
+#include "buffer.h"
+#include <signal.h>
 
 static prog_t* prog;
 static bb_t* curbb;
@@ -139,6 +141,16 @@ reg_t* load(node_t* var) {
     return ir->r0;
 }
 
+ir_t* bind(node_t* var, reg_t* reg) {
+    ir_t* ir;
+
+    ir = new_ir(IR_PUSH);
+    ir->r0 = reg;
+    ir->var = var;
+
+    return ir;    
+}
+
 static reg_t* binop(int op, node_t* node) {
     reg_t* r1 = new_reg();
     reg_t* r2 = emit_expr(node->infix_expr.left);
@@ -178,10 +190,9 @@ reg_t* emit_expr(node_t* n) {
             return str(n->dec.expr);
         }
         reg_t* r1 = emit_expr(n->dec.expr);
-        reg_t* r2 = new_reg(); 
+        reg_t* r2 = lval(n->dec.var); 
         ir_t* ir = emit(IR_STORE, NULL, r2, r1);        
-        
-        lval(n->dec.var);
+        bind(ir->var, r2);
         return r1;
     }
     case NODE_REC: {
@@ -193,15 +204,7 @@ reg_t* emit_expr(node_t* n) {
         node_t* head;
         reg_t* args[6];
 
-        if (!vstreq("out", n->name)) { 
-            _foreach(head, n->call.args) {
-                args[i] = emit_expr(head);
-                i += 1;
-            }
-        } else {
-            rec(n);
-            break;
-        }
+        rec(n->call.args->next);
         
         ir = new_ir(IR_CALL);
         ir->r0 = new_reg();
@@ -272,6 +275,8 @@ prog_t* prog_new(node_t* n) {
     p->vars = vec_new();
     p->bbs = vec_new();
     p->e = ebpf_new();
+    
+    evpipe_init(p->e->evp, 4<<10);
     return p; 
 }
 
@@ -558,11 +563,6 @@ void store_str(ebpf_t* e, node_t* n) {
     }
 }
 
-void emit_call(ebpf_t* e, ir_t* ir) {
-
-}
-
-
 void stack_init(node_t* n, ebpf_t* e) {
 	size_t i;
 	annot_t to = n->annot;
@@ -575,7 +575,41 @@ void stack_init(node_t* n, ebpf_t* e) {
 	}
 }
 
-int then = 0, els = 0, next = 0;
+void emit_ld_mapfd(ebpf_t* e, int reg, int fd) {
+    emit_code(e, INSN(BPF_LD|BPF_DW|BPF_IMM, reg, BPF_PSEUDO_MAP_FD, 0, fd));
+    emit_code(e, INSN(0, 0, 0, 0, 0));
+}
+
+void emit_rec(node_t* n, ebpf_t* e) {
+    ssize_t addr, size;
+    node_t* arg;
+    int id;
+
+    id = e->evp->mapfd;
+    addr = n->annot.addr;
+    size = n->annot.size;
+
+    printf("%d %d\n", addr, size);
+
+    _foreach(arg, n->rec.args) {
+        printf("%d\n", arg->annot.addr);
+        emit_code(e, MOV_IMM(BPF_REG_1, arg->integer));
+        emit_code(e, STXDW(BPF_REG_10, arg->annot.addr, BPF_REG_1));
+    }
+
+    emit_code(e, CALL(BPF_FUNC_get_smp_processor_id));
+	emit_code(e, MOV(BPF_REG_3, BPF_REG_0));
+    
+    emit_code(e, MOV(BPF_REG_1, BPF_REG_9));
+	emit_ld_mapfd(e, BPF_REG_2, id);
+
+    emit_code(e, MOV(BPF_REG_4, BPF_REG_10));
+	emit_code(e, ALU_IMM(OP_ADD, BPF_REG_4, addr));
+
+    emit_code(e, MOV_IMM(BPF_REG_5, size));
+	emit_code(e, CALL(BPF_FUNC_perf_event_output));
+}
+
 struct bpf_insn* at;
 struct bpf_insn* end;
 
@@ -598,7 +632,7 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         emit_code(code, ALU(BPF_ADD, gregs[r0], gregs[r2]));
         break;
     case IR_GT:
-        printf("the answer reg is %d\n", gregs[r0]);
+        printf("comp %d %d\n", gregs[r0], gregs[r2]);
         emit_code(code, JMP(JUMP_JGT, gregs[r0], gregs[r2], 2));
         emit_code(code, MOV_IMM(gregs[r0], 0));
         emit_code(code, JMP_IMM(BPF_JA, 0, 0, 1));
@@ -616,17 +650,21 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         printf("br: %d\n", gregs[r2]);
         emit_code(code, MOV(BPF_REG_0, gregs[r2]));
         break;
+    case IR_PUSH:
+        printf("var push %d\n", gregs[r0]);
+        break;
     case IR_IF_THEN:
         at = code->ip;
-        emit_at(code, at, if_else_insn);
+        emit_code(code, if_then_insn);
         break; 
     case IR_IF_END:
         printf("end if (%d)\n", code->ip-at-1);
         emit_at(code, at, JMP_IMM(BPF_JEQ, 0, 0, code->ip-at-1));
         break;
+    case IR_REC:
+        emit_rec(ir->var, code);
+        break;
     case IR_CALL:
-        printf("call\n");
-        emit_call(code, ir);
         break;
     default:
         break;
@@ -650,6 +688,12 @@ void compile(prog_t* prog) {
     }
 }
 
+static int term_sig = 0;
+static void term(int sig) {
+    term_sig = sig;
+    return;
+}
+
 int main() {
     char* input; 
     lexer_t* l;
@@ -657,14 +701,15 @@ int main() {
     node_t* n;
     ebpf_t* e;
 
-    input = "probe sys{ if(2 > 1){out(\"%d\", 1)}}";  
+    input = "probe sys{ if (3 > 1) { out(\"%d\n\", 2);}";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 
     prog = prog_new(n); 
 
     visit(n, get_annot, loc_assign, prog->e);
-
+    
+    emit_code(prog->e, MOV(BPF_CTX_REG, BPF_REG_1));
     emit_ir(n);
     liveness(prog);
     regs_alloc(prog);
@@ -672,8 +717,10 @@ int main() {
 
     emit_code(prog->e, MOV_IMM(BPF_REG_0, 0));
 	emit_code(prog->e, EXIT);
-
-    bpf_probe_attach(prog->e, 721); 
     
+    siginterrupt(SIGINT, 1);
+    signal(SIGINT, term);
+    bpf_probe_attach(prog->e, 721); 
+    evpipe_loop(prog->e->evp, &term_sig, -1);
     return 0;
 }

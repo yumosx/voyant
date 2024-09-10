@@ -59,7 +59,7 @@ void annot_expr(node_t* n, ebpf_t* e) {
 
 void annot_rec(node_t* n, ebpf_t* e) {
 	node_t* arg;
-	ssize_t size;
+	ssize_t size = 0;
 
 	_foreach(arg, n->rec.args) {
 		get_annot(arg, e);
@@ -130,15 +130,15 @@ void assign_rec(node_t* n, ebpf_t* e) {
 		head->annot.addr = offs;
 		offs += head->annot.size;
 	}
-	
+
 	n->annot.loc = LOC_STACK;
 }
 
 void loc_assign(node_t* n, ebpf_t* e) {
 	switch (n->annot.type) {
-	case ANNOT_STR:
-		assign_stack(n, e);
-		break;
+	//case ANNOT_STR:
+	//	assign_stack(n, e);
+	//	break;
 	case ANNOT_RSTR:
 		assign_stack(n, e);
 		break;
@@ -179,7 +179,7 @@ void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
 		do_list(n->call.args);
 		break;
 	case NODE_IF:
-		do_list(n->iff.cond);
+		do_walk(n->iff.cond);
 		do_list(n->iff.then);
 		break;
 	default:
