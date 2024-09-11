@@ -48,7 +48,6 @@ static ir_t* new_ir(int op) {
 
 static reg_t* new_reg() {
     reg_t* reg = calloc(1, sizeof(*reg));
-    reg->issp = false;
     reg->vn = nreg++;
     reg->rn = -1;
     return reg;
@@ -82,6 +81,12 @@ static ir_t* els_end() {
     return ir;
 }
 
+static ir_t* map_update(node_t* map) {
+    ir_t* ir = new_ir(IR_MAP_UPDATE);
+    ir->value = map;
+    return ir;
+}
+
 static ir_t* br(reg_t* r, bb_t* then, bb_t* els) {
     ir_t* ir = new_ir(IR_BR);
     ir->r2 = r;
@@ -107,27 +112,12 @@ static reg_t* imm(int imm) {
     return ir->r0;
 }
 
-static reg_t* str(node_t* str) {
-    ir_t* ir = new_ir(IR_PUSH);
-
-    ir->r0 = new_reg(); 
-    ir->binding = str;
-    
-    return ir->r0;
-}
-
-static ir_t* rec(node_t* rec) {
-    ir_t* ir = new_ir(IR_REC);
-    ir->binding = rec;
-    return ir;
-}
-
 reg_t* lval(node_t* var) {
     ir_t* ir;
     
-    ir = new_ir(IR_BPREL);
+    ir = new_ir(IR_DEC);
     ir->r0 = new_reg();
-    ir->binding = var;
+    ir->value = var;
 
     return ir->r0;    
 }
@@ -137,25 +127,35 @@ reg_t* load(node_t* var) {
 
     ir = new_ir(IR_LOAD);
     ir->r0 = new_reg();
-    ir->binding = var;
+    ir->value = var;
 
     return ir->r0;
 }
 
-ir_t* push(node_t* value, reg_t* reg) {
+reg_t* push(node_t* value) {
+    ir_t* ir;
+
+    ir = new_ir(IR_PUSH);
+    ir->value = value;
+    ir->r0 = new_reg();
+
+    return ir->r0;
+}
+
+ir_t* reg_to_stack(node_t* value, reg_t* reg) {
     ir_t* ir;
 
     ir = new_ir(IR_PUSH);
     ir->r0 = reg;
-    ir->binding = value;
+    ir->value = value;
 
     return ir;    
 }
 
 static reg_t* binop(int op, node_t* node) {
     reg_t* r1 = new_reg();
-    reg_t* r2 = gen_expr(node->infix_expr.left);
-    reg_t* r3 = gen_expr(node->infix_expr.right); 
+    reg_t* r2 = gen_expr(node->expr.left);
+    reg_t* r3 = gen_expr(node->expr.right); 
     
     emit(op, r1, r2, r3);
 
@@ -163,7 +163,7 @@ static reg_t* binop(int op, node_t* node) {
 }
 
 reg_t* gen_binop(node_t* n) {
-    switch (n->infix_expr.opcode) {
+    switch (n->expr.opcode) {
     case OP_ADD:
         return binop(IR_ADD, n);
     case OP_DIV:
@@ -184,31 +184,24 @@ reg_t* gen_expr(node_t* n) {
     case NODE_INT:
         return imm(n->integer);
     case NODE_STR:  
-        return str(n);
+        return push(n);
     case NODE_EXPR:
         return gen_binop(n);
     case NODE_VAR:
         return load(n);
     case NODE_ASSIGN:
         return NULL;
-    case NODE_DEC: {
-        reg_t* r1 = gen_expr(n->dec.expr);
-        reg_t* r2 = lval(n->dec.var); 
-        ir_t* ir = emit(IR_STORE, NULL, r2, r1);        
-        push(n->dec.var, r2);
-        return r1;
-    }
     case NODE_CALL: {
         ir_t* ir;
         int i = 0;
         node_t* head;
         reg_t* args[6];
 
-        rec(n->call.args->next);
+        push(n->call.args->next);
         
         ir = new_ir(IR_CALL);
         ir->r0 = new_reg();
-        ir->binding = n;
+        ir->value = n;
         ir->nargs = i;
         
         memcpy(ir->args, args, sizeof(args));
@@ -218,6 +211,42 @@ reg_t* gen_expr(node_t* n) {
         verror("unknown ast type");
         break;
     }
+}
+
+void gen_dyns(node_t* var, node_t* expr) {
+    ir_t* ir;
+
+    switch (expr->type) {
+    case NODE_EXPR:
+    case NODE_INT:
+        reg_t* r1, *r2;
+        r1 = gen_expr(expr);
+        r2 = lval(var);
+        ir = emit(IR_STORE, NULL, r2, r1);
+        reg_to_stack(var, r2);
+        break;
+    case NODE_STR:
+        lval(var);
+        push(expr);
+        break;
+    default:
+        break;
+    }
+
+    if (var->type == NODE_MAP) {
+        map_update(var);
+    }
+}
+
+void gen_dec(node_t* dec) {
+    node_t* var, *expr;
+
+    var = dec->dec.var;
+    expr = dec->dec.expr;
+
+    
+
+    gen_dyns(var, expr);
 }
 
 void emit_stmt(node_t* n) {
@@ -247,6 +276,9 @@ void emit_stmt(node_t* n) {
         curbb = last;
         break;    
     }
+    case NODE_DEC:
+        gen_dec(n);
+        break;
     default:
         gen_expr(n);
         break;
@@ -280,7 +312,7 @@ prog_t* prog_new(node_t* n) {
     return p; 
 }
 
-static void add_edges(bb_t* bb) {
+static void ir_add_edges(bb_t* bb) {
     if (bb->succ->len > 0)
         return 0;
     assert(bb->ir->len);
@@ -290,13 +322,13 @@ static void add_edges(bb_t* bb) {
     if (ir->bb1) {
         vec_push(bb->succ, ir->bb1);
         vec_push(ir->bb1->pred, bb);
-        add_edges(ir->bb1);
+        ir_add_edges(ir->bb1);
     }
 
     if (ir->bb2) {
         vec_push(bb->succ, ir->bb2);
         vec_push(ir->bb2->pred, bb);
-        add_edges(ir->bb2);
+        ir_add_edges(ir->bb2);
     }
 }
 
@@ -311,7 +343,7 @@ static void init_def_regs(bb_t* bb) {
     }
 }
 
-static void cfg(bb_t* bb, reg_t* reg) {
+static void ir_cfg(bb_t* bb, reg_t* reg) {
     if (!reg || vec_contains(bb->def_regs, reg))
         return;
     
@@ -322,26 +354,26 @@ static void cfg(bb_t* bb, reg_t* reg) {
         bb_t* pred = bb->pred->data[i];
 
         if (vec_union(pred->out_regs, reg)) {
-            cfg(pred, reg);
+            ir_cfg(pred, reg);
         }
     }
 }
 
-static void init_it_regs(bb_t* bb, ir_t* ir) {
+static void ir_init_it_regs(bb_t* bb, ir_t* ir) {
     int i;
     
-    cfg(bb, ir->r1);
-    cfg(bb, ir->r2);
-    cfg(bb, ir->bbarg);
+    ir_cfg(bb, ir->r1);
+    ir_cfg(bb, ir->r2);
+    ir_cfg(bb, ir->bbarg);
 
     if (ir->op == IR_CALL) {
         for (i = 0; i < ir->nargs; i++){
-            cfg(bb, ir->args[i]);
+            ir_cfg(bb, ir->args[i]);
         }
     }
 }
 
-void liveness(prog_t* prog) {
+void ir_liveness(prog_t* prog) {
     int i, j;
     bb_t* bb;
     ir_t* ir;
@@ -353,18 +385,18 @@ void liveness(prog_t* prog) {
 
         for (j = 0; j < bb->ir->len; j++) {
             ir = bb->ir->data[j];
-            init_it_regs(bb, ir);
+            ir_init_it_regs(bb, ir);
         }
     }
 }
 
-static void set_end(reg_t* reg, int ic) {
+static void ir_set_end(reg_t* reg, int ic) {
     if (reg && reg->end < ic) {
         reg->end = ic;
     }
 }
 
-static void trans(bb_t* bb) {
+static void ir_trans(bb_t* bb) {
     vec_t* v = vec_new();
     int i;
     
@@ -407,19 +439,19 @@ static vec_t* collect(prog_t* prog) {
                 vec_push(v, ir->r0);
             }
 
-            set_end(ir->r1, ic);
-            set_end(ir->r2, ic);
-            set_end(ir->bbarg, ic);
+            ir_set_end(ir->r1, ic);
+            ir_set_end(ir->r2, ic);
+            ir_set_end(ir->bbarg, ic);
             
             if (ir->op == IR_CALL) {
                 for (k = 0; k < ir->nargs; k++)
-                    set_end(ir->args[k], ic);
+                    ir_set_end(ir->args[k], ic);
             }
         }
         
         for (j = 0; j < bb->out_regs->len; j++) {
             reg_t* reg = bb->out_regs->data[j];
-            set_end(reg, ic);
+            ir_set_end(reg, ic);
         }
     }
 
@@ -459,56 +491,13 @@ void scan(vec_t* regs) {
             continue;
         
         used[regnum-1] = reg;
-        
+ 
         k = spill(used);
         reg->rn = k;
         used[k]->rn = regnum - 1;
         used[k]->spill = true;
         used[k] = reg;
     }
-}
-
-void spill_store(vec_t* v, ir_t* ir) {
-    reg_t* reg;
-
-    reg = ir->r0;
-    if (!reg || !reg->spill)
-        return; 
-    
-    ir_t* ir2 = calloc(1, sizeof(*ir2));
-    ir2->op = IR_STORE_SPILL;
-    ir2->r1 = reg;
-    ir2->binding = reg->var;
-    vec_push(v, ir2);
-}
-
-void spill_load(vec_t* vec, ir_t* ir, reg_t* reg) {
-    if (!reg || !reg->spill) {
-        return;
-    }
-    
-    ir_t* ir2 = vcalloc(1, sizeof(*ir2));
-    ir2->op = IR_LOAD_SPILL;
-    ir2->r0 = reg;
-    ir2->binding = reg->var;
-    vec_push(vec, ir2);
-}
-
-void emit_spill_code(bb_t* bb) {
-    int i;
-    ir_t* ir;
-    vec_t* v = vec_new();
-
-    for (i = 0; i < bb->ir->len; i++) {
-        ir = bb->ir->data[i];
-        spill_load(v, ir, ir->r1);
-        spill_load(v, ir, ir->r2);
-        spill_load(v, ir, ir->bbarg);
-        vec_push(v, ir);
-        spill_store(v, ir);
-    }
-
-    bb->ir = v;
 }
 
 void regs_alloc(prog_t* prog) {
@@ -519,25 +508,11 @@ void regs_alloc(prog_t* prog) {
     
     for (i = 0; i < prog->bbs->len; i++) {
         bb = prog->bbs->data[i];
-        trans(bb);
+        ir_trans(bb);
     }
     
     regs = collect(prog);
     scan(regs);
-    
-    for (i = 0; i < regs->len; i++) {
-        reg_t* reg = regs->data[i];
-        if (!reg->spill)
-            continue;
-        var = node_var_new("spill");
-        reg->var = var;
-        vec_push(prog->vars, var);
-    }
-    
-    for (i = 0; i < prog->bbs->len; i++) {
-        bb = prog->bbs->data[i];
-        emit_spill_code(bb);
-    }
 }
 
 void emit_rec(node_t* n, ebpf_t* e) {
@@ -564,13 +539,46 @@ void emit_rec(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, CALL(BPF_FUNC_perf_event_output));
 }
 
-void emit_bool(ebpf_t* code, int op, int r0, int r2) {
-    ebpf_emit(code, JMP(BPF_JGT, gregs[r0], gregs[r2], 2));
+void compile_bool(ebpf_t* code, int op, int r0, int r2) {
+    ebpf_emit(code, JMP(op, gregs[r0], gregs[r2], 2));
     ebpf_emit(code, MOV_IMM(gregs[r0], 0));
     ebpf_emit(code, JMP_IMM(BPF_JA, 0, 0, 1));
     ebpf_emit(code, MOV_IMM(gregs[r0], 1)); 
 }
 
+void compile_dec(ebpf_t* code, node_t* var) {
+    node_t* args;
+    
+    switch (var->type) {
+    case NODE_MAP:
+        ebpf_stack_zero(var->map.args, code);
+        ebpf_stack_zero(var, code);
+        ebpf_value_to_stack(code, var->map.args);
+        break;
+    case NODE_VAR:
+        ebpf_stack_zero(var, code);
+        break;
+    default:
+        break;
+    }
+}
+
+void compile_map_update(ebpf_t* code, node_t* var) {
+    ssize_t kaddr, vaddr;
+
+    vaddr = var->annot.addr;
+    kaddr = var->map.args->annot.addr;
+
+    ebpf_emit_mapld(code, BPF_REG_1, var->annot.mapid);
+	ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_2, kaddr));
+   
+	ebpf_emit(code, MOV(BPF_REG_3, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_3, vaddr));
+
+	ebpf_emit(code, MOV_IMM(BPF_REG_4, 0));
+	ebpf_emit(code, CALL(BPF_FUNC_map_update_elem));
+}
 
 void compile_ir(ir_t* ir, ebpf_t* code) {
     int r0 = ir->r0 ? ir->r0->rn : 0;
@@ -582,27 +590,27 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         ebpf_emit(code, MOV_IMM(gregs[r0], ir->imm));
         break;
     case IR_STR:
-        ebpf_value_to_stack(code, ir->binding);
+        ebpf_value_to_stack(code, ir->value);
         break;
     case IR_ADD:
         ebpf_emit(code, ALU(BPF_ADD, gregs[r0], gregs[r2]));
         break;
     case IR_GT:
-        emit_bool(code, BPF_JGT, r0, r2);
+        compile_bool(code, BPF_JGT, r0, r2);
         break;
-    case IR_BPREL:
-        ebpf_emit(code, STW_IMM(BPF_REG_10, ir->binding->annot.addr, 0));
+    case IR_DEC:
+        compile_dec(code, ir->value);
         break;
     case IR_STORE:
         ebpf_emit(code, MOV(gregs[r1], gregs[r2]));
         break;
     case IR_PUSH:
-        ebpf_emit(code, STXDW(BPF_REG_10, ir->binding->annot.addr, gregs[r0]));
+        //ebpf_value_to_stack(code, ir->value); 
+        printf("%d\n", ir->value->annot.addr);
+        //ebpf_emit(code, STXDW(BPF_REG_10, ir->value->annot.addr, gregs[r0]));
         break;
     case IR_BR:
         ebpf_emit(code, MOV(BPF_REG_0, gregs[r2]));
-        break;
-    case IR_LOAD:
         break;
     case IR_IF_THEN:
         at = code->ip;
@@ -612,9 +620,14 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         ebpf_emit_at(at, JMP_IMM(BPF_JEQ, 0, 0, code->ip-at-1));
         break;
     case IR_REC:
-        emit_rec(ir->binding, code);
+        emit_rec(ir->value, code);
+        break;
+    case IR_MAP_UPDATE:
+        compile_map_update(code, ir->value);
         break;
     case IR_CALL:
+        break;
+    case IR_RETURN:
         break;
     default:
         break;
@@ -651,7 +664,7 @@ int main() {
     node_t* n;
     ebpf_t* e;
 
-    input = "probe sys{ a[1] := 1;}";  
+    input = "probe sys{ a[2] := 1;}";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 
@@ -661,7 +674,7 @@ int main() {
     
     ebpf_emit(prog->e, MOV(BPF_CTX_REG, BPF_REG_1));
     gen_ir(n);
-    liveness(prog);
+    ir_liveness(prog);
     regs_alloc(prog);
     compile(prog);
 
@@ -670,7 +683,7 @@ int main() {
     
     siginterrupt(SIGINT, 1);
     signal(SIGINT, term);
-    //bpf_probe_attach(prog->e, 721); 
-    //evpipe_loop(prog->e->evp, &term_sig, -1);
+    bpf_probe_attach(prog->e, 721); 
+    evpipe_loop(prog->e->evp, &term_sig, -1);
     return 0;
 }

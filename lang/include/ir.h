@@ -20,7 +20,6 @@ enum {
   IR_MOV,
   IR_RETURN,
   IR_CALL,
-  IR_LABEL_ADDR,
   IR_EQ,
   IR_NE,
   IR_LE,
@@ -37,7 +36,9 @@ enum {
   IR_IF_END,
   IR_ELSE_THEN,
   IR_ELSE_END,
+  IR_MAP_UPDATE,
   IR_REC,
+  IR_DEC,
   IR_LOAD,
   IR_PUSH,
   IR_LOAD_SPILL,
@@ -45,7 +46,6 @@ enum {
   IR_STORE_ARG,
   IR_STORE_SPILL,
   IR_NOP,
-  IR_VAR_DEC,
 };
 
 typedef struct reg_t {
@@ -53,10 +53,7 @@ typedef struct reg_t {
     int rn;
     int def;
     int end;
-
-    bool issp;    
     bool spill;
-    
     char* str;
     node_t* var;
 } reg_t;
@@ -81,7 +78,7 @@ typedef struct ir_t {
 
     int imm;
     int label;
-    node_t* binding;
+    node_t* value;
     bb_t* bb1;
     bb_t* bb2;
 

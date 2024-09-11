@@ -33,9 +33,9 @@ node_t* node_int_new(size_t integer) {
 node_t* node_expr_new(int opcode, node_t* left, node_t* right) {
 	node_t* n = node_new(NODE_EXPR);
 	
-    n->infix_expr.opcode = opcode;
-	n->infix_expr.left = left;
-	n->infix_expr.right = right;
+    n->expr.opcode = opcode;
+	n->expr.left = left;
+	n->expr.right = right;
 
 	return n;
 }

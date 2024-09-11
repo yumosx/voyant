@@ -51,9 +51,16 @@ sym_t *symtable_get(symtable_t *st, const char *name) {
 
 int sym_transfer(sym_t* sym, node_t *n) {
     if (n->type != NODE_VAR && n->type != NODE_MAP) {
-        error("invalid node type provided");
+        verror("invalid node type provided");
     }
-    
+
+    if (n->type == NODE_MAP){
+        node_t* args;
+
+        args = n->map.args;
+        args->annot.addr = sym->map->kaddr;
+    }
+
     n->annot = sym->vannot;
     return 0;
 }

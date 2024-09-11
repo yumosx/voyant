@@ -111,8 +111,8 @@ struct node_t {
 
     union {
         probe_t probe;
-        infix_t infix_expr;
-        prefix_t prefix_expr;
+        infix_t expr;
+        prefix_t pexpr;
         dec_t dec;
         iff_t iff;
         unroll_t unroll;
