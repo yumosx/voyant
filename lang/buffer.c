@@ -237,10 +237,10 @@ void dump_int(FILE* fp, node_t* integer, void* data) {
 
 void dump(FILE* fp, node_t* n, void* data) {
 	switch (n->annot.type) {
-	case ANNOT_RSTR:
+	case TYPE_RSTR:
 		dump_str(fp, n, data);
 		break;
-	case ANNOT_INT:
+	case TYPE_INT:
 		dump_int(fp, n, data);
 		break;
 	default:

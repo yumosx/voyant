@@ -78,22 +78,23 @@ typedef enum loc_t {
     LOC_STACK,
 } loc_t;
 
-typedef enum annot_type{
-    ANNOT_STR,
-    ANNOT_INT,
-    ANNOT_REC,
-    ANNOT_SYM,
-    ANNOT_RINT,
-    ANNOT_RSTR,
-    ANNOT_VAR,
-    ANNOT_MAP,
-    ANNOT_DEC,
-    ANNOT_ASSIGN,
-    ANNOT_MAP_METHOD,
-} annot_type;
+typedef enum type_t{
+    TYPE_STR,
+    TYPE_INT,
+    TYPE_EXPR,
+    TYPE_REC,
+    TYPE_SYM,
+    TYPE_RINT,
+    TYPE_RSTR,
+    TYPE_VAR,
+    TYPE_MAP,
+    TYPE_DEC,
+    TYPE_ASSIGN,
+    TYPE_MAP_METHOD,
+} type_t;
 
 typedef struct annot_t {
-    annot_type type;
+    type_t type;
     int mapid;
     
     size_t ksize;

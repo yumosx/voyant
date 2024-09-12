@@ -18,11 +18,11 @@ static void check_int(node_t* n) {
 static void annot_value(node_t* value) {
 	switch (value->type) {
 	case NODE_INT:
-		value->annot.type = ANNOT_INT;
+		value->annot.type = TYPE_INT;
 		value->annot.size = sizeof(value->integer);
 		break;
 	case NODE_STR:
-		value->annot.type = ANNOT_STR;
+		value->annot.type = TYPE_STR;
 		value->annot.size = _ALIGNED(strlen(value->name) + 1);
 		break;
 	default:
@@ -39,13 +39,13 @@ static void annot_map(node_t* map, ebpf_t* e) {
 	get_annot(arg, e);
 	ksize = arg->annot.size;
 
-	map->annot.type = ANNOT_MAP;	
+	map->annot.type = TYPE_MAP;	
 	map->annot.size = 8;
 	map->annot.ksize = ksize;
 }
 
 static void annot_var(node_t* var, ebpf_t* e) {
-	var->annot.type = ANNOT_VAR;
+	var->annot.type = TYPE_VAR;
 	var->annot.size = 8;	
 }
 
@@ -72,7 +72,7 @@ void annot_dec(node_t* n, ebpf_t* e) {
 		verror("left type is not map or variable");
 		break;
 	}
-	n->annot.type = ANNOT_DEC;
+	n->annot.type = TYPE_DEC;
 }
 
 void annot_assign(node_t* n, ebpf_t* e) {
@@ -101,7 +101,7 @@ void annot_expr(node_t* expr, ebpf_t* e) {
 	check_int(left);
 	check_int(right);
 
-	expr->annot.type = ANNOT_INT;
+	expr->annot.type = TYPE_INT;
 }
 
 void annot_rec(node_t* n, ebpf_t* e) {
@@ -114,7 +114,7 @@ void annot_rec(node_t* n, ebpf_t* e) {
 	}
 
 	n->annot.size = size;
-	n->annot.type = ANNOT_REC;
+	n->annot.type = TYPE_REC;
 }
 
 void get_annot(node_t* n, ebpf_t* e) {
@@ -190,13 +190,13 @@ void assign_rec(node_t* n, ebpf_t* e) {
 
 void loc_assign(node_t* n, ebpf_t* e) {
 	switch (n->annot.type) {
-	case ANNOT_RSTR:
+	case TYPE_RSTR:
 		assign_stack(n, e);
 		break;
-	case ANNOT_DEC:
+	case TYPE_DEC:
 		assign_dec(n, e);
 		break;
-	case ANNOT_REC:
+	case TYPE_REC:
 		assign_rec(n, e);
 		break;
 	default:

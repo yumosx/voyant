@@ -115,6 +115,10 @@ static reg_t* imm(int imm) {
 reg_t* lval(node_t* var) {
     ir_t* ir;
     
+    if (var->type == NODE_MAP) {
+        //gen_expr(var->map.args);
+    }
+    
     ir = new_ir(IR_DEC);
     ir->r0 = new_reg();
     ir->value = var;
@@ -122,13 +126,13 @@ reg_t* lval(node_t* var) {
     return ir->r0;    
 }
 
-reg_t* load(node_t* var) {
+reg_t* load(reg_t* reg, node_t* node) {
     ir_t* ir;
+    reg_t* reg;
 
-    ir = new_ir(IR_LOAD);
-    ir->r0 = new_reg();
-    ir->value = var;
-
+    reg = new_reg();
+    ir = emit(IR_LOAD, reg, NULL, NULL);
+    ir->size = node->annot.size;
     return ir->r0;
 }
 
@@ -145,7 +149,7 @@ reg_t* push(node_t* value) {
 ir_t* reg_to_stack(node_t* value, reg_t* reg) {
     ir_t* ir;
 
-    ir = new_ir(IR_PUSH);
+    ir = new_ir(IR_REG_PUSH);
     ir->r0 = reg;
     ir->value = value;
 
@@ -180,38 +184,17 @@ reg_t* gen_binop(node_t* n) {
 }
 
 reg_t* gen_expr(node_t* n) {
-    switch (n->type) {
+    switch (n->type){
     case NODE_INT:
         return imm(n->integer);
-    case NODE_STR:  
-        return push(n);
     case NODE_EXPR:
         return gen_binop(n);
     case NODE_VAR:
         return load(n);
-    case NODE_ASSIGN:
-        return NULL;
-    case NODE_CALL: {
-        ir_t* ir;
-        int i = 0;
-        node_t* head;
-        reg_t* args[6];
-
-        push(n->call.args->next);
-        
-        ir = new_ir(IR_CALL);
-        ir->r0 = new_reg();
-        ir->value = n;
-        ir->nargs = i;
-        
-        memcpy(ir->args, args, sizeof(args));
-        return ir->r0;
-    }
     default:
-        verror("unknown ast type");
         break;
     }
-}
+} 
 
 void gen_dyns(node_t* var, node_t* expr) {
     ir_t* ir;
@@ -238,16 +221,15 @@ void gen_dyns(node_t* var, node_t* expr) {
     }
 }
 
+
 void gen_dec(node_t* dec) {
     node_t* var, *expr;
 
     var = dec->dec.var;
     expr = dec->dec.expr;
-
-    
-
     gen_dyns(var, expr);
 }
+
 
 void emit_stmt(node_t* n) {
     switch (n->type) {
@@ -256,7 +238,7 @@ void emit_stmt(node_t* n) {
         bb_t* els = new_bb();
         bb_t* last = new_bb();
 
-        br(gen_expr(n->iff.cond), then, els);
+        br(gen_binop(n->iff.cond), then, els);
         curbb = then;
         
         if_then();
@@ -604,10 +586,11 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_STORE:
         ebpf_emit(code, MOV(gregs[r1], gregs[r2]));
         break;
-    case IR_PUSH:
-        //ebpf_value_to_stack(code, ir->value); 
-        printf("%d\n", ir->value->annot.addr);
-        //ebpf_emit(code, STXDW(BPF_REG_10, ir->value->annot.addr, gregs[r0]));
+    case IR_REG_PUSH:
+        ebpf_emit(code, STXDW(BPF_REG_10, ir->value->annot.addr, gregs[r0]));
+        break;
+    case IR_MAP_UPDATE:
+        compile_map_update(code, ir->value);
         break;
     case IR_BR:
         ebpf_emit(code, MOV(BPF_REG_0, gregs[r2]));
@@ -622,8 +605,11 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_REC:
         emit_rec(ir->value, code);
         break;
-    case IR_MAP_UPDATE:
-        compile_map_update(code, ir->value);
+    case IR_LOAD:
+        ebpf_emit(code, LDXDW);
+        ebpf_emit(code, MOV())
+        break;
+    case IR_MAP_LOOK:
         break;
     case IR_CALL:
         break;
@@ -633,6 +619,8 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         break;
     }
 }
+
+
 
 void compile(prog_t* prog) {
     int i, j;
@@ -664,7 +652,7 @@ int main() {
     node_t* n;
     ebpf_t* e;
 
-    input = "probe sys{ a[2] := 1;}";  
+    input = "probe sys{ a := 1;}";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 

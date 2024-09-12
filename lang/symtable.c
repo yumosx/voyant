@@ -8,7 +8,7 @@ static void sym_init(symtable_t *st) {
     sym_t *sym;
 
     sym = &st->table[st->len++];
-    sym->vannot.type = ANNOT_INT;
+    sym->vannot.type = TYPE_INT;
     sym->vannot.size = 8;
     sym->name = "#";
 }

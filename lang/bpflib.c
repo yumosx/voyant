@@ -52,6 +52,7 @@ static void int_to_stack(ebpf_t* e, node_t* value) {
 	ebpf_emit(e, STXDW(BPF_REG_10, value->annot.addr, BPF_REG_0));
 }
 
+
 static void str_to_stack(ebpf_t* code, node_t* value) {
 	ssize_t size, at, left;
     int32_t* str;
@@ -78,6 +79,8 @@ void ebpf_value_to_stack(ebpf_t* e, node_t* value) {
 	switch (value->type) {
 	case NODE_INT:
 		int_to_stack(e, value);		
+		break;
+	case NODE_VAR:
 		break;
 	case NODE_STR:
 		str_to_stack(e, value);

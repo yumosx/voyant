@@ -6,19 +6,19 @@
 #include "ut.h"
 
 static int annot_rint(node_t* n) {
-    n->annot.type = ANNOT_RINT;
+    n->annot.type = TYPE_RINT;
     n->annot.size = 8;
 }
 
 static int annot_rstr(node_t* n) {
-    n->annot.type = ANNOT_RSTR;
+    n->annot.type = TYPE_RSTR;
 	n->annot.size = _ALIGNED(16);
 }
 
 static int annot_probe_str(node_t* n) {
 	node_t* arg;
 
-	n->annot.type = ANNOT_RSTR;
+	n->annot.type = TYPE_RSTR;
 	n->annot.size = 16;
 }
 
@@ -91,7 +91,7 @@ static int annot_out(node_t* call) {
 	evhandler_register(evh);	
 	
 	meta = node_int_new(evh->type);
-	meta->annot.type = ANNOT_INT;
+	meta->annot.type = TYPE_INT;
 	meta->annot.size = 8;
 	meta->next = varg->next;
 	
