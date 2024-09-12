@@ -39,10 +39,10 @@ enum {
   IR_MAP_UPDATE,
   IR_MAP_LOOK,
   IR_REC,
-  IR_DEC,
+  IR_INIT,
   IR_LOAD,
   IR_PUSH,
-  IR_REG_PUSH,
+  IR_STW,
   IR_LOAD_SPILL,
   IR_STORE,
   IR_STORE_ARG,
@@ -96,7 +96,7 @@ typedef struct ir_t {
 typedef struct prog_t{
     char* name;
     node_t* ast;
-    vec_t* vars;
+    vec_t* data;
     vec_t* bbs;
     ebpf_t* e; 
 } prog_t;
@@ -107,7 +107,9 @@ typedef struct code_t {
 } code_t;
 
 reg_t* gen_expr(node_t* n);
+void emit_stmt(node_t* n);
+void gen_node_store(node_t* dst, node_t* src);
 void compile_ir(ir_t* ir, ebpf_t* code);
 int gen_ir(node_t* n);
-
+prog_t* gen_prog(node_t* n);
 #endif

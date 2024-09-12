@@ -102,6 +102,7 @@ void annot_expr(node_t* expr, ebpf_t* e) {
 	check_int(right);
 
 	expr->annot.type = TYPE_INT;
+	expr->annot.size = 8;
 }
 
 void annot_rec(node_t* n, ebpf_t* e) {
