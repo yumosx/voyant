@@ -12,7 +12,7 @@
 #include <sys/syscall.h>
 
 #include "annot.h" 
-#include "bpfsyscall.h"
+#include "probe.h"
 #include "ut.h"
 
 #define LOG_BUF_SIZE 0x1000
@@ -107,7 +107,7 @@ int bpf_probe_attach(ebpf_t* e, int id) {
         perror("perf attach");
         return 1;
      } 
-    
+
     return 0;
 }
 
@@ -150,7 +150,30 @@ int read_field(char* name) {
     return 0;
 }
 
+int get_id(char* name) {
+    char* buffer;
+    FILE* fp;
+    int number;
 
+    buffer = vmalloc(256);
+    sprintf(buffer, "/sys/kernel/debug/tracing/events/syscalls/%s/id", name);
+    
+    fp = fopen(buffer, "r");
+
+    if (fp == NULL) {
+        verror("Error opening file");
+        return 1;
+    }
+
+    if (fscanf(fp, "%d", &number) != 1) {
+        fprintf(stderr, "Error reading number from file\n");
+        fclose(fp);
+        return 1;
+    }
+    
+    free(buffer);
+    return number;
+}
 
 static int bpf_map_op(enum bpf_cmd cmd, int fd, void* key, void* val, int flags) {
 	union bpf_attr attr = {

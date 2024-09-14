@@ -1,7 +1,7 @@
-BEGIN {
-    out("%-18s %-16s %-6s\n", "PID", "COMM", "FILE");
-}
-
-probe sys_enter_execve {
-    out("%-18d %-16s %-6s\n", pid(), comm(), arg());
+probe sys_enter_open{
+    map[comm()] := 1;
+    a := 2;
+    if (a > 1) {
+        out("a: %d map: %d\n", a, map[comm()]);
+    }
 }

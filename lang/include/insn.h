@@ -2,6 +2,8 @@
 #define INSN_H
 
 #include <linux/bpf.h>
+#include <stddef.h>
+#include <inttypes.h>
 
 #define _ALIGN sizeof(int64_t)
 #define _ALIGNED(_size) (((_size) + _ALIGN - 1) & ~(_ALIGN - 1))
@@ -16,43 +18,35 @@
         .off = _off,                        \
         .imm = _imm})
 
-typedef enum op_t
-{
-    OP_ADD = BPF_ADD,
-    OP_SUB = BPF_SUB,
-    OP_MUL = BPF_MUL,
-    OP_DIV = BPF_DIV,
-    OP_OR = BPF_OR,
-    OP_AND = BPF_AND,
-    OP_LSH = BPF_LSH,
-    OP_RSH = BPF_RSH,
-    OP_NEG = BPF_NEG,
-    OP_MOD = BPF_MOD,
-    OP_XOR = BPF_XOR,
-    OP_MOV = BPF_MOV,
-} op_t;
-
-typedef enum jump_t
-{
-    JUMP_JEQ = BPF_JEQ,
-    JUMP_JGT = BPF_JGT,
-    JUMP_JGE = BPF_JGE,
-    JUMP_JNE = BPF_JNE,
-    JUMP_JSGT = BPF_JSGT,
-    JUMP_JSGE = BPF_JSGE,
-    JUMP_JA = BPF_JA,
-} jump_t;
-
-typedef enum user_op {
-    OP_PIPE = 1,
-} user_op;
-
-typedef enum extract_op {
+typedef enum extract{
     EXTRACT_OP_NONE,
     EXTRACT_OP_MASK,
     EXTRACT_OP_SHIFT,
     EXTRACT_OP_DIV_1G,
 } extract_op_t;
+
+typedef enum op_t{
+    OP_ILLEGAL,
+    OP_ADD,
+    OP_SUB,
+    OP_MUL,
+    OP_DIV,
+    OP_OR,
+    OP_AND,
+    OP_LSH,
+    OP_RSH,
+    OP_NEG,
+    OP_MOD,
+    OP_XOR,
+    OP_MOV,
+    OP_EQ,
+    OP_GT,
+    OP_GE,
+    OP_NE,
+    OP_JSGT,
+    OP_JA,
+    OP_PIPE,
+} op_t;
 
 #define MOV(_dst, _src) INSN(BPF_ALU64 | BPF_MOV | BPF_X, _dst, _src, 0, 0)
 #define MOV_IMM(_dst, _imm) INSN(BPF_ALU64 | BPF_MOV | BPF_K, _dst, 0, 0, _imm)
@@ -68,8 +62,13 @@ typedef enum extract_op {
 
 #define STW_IMM(_dst, _off, _imm) INSN(BPF_ST | BPF_SIZE(BPF_W) | BPF_MEM, _dst, 0, _off, _imm)
 #define STXDW(_dst, _off, _src) INSN(BPF_STX | BPF_SIZE(BPF_DW) | BPF_MEM, _dst, _src, _off, 0)
+#define STXB(_dst, _off, _src)   INSN(BPF_STX | BPF_SIZE(BPF_B) | BPF_MEM, _dst, _src, _off, 0)
+#define STXH(_dst, _off, _src)   INSN(BPF_STX | BPF_SIZE(BPF_H) | BPF_MEM, _dst, _src, _off, 0)
+#define STXW(_dst, _off, _src)   INSN(BPF_STX | BPF_SIZE(BPF_W) | BPF_MEM, _dst, _src, _off, 0)
 
 #define LDXDW(_dst, _off, _src) INSN(BPF_LDX | BPF_SIZE(BPF_DW) | BPF_MEM, _dst, _src, _off, 0)
 #define LDXB(_dst, _off, _src) INSN(BPF_LDX | BPF_SIZE(BPF_B) | BPF_MEM, _dst, _src, _off, 0)
+#define LDXH(_dst, _off, _src)  INSN(BPF_LDX | BPF_SIZE(BPF_H)  | BPF_MEM, _dst, _src, _off, 0)
+#define LDXW(_dst, _off, _src)  INSN(BPF_LDX | BPF_SIZE(BPF_W)  | BPF_MEM, _dst, _src, _off, 0)
 
 #endif

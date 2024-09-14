@@ -10,5 +10,6 @@ extern int bpf_map_update(int fd, void* key, void* val, int flags);
 extern int bpf_map_lookup(int fd, void* key, void* val);
 extern int read_field(char* name);
 extern int bpf_test_attach(ebpf_t* e);
+extern int get_id(char* name);
 extern int bpf_probe_attach(ebpf_t* e, int id);
 #endif

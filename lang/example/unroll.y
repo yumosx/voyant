@@ -1,9 +1,7 @@
-BEGIN {
-    out("%s\n", "the unroll test");
-}
+#syscalls;
 
 probe sys_enter_execve {
-    unroll(6) {
+    unroll(8) {
         out("%s\n", "1");
     }
     out("%s\n", "----------");

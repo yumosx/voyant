@@ -4,58 +4,57 @@
 #include <stddef.h>
 
 #define is_char(c) isalnum(c) || c == '_'
-#define get_token_name(tok) tok_type_str[tok->type]
-
-extern const char* tok_type_str[];
 
 typedef enum token_type token_type;
-typedef struct token_t token_t;
-typedef struct lexer_t lexer_t;
 
-enum token_type{
-    TOKEN_IDENT,
-    TOKEN_INT,
-    TOKEN_STRING,
-    TOKEN_ILLEGAL,
-    TOKEN_PROBE,
-    TOKEN_SLASH,
-    TOKEN_COLON,
-    TOKEN_COMMA,
-    TOKEN_LEFT_BRACKET,
-    TOKEN_RIGHT_BRACKET,
-    TOKEN_LEFT_BLOCK,
-    TOKEN_RIGHT_BLOCK,
-    TOKEN_UNDERLINE,
-    LEFT_PAREN,
-    RIGHT_PAREN,
-    TOKEN_ASSIGN,
-    TOKEN_EQ,
-    TOKEN_SEMICOLON,
-    TOKEN_IF,
-    TOKEN_UNROLL,
-    TOKEN_DEC,
-    TOKEN_PLUS,
-    TOKEN_STAR,
-    TOKEN_PIPE,
-    END_OF_FILE
+enum token_type {
+    TOKEN_ILLEGAL,      // Illegal
+    TOKEN_INT,          // Integer
+    TOKEN_IDENT,        // Identifier
+    TOKEN_STRING,       // String
+    TOKEN_PROBE,        // Probe
+    TOKEN_BEGIN,        // Begin
+    TOKEN_END,          // End
+    TOKEN_SLASH,        // Slash '/'
+    TOKEN_COLON,        // Colon ':'
+    TOKEN_COMMA,        // Comma ','
+    LEFT_BRACKET,       // Left Bracket '['
+    RIGHT_BRACKET,      // Right Bracket ']'
+    LEFT_BLOCK,         // Left Block '{'
+    RIGHT_BLOCK,        // Right Block '}'
+    TOKEN_UNDERLINE,    // Underline '_'
+    LEFT_PAREN,         // Left Paren '('
+    RIGHT_PAREN,        // Right Paren ')'
+    TOKEN_ASSIGN,       // Assign '='
+    TOKEN_EQ,           // Equal '=='
+    TOKEN_SEMICOLON,    // Semicolon ';'
+    TOKEN_IF,           // If
+    TOKEN_UNROLL,       // Unroll
+    TOKEN_DEC,          // Dec
+    TOKEN_PLUS,         // Plus '+'
+    TOKEN_STAR,         // Star '*'
+    TOKEN_GT,           // GT '>'
+    TOKEN_HASH,         // Hash '#'
+    TOKEN_PIPE,         // Pipe '|'
+    END_OF_FILE         // End of File
 };
 
-struct token_t {
+typedef struct token_t {
     char* literal;
     token_type type;
-};
+} token_t;
 
-struct lexer_t{
+typedef struct lexer_t{
     size_t read_pos;
     size_t pos;
     char ch;
     char* input;
-};
+} lexer_t;
 
-char* read_ident(lexer_t* l);
-token_type get_type(char* str);
-lexer_t* lexer_init(char* s);
-token_t* lexer_next_token(lexer_t* l);
+char* read_ident(lexer_t* lexer);
+token_type get_type(char* string);
+lexer_t* lexer_init(char* string);
+token_t* lexer_next_token(lexer_t* lexer);
 
 void free_token(token_t* tok);
 void free_lexer(lexer_t* lex);

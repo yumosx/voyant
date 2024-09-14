@@ -12,17 +12,5 @@
 
 
 extern void ebpf_emit(ebpf_t* e, struct bpf_insn insn);
-extern void emit_ld_mapfd(ebpf_t* e, int reg, int fd);
 
-extern void str_to_stack(ebpf_t* e, void* data, ssize_t at, size_t size);
-extern void compile_rec(node_t* n, ebpf_t* e);
-
-extern void compile_out(node_t* n, ebpf_t* e);
-
-extern void compile_map_method(node_t* n, ebpf_t* e);
-extern int  compile_probe_str(node_t* n, ebpf_t* e);
-extern void compile_map_load(node_t* n, ebpf_t* e);
-extern void compile_sym_assign(node_t* n, ebpf_t* e);
-extern void compile_str(node_t* n, ebpf_t* e);
-extern void compile_return(node_t* n, ebpf_t* e);
 #endif

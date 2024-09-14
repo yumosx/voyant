@@ -14,12 +14,14 @@ typedef struct ebpf_t{
     evpipe_t *evp;
     struct bpf_insn *ip;
     struct bpf_insn prog[BPF_MAXINSNS];
-    struct reg_t reg[__MAX_BPF_REG];
 } ebpf_t;
 
 extern ebpf_t *ebpf_new();
-extern ssize_t stack_addr_get(node_t* n, ebpf_t* e);
-extern reg_t* reg_get(ebpf_t* e); 
-extern void reg_bind(node_t* n, ebpf_t* e, reg_t* r);
-extern reg_t* reg_bind_find(node_t* n, ebpf_t* e);
+extern ssize_t ebpf_addr_get(node_t *n, ebpf_t *e);
+extern void ebpf_emit_mapld(ebpf_t *e, int reg, int fd);
+extern void ebpf_stack_zero(node_t *value, ebpf_t *code, int reg);
+extern void ebpf_emit(ebpf_t *code, struct bpf_insn insn);
+extern void ebpf_emit_at(struct bpf_insn *at, struct bpf_insn insn);
+extern void ebpf_value_copy(ebpf_t* code, ssize_t to, ssize_t from, size_t size);
+extern void ebpf_str_to_stack(ebpf_t *code, node_t *value);
 #endif

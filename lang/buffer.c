@@ -39,7 +39,7 @@ static struct ret_value event_handle(event_t* ev, size_t size) {
 	evhandler_t* evh;
 	evh = evhandler_find(ev->type);
 	if (!evh) {
-		_error("unknown event: type:%#"PRIx64" size:%#zx\n", 
+		verror("unknown event: type:%#"PRIx64" size:%#zx\n", 
 				ev->size, size);	
 		return (struct ret_value) { .err = 1, .val = ENOSYS};
 	}
@@ -60,13 +60,13 @@ void evqueue_init(evpipe_t* evp, uint32_t cpu, size_t size) {
 
 	q->fd = perf_event_open(&attr, -1, cpu, -1, 0);
 	if (q->fd < 0) {
-		_errmsg("could not create queue");
+		verror("could not create queue");
 		return q->fd;
 	}
 
 	err = bpf_map_update(evp->mapfd, &cpu, &q->fd, BPF_ANY);
 	if (err) {
-		_errmsg("could not link map to queue");
+		verror("could not link map to queue");
 		return err;
 	}
 	
@@ -74,7 +74,7 @@ void evqueue_init(evpipe_t* evp, uint32_t cpu, size_t size) {
 	size += sysconf(_SC_PAGESIZE);
 	q->mem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, q->fd, 0);
 	if (q->mem == MAP_FAILED) {
-		_errmsg("clould not mmap queue");
+		verror("clould not mmap queue");
 		return -1;
 	}
 
@@ -93,7 +93,7 @@ int evpipe_init(evpipe_t* evp, size_t qsize) {
 	evp->mapfd = bpf_map_create(BPF_MAP_TYPE_PERF_EVENT_ARRAY, sizeof(uint32_t), sizeof(int), evp->ncpus);
 	
 	if (evp->mapfd < 0) {
-		_errmsg("clould not create map");
+		verror("clould not create map in evpipe init");
 		return evp->mapfd;
 	}
 
@@ -153,12 +153,12 @@ struct ret_value evqueue_drain(evqueue_t* q) {
 				break;
 			case PERF_RECORD_LOST:
 				lost = (void*) ev;
-				_error("lost %"PRId64" events\n", lost->lost);
+				verror("lost %"PRId64" events\n", lost->lost);
 				ret.err = 1;
 				ret.val = EOVERFLOW;
 				break;
 			default:
-				_error("unknown perf event %#"PRIx32"\n", ev->hdr.type);
+				verror("unknown perf event %#"PRIx32"\n", ev->hdr.type);
 				ret.err = 1;
 				ret.val = EINVAL;
 				break;
@@ -237,10 +237,10 @@ void dump_int(FILE* fp, node_t* integer, void* data) {
 
 void dump(FILE* fp, node_t* n, void* data) {
 	switch (n->annot.type) {
-	case ANNOT_RSTR:
+	case TYPE_RSTR:
 		dump_str(fp, n, data);
 		break;
-	case ANNOT_INT:
+	case TYPE_INT:
 		dump_int(fp, n, data);
 		break;
 	default:
@@ -249,17 +249,17 @@ void dump(FILE* fp, node_t* n, void* data) {
 	}
 }
 
-void map_dump(node_t* n) {
+void map_dump(node_t* map) {
 	node_t* arg;
 	int err, c = 0;
 	size_t fd, rsize, ksize, vsize;
 	char* key, *val, *data;
 
 
-	arg = n->map.args;
-	fd = n->annot.mapid;
+	arg = map->map.args;
+	fd = map->annot.mapid;
 	ksize = arg->annot.size;
-	vsize = n->annot.size;	
+	vsize = map->annot.size;	
 	rsize = ksize + vsize;
 	
 	data = vmalloc(rsize * 1024);
@@ -279,11 +279,11 @@ void map_dump(node_t* n) {
 		key += rsize;
 		val += rsize;
 	}
-	printf("\n%s\n", n->name);
+	printf("\n%s\n", map->name);
 	for (key = data, val = data+ksize; c > 0; c--) {
 		dump(stdout, arg, key);
 		fputs("\t", stdout);
-		dump(stdout, n, val);
+		dump(stdout, map, val);
 		fputs("\n", stdout);
 		
 		key += rsize;
