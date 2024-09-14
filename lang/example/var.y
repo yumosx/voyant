@@ -1,6 +1,5 @@
-BEGIN {
-   out("%s\n", "------------");
-}
+#syscalls;
+
 
 probe sys_enter_open {
     a := 1;

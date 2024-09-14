@@ -142,25 +142,25 @@ token_t* lexer_next_token(lexer_t *l) {
         return t;
 
     case '[':
-        t->type = TOKEN_LEFT_BRACKET;
+        t->type = LEFT_BRACKET;
         t->literal = strdup("[");
         read_char(l);
         return t;
 
     case ']':
-        t->type = TOKEN_RIGHT_BRACKET;
+        t->type = RIGHT_BRACKET;
         t->literal = strdup("]");
         read_char(l);
         return t;
 
     case '{':
-        t->type = TOKEN_LEFT_BLOCK;
+        t->type = LEFT_BLOCK;
         t->literal = strdup("{");
         read_char(l);
         return t;
 
     case '}':
-        t->type = TOKEN_RIGHT_BLOCK;
+        t->type = RIGHT_BLOCK;
         t->literal = strdup("}");
         read_char(l);
         return t;
@@ -180,6 +180,12 @@ token_t* lexer_next_token(lexer_t *l) {
     case '*':
         t->type = TOKEN_STAR;
         t->literal = strdup("*");
+        read_char(l);
+        return t;
+
+    case '#':
+        t->type = TOKEN_HASH;
+        t->literal = strdup("#");
         read_char(l);
         return t;
 

@@ -33,7 +33,6 @@ typedef struct evqueue {
 	void* buf;
 } evqueue_t;
 
-
 typedef struct evpipe {
 	int mapfd;
 	uint32_t ncpus;

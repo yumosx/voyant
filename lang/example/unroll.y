@@ -1,4 +1,4 @@
-#program syscall;
+#syscalls;
 
 probe sys_enter_execve {
     unroll(8) {

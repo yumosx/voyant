@@ -126,7 +126,7 @@ int sym_ref(symtable_t* st, node_t* var) {
     sym_t* sym;
 
     sym = symtable_get(st, var->name);
-    
+
     if (sym) {
         sym_transfer(sym, var);
         return 0; 

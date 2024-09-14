@@ -32,7 +32,7 @@ ssize_t ebpf_addr_get(node_t* value, ebpf_t* code) {
 	return code->sp;
 }
 
-void ebpf_stack_zero(node_t* value, ebpf_t* code) {
+void ebpf_stack_zero(node_t* value, ebpf_t* code, int reg) {
 	size_t i;
 	annot_t to;
 	size_t size;
@@ -40,20 +40,14 @@ void ebpf_stack_zero(node_t* value, ebpf_t* code) {
 	to = value->annot;
 	size = to.size;
 
-	ebpf_emit(code, MOV_IMM(BPF_REG_0, 0));
+	ebpf_emit(code, MOV_IMM(reg, 0));
 
 	for (i = 0; i < size; i += sizeof(int64_t)) {
-		ebpf_emit(code, STXDW(BPF_REG_10, to.addr + i, BPF_REG_0));
+		ebpf_emit(code, STXDW(BPF_REG_10, to.addr + i, reg));
 	}
 }
 
-static void int_to_stack(ebpf_t* e, node_t* value) {
-	ebpf_emit(e, MOV_IMM(BPF_REG_0, value->integer));
-	ebpf_emit(e, STXDW(BPF_REG_10, value->annot.addr, BPF_REG_0));
-}
-
-
-static void str_to_stack(ebpf_t* code, node_t* value) {
+void ebpf_str_to_stack(ebpf_t* code, node_t* value) {
 	ssize_t size, at, left;
     int32_t* str;
 
@@ -67,28 +61,34 @@ static void str_to_stack(ebpf_t* code, node_t* value) {
     }
 }
 
-static void rec_to_stack(ebpf_t* code, node_t* value) {
-	node_t* arg;
+void ebpf_value_copy(ebpf_t* code, ssize_t to, ssize_t from, size_t size) {
+	while (size >= 8) {
+		ebpf_emit(code, LDXDW(BPF_REG_0,  from, BPF_REG_10));
+		ebpf_emit(code, STXDW(BPF_REG_10, to, BPF_REG_0));
 
-	_foreach(arg, value->rec.args) {
-		ebpf_value_to_stack(code, arg);
-	}	
-}
+		to += 8;
+		from += 8;
+		size -= 8;
+	}
 
-void ebpf_value_to_stack(ebpf_t* e, node_t* value) {
-	switch (value->type) {
-	case NODE_INT:
-		int_to_stack(e, value);		
-		break;
-	case NODE_VAR:
-		break;
-	case NODE_STR:
-		str_to_stack(e, value);
-		break;
-	case NODE_REC:
-		rec_to_stack(e, value);	
-		break;
-	default:
-		break;
+	if (size >= 4) {
+		ebpf_emit(code, LDXW(BPF_REG_0,  from, BPF_REG_10));
+		ebpf_emit(code, STXW(BPF_REG_10, to,   BPF_REG_0));
+		to += 4;
+		from += 4;
+		size -= 4;
+	}
+
+	if (size >= 2) {
+		ebpf_emit(code, LDXH(BPF_REG_0,  from, BPF_REG_10));
+		ebpf_emit(code, STXH(BPF_REG_10, to,   BPF_REG_0));
+		to += 2;
+		from += 2;
+		size -= 2;
+	}
+
+	if (size) {
+		ebpf_emit(code, LDXB(BPF_REG_0, from, BPF_REG_10));
+		ebpf_emit(code, STXB(BPF_REG_10, to, BPF_REG_0));
 	}
 }

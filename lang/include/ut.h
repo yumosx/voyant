@@ -34,4 +34,5 @@ extern bool vstreq(char *s1, char *s2);
 extern char *vstr(char *str);
 extern char *str_escape(char *str);
 extern FILE *fopenf(const char *mode, const char *fmt, ...);
+extern char* read_file(char* name);
 #endif

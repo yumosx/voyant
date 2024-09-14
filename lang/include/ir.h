@@ -6,110 +6,109 @@
 #include "parser.h"
 #include "annot.h"
 
-enum {
-  IR_ADD = 1,
-  IR_SUB,
-  IR_MUL,
-  IR_DIV,
-  IR_GT,
-  IR_GE,
-  IR_IMM,
-  IR_STR,
-  IR_MAP,
-  IR_BPREL,
-  IR_MOV,
-  IR_RETURN,
-  IR_CALL,
-  IR_EQ,
-  IR_NE,
-  IR_LE,
-  IR_LT,
-  IR_AND,
-  IR_OR,
-  IR_XOR,
-  IR_SHL,
-  IR_SHR,
-  IR_MOD,
-  IR_JMP,
-  IR_BR,
-  IR_IF_THEN,
-  IR_IF_END,
-  IR_ELSE_THEN,
-  IR_ELSE_END,
-  IR_MAP_UPDATE,
-  IR_MAP_LOOK,
-  IR_REC,
-  IR_INIT,
-  IR_LOAD,
-  IR_PUSH,
-  IR_STW,
-  IR_LOAD_SPILL,
-  IR_STORE,
-  IR_STORE_ARG,
-  IR_STORE_SPILL,
-  IR_NOP,
+enum
+{
+    IR_ADD = 1,
+    IR_SUB,
+    IR_MUL,
+    IR_DIV,
+    IR_GT,
+    IR_GE,
+    IR_IMM,
+    IR_STR,
+    IR_MOV,
+    IR_RETURN,
+    IR_CALL,
+    IR_RCALL,
+    IR_EQ,
+    IR_NE,
+    IR_LE,
+    IR_LT,
+    IR_AND,
+    IR_OR,
+    IR_XOR,
+    IR_SHL,
+    IR_SHR,
+    IR_MOD,
+    IR_JMP,
+    IR_BR,
+    IR_IF_THEN,
+    IR_IF_END,
+    IR_ELSE_THEN,
+    IR_ELSE_END,
+    IR_MAP_UPDATE,
+    IR_MAP_LOOK,
+    IR_REC,
+    IR_START,
+    IR_INIT,
+    IR_LOAD,
+    IR_COPY,
+    IR_PUSH,
+    IR_STW,
+    IR_LOAD_SPILL,
+    IR_STORE,
+    IR_STORE_ARG,
+    IR_STORE_SPILL,
+    IR_NOP,
 };
 
-typedef struct reg_t {
+typedef struct reg_t
+{
     int vn;
     int rn;
     int def;
     int end;
     bool spill;
-    char* str;
-    node_t* var;
+    char *str;
 } reg_t;
 
-typedef struct bb_t {
+typedef struct bb_t
+{
     int label;
-    vec_t* ir;
-    reg_t* parm;
+    vec_t *ir;
+    reg_t *parm;
 
-    vec_t* succ;
-    vec_t* pred;
-    vec_t* def_regs;
-    vec_t* in_regs;
-    vec_t* out_regs;
+    vec_t *succ;
+    vec_t *pred;
+    vec_t *def_regs;
+    vec_t *in_regs;
+    vec_t *out_regs;
 } bb_t;
 
-typedef struct ir_t {
+typedef struct ir_t
+{
     int op;
-    reg_t* r0;
-    reg_t* r1;
-    reg_t* r2;
+    reg_t *r0;
+    reg_t *r1;
+    reg_t *r2;
 
     int imm;
     int label;
-    node_t* value;
-    bb_t* bb1;
-    bb_t* bb2;
+    node_t *value;
+    bb_t *bb1;
+    bb_t *bb2;
 
-    int size;
-    char* name;
+    ssize_t addr;
+    char *name;
     int nargs;
-    reg_t* args[5];
-    
-    vec_t* kill;
-    reg_t* bbarg;
+    reg_t *args[5];
+
+    vec_t *kill;
+    reg_t *bbarg;
 } ir_t;
 
-typedef struct prog_t{
-    char* name;
-    node_t* ast;
-    vec_t* data;
-    vec_t* bbs;
-    ebpf_t* e; 
+typedef struct prog_t
+{
+    char *name;
+    node_t *ast;
+    vec_t *data;
+    vec_t *bbs;
+    ebpf_t *e;
 } prog_t;
 
-typedef struct code_t {
-    struct bpf_insn* ip;
-    struct bpf_insn prog[BPF_MAXINSNS];
-} code_t;
-
-reg_t* gen_expr(node_t* n);
-void emit_stmt(node_t* n);
-void gen_node_store(node_t* dst, node_t* src);
-void compile_ir(ir_t* ir, ebpf_t* code);
-int gen_ir(node_t* n);
-prog_t* gen_prog(node_t* n);
+extern reg_t *gen_expr(node_t *n);
+extern void gen_stmt(node_t *n);
+extern void dyn_store(node_t *dst, node_t *src);
+extern int gen_ir(node_t *n);
+extern prog_t *gen_prog(node_t *n);
 #endif

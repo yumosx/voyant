@@ -1,5 +1,6 @@
 #include <signal.h>
 
+#include "func.h"
 #include "ir.h"
 
 static struct bpf_insn* at;
@@ -40,6 +41,32 @@ void compile_map_update(ebpf_t* code, node_t* var) {
 	ebpf_emit(code, CALL(BPF_FUNC_map_update_elem));
 }
 
+
+void emit_read(ebpf_t* e, ssize_t to, int from, size_t size) {
+	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
+	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, to));
+	ebpf_emit(e, MOV_IMM(BPF_REG_2, size));
+	ebpf_emit(e, MOV(BPF_REG_3, from));
+	ebpf_emit(e, CALL(BPF_FUNC_probe_read));
+}
+
+void compile_map_look(ebpf_t* code, node_t* map) {
+    int fd;
+    ssize_t kaddr, vaddr, vsize;
+
+    fd = map->annot.mapid;
+    kaddr = map->map.args->annot.addr;
+    vsize = map->annot.size;
+    vaddr = map->annot.addr;
+
+    ebpf_emit_mapld(code, BPF_REG_1, fd);
+    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_2, kaddr));
+	ebpf_emit(code, CALL(BPF_FUNC_map_lookup_elem));
+    emit_read(code, vaddr, BPF_REG_0, vsize);
+}
+
+
 void compile_comm(node_t* n, ebpf_t* e) {
 	size_t i;
 	
@@ -62,6 +89,7 @@ void compile_rec(node_t* n, ebpf_t* e) {
     addr = n->annot.addr;
     size = n->annot.size;
 
+
     ebpf_emit(e, CALL(BPF_FUNC_get_smp_processor_id));
 	ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_0));
     
@@ -75,12 +103,67 @@ void compile_rec(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, CALL(BPF_FUNC_perf_event_output));
 }
 
+
+int compile_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
+	ebpf_emit(e, CALL(func));
+    
+    switch(op) {
+        case EXTRACT_OP_MASK:
+            ebpf_emit(e, ALU_IMM(OP_AND, BPF_REG_0, 0xffffffff));
+            break;
+        case EXTRACT_OP_SHIFT:
+            ebpf_emit(e, ALU_IMM(OP_RSH, BPF_REG_0, 32));
+            break;
+		case EXTRACT_OP_DIV_1G:
+			ebpf_emit(e, ALU_IMM(OP_DIV, BPF_REG_0, 1000000000));
+        default:
+            break;
+    }
+	
+	return 0; 
+}
+
+int compile_pid(node_t* n, ebpf_t* e) {
+    return compile_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
+}
+
+int compile_ns(node_t* n, ebpf_t* e) {
+    return compile_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
+}
+
+int compile_cpu(node_t* n, ebpf_t* e) {
+	return compile_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
+}
+
+void compile_call(node_t* n, ebpf_t* e) {
+    if (n->annot.type == TYPE_REC) {
+        compile_rec(n, e);
+        return;
+    }
+    
+    if (vstreq(n->name, "pid")) {
+        compile_pid(n, e);
+        return;
+    }
+
+    if (vstreq(n->name, "ns")) {
+        compile_ns(n, e);
+        return;
+    }
+
+    if (vstreq(n->name, "cpu")) {
+        compile_cpu(n, e);
+        return;
+    }
+}
+
 void to_stack(node_t* obj, ebpf_t* code) {
     switch (obj->annot.type) {
     case TYPE_STR:
-        ebpf_value_to_stack(code, obj);
+        ebpf_str_to_stack(code, obj);
         break;
     case TYPE_RSTR:
+        compile_comm(obj, code);
         break;
     default:
         break;
@@ -94,9 +177,25 @@ void store_data(vec_t* vec, ebpf_t* e) {
     len = vec->len;    
 
     for (i = 0; i < len; i++) {
-        obj = vec->data[i];
+        obj = (node_t*)vec->data[i];
         to_stack(obj, e);
     }
+}
+
+void copy_data(ebpf_t* e, node_t* n) {
+    ssize_t to, from;
+    size_t size;
+    sym_t* sym;
+    
+    sym = symtable_get(e->st, n->name);
+    to = n->annot.addr;
+    from = sym->vannot.addr;
+    size = n->annot.size;
+
+    printf("from %d --> to %d\n", from, to);
+
+
+    ebpf_value_copy(e, to, from, size);
 }
 
 void compile_ir(ir_t* ir, ebpf_t* code) {
@@ -106,6 +205,8 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     int r2 = ir->r2 ? ir->r2->rn : 0;
 
     switch (ir->op) {
+    case IR_START:
+        break;
     case IR_IMM:
         ebpf_emit(code, MOV_IMM(gregs[r0], ir->imm));
         break;
@@ -115,8 +216,14 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_GT:
         compile_bool(code, BPF_JGT, r0, r2);
         break;
+    case IR_LOAD:
+        ebpf_emit(code, MOV(gregs[r0], gregs[r2]));
+        break;
+    case IR_COPY:
+        copy_data(code, ir->value);
+        break;
     case IR_INIT:
-        ebpf_stack_zero(ir->value, code);
+        ebpf_stack_zero(ir->value, code, BPF_REG_0);
         break;
     case IR_STORE:
         addr = ir->value->annot.addr;
@@ -125,14 +232,25 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_MAP_UPDATE:
         compile_map_update(code, ir->value);
         break;
+    case IR_MAP_LOOK:
+        compile_map_look(code, ir->value);
+        break;
+    case IR_RCALL:
+        compile_call(ir->value, code);
+        ebpf_emit(code, MOV(gregs[r0], BPF_REG_0));
+        break; 
     case IR_CALL:
-        compile_rec(ir->value, code);
+        compile_call(ir->value, code); 
         break;
     case IR_BR:
+        ebpf_emit(code, MOV(BPF_REG_0, gregs[r2]));
         break;
-    case IR_ELSE_THEN:
+    case IR_IF_THEN:
+        at = code->ip;
+        ebpf_emit(code, if_then_insn);
         break;
-    case IR_ELSE_END:
+    case IR_IF_END:
+        ebpf_emit_at(at, JMP_IMM(BPF_JEQ, 0, 0, code->ip-at-1));
         break;
     default:
         break;
@@ -146,6 +264,8 @@ void compile(prog_t* prog) {
     ebpf_t* e;
 
     e = prog->e;
+
+    store_data(prog->data, e);
 
     for (i = 0; i < prog->bbs->len; i++) {
         bb = prog->bbs->data[i];     
@@ -170,7 +290,7 @@ int main() {
     ebpf_t* e;
     prog_t* prog;
 
-    input = "probe sys_enter_execve{ out(\"%d\n\", 1+2);}";  
+    input = "probe sys_enter_execve{ a := 2; if (a > 1){out(\"%-18d %-16s\n\", pid(), comm());}}";  
     l = lexer_init(input);
     p = parser_init(l);
     n = parse_program(p); 

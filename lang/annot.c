@@ -6,7 +6,8 @@
 #include "func.h"
 #include "ut.h"
 
-static void check_int(node_t* n) {
+static void check_int(node_t *n)
+{
 	node_type_t ty;
 
 	ty = n->type;
@@ -15,8 +16,10 @@ static void check_int(node_t* n) {
 	}
 }
 
-static void annot_value(node_t* value) {
-	switch (value->type) {
+static void annot_value(node_t *value)
+{
+	switch (value->type)
+	{
 	case NODE_INT:
 		value->annot.type = TYPE_INT;
 		value->annot.size = sizeof(value->integer);
@@ -31,37 +34,41 @@ static void annot_value(node_t* value) {
 	}
 }
 
-static void annot_map(node_t* map, ebpf_t* e) {
-	node_t* arg;
+static void annot_map(node_t *map, ebpf_t *e)
+{
+	node_t *arg;
 	ssize_t ksize;
 
 	arg = map->map.args;
 	get_annot(arg, e);
 	ksize = arg->annot.size;
 
-	map->annot.type = TYPE_MAP;	
+	map->annot.type = TYPE_MAP;
 	map->annot.size = 8;
 	map->annot.ksize = ksize;
 }
 
-static void annot_var(node_t* var, ebpf_t* e) {
+static void annot_var(node_t *var, ebpf_t *e)
+{
 	var->annot.type = TYPE_VAR;
-	var->annot.size = 8;	
+	var->annot.size = 8;
 }
 
-void annot_dec(node_t* n, ebpf_t* e) {
-	node_t* var, *expr;
-	
+void annot_dec(node_t *n, ebpf_t *e)
+{
+	node_t *var, *expr;
+
 	var = n->dec.var;
-	expr = n->dec.expr;	
+	expr = n->dec.expr;
 
 	get_annot(expr, e);
 
-	switch (var->type) {
+	switch (var->type)
+	{
 	case NODE_VAR:
 		annot_var(var, e);
-		var->annot.size = expr->annot.size; 
-		var_dec(e->st, var->name, expr);
+		var->annot.size = expr->annot.size;
+		var_dec(e->st, var->name, var);
 		break;
 	case NODE_MAP:
 		annot_map(var, e);
@@ -75,9 +82,10 @@ void annot_dec(node_t* n, ebpf_t* e) {
 	n->annot.type = TYPE_DEC;
 }
 
-void annot_assign(node_t* n, ebpf_t* e) {
-	node_t* var, *expr;
-	sym_t* sym;
+void annot_assign(node_t *n, ebpf_t *e)
+{
+	node_t *var, *expr;
+	sym_t *sym;
 
 	var = n->assign.lval;
 	expr = n->assign.expr;
@@ -88,9 +96,10 @@ void annot_assign(node_t* n, ebpf_t* e) {
 	assert(expr->annot.type != var->annot.type);
 }
 
-void annot_expr(node_t* expr, ebpf_t* e) {
+void annot_expr(node_t *expr, ebpf_t *e)
+{
 	int opcode;
-	node_t* left, *right;
+	node_t *left, *right;
 
 	left = expr->expr.left;
 	right = expr->expr.right;
@@ -98,15 +107,13 @@ void annot_expr(node_t* expr, ebpf_t* e) {
 	get_annot(left, e);
 	get_annot(right, e);
 
-	check_int(left);
-	check_int(right);
-
 	expr->annot.type = TYPE_INT;
 	expr->annot.size = 8;
 }
 
-void annot_rec(node_t* n, ebpf_t* e) {
-	node_t* arg;
+void annot_rec(node_t *n, ebpf_t *e)
+{
+	node_t *arg;
 	ssize_t size = 0;
 
 	_foreach(arg, n->rec.args) {
@@ -118,45 +125,66 @@ void annot_rec(node_t* n, ebpf_t* e) {
 	n->annot.type = TYPE_REC;
 }
 
-void get_annot(node_t* n, ebpf_t* e) {
-     switch(n->type) {
-		case NODE_INT:
-		case NODE_STR:
-			annot_value(n);
-			break;
-		case NODE_VAR:
-		case NODE_MAP:
-			symtable_ref(e->st, n);
-			break;
-		case NODE_EXPR:
-			annot_expr(n, e);
-			break;
-		case NODE_DEC:
-			annot_dec(n, e);
-			break;
-		case NODE_ASSIGN:
-			annot_assign(n, e);
-			break;
-		case NODE_CALL:
-			global_annot(n);
-			break;
-		case NODE_REC:
-			annot_rec(n, e);
-			break;
-		default:
-			break;
-    }
+void get_annot(node_t *n, ebpf_t *e)
+{
+	switch (n->type)
+	{
+	case NODE_INT:
+	case NODE_STR:
+		annot_value(n);
+		break;
+	case NODE_VAR:
+	case NODE_MAP:
+		symtable_ref(e->st, n);
+		break;
+	case NODE_EXPR:
+		annot_expr(n, e);
+		break;
+	case NODE_DEC:
+		annot_dec(n, e);
+		break;
+	case NODE_ASSIGN:
+		annot_assign(n, e);
+		break;
+	case NODE_CALL:
+		global_annot(n);
+		break;
+	case NODE_REC:
+		annot_rec(n, e);
+		break;
+	default:
+		break;
+	}
 }
 
-void assign_stack(node_t* n, ebpf_t* e) {
+void assign_stack(node_t *n, ebpf_t *e)
+{
 	n->annot.addr = ebpf_addr_get(n, e);
 	n->annot.loc = LOC_STACK;
 }
 
-void assign_dec(node_t* dec, ebpf_t* e) {
-	node_t* var, *expr;
+
+void assign_data(node_t* n, ssize_t addr) {
+	switch (n->annot.type) {
+	case TYPE_STR:
+		n->annot.addr = addr;
+		break;
+	case TYPE_RSTR:
+		n->annot.addr = addr;
+		break;
+	case TYPE_VAR:
+		n->annot.addr = addr;
+		break;
+	default:
+		break;
+	}
+}
+
+void assign_dec(node_t *dec, ebpf_t *e)
+{
+	node_t *var, *expr;
 	ssize_t addr;
-	sym_t* sym;
+	sym_t *sym;
 
 	var = dec->dec.var;
 	expr = dec->dec.expr;
@@ -166,31 +194,36 @@ void assign_dec(node_t* dec, ebpf_t* e) {
 	var->annot.addr = addr;
 	sym->vannot.addr = addr;
 
+	assign_data(expr, addr);
+
 	if (var->type == NODE_MAP) {
-		node_t* args;
+		node_t *args;
 		args = var->map.args;
 		addr = ebpf_addr_get(args, e);
 
-		args->annot.addr = addr;	
+		args->annot.addr = addr;
 		sym->map->kaddr = addr;
 	}
 }
 
-void assign_rec(node_t* n, ebpf_t* e) {
-	node_t* head;
+void assign_rec(node_t *n, ebpf_t *e)
+{
+	node_t *head;
 	size_t offs;
 	assign_stack(n, e);
 
 	offs = n->annot.addr;
-	
-	_foreach(head, n->rec.args) {		
+
+	_foreach(head, n->rec.args) {
 		head->annot.addr = offs;
 		offs += head->annot.size;
 	}
 }
 
-void loc_assign(node_t* n, ebpf_t* e) {
-	switch (n->annot.type) {
+void loc_assign(node_t *n, ebpf_t *e)
+{
+	switch (n->annot.type)
+	{
 	case TYPE_RSTR:
 		assign_stack(n, e);
 		break;
@@ -205,10 +238,12 @@ void loc_assign(node_t* n, ebpf_t* e) {
 	}
 }
 
-static int visit_list(node_t *head, pre_t* pre, post_t* post, ebpf_t* ctx) {
+static int visit_list(node_t *head, pre_t *pre, post_t *post, ebpf_t *ctx)
+{
 	node_t *elem, *next = head;
-	
-	for (elem = next; elem;) {
+
+	for (elem = next; elem;)
+	{
 		next = elem->next;
 		visit(elem, pre, post, ctx);
 		elem = next;
@@ -217,13 +252,18 @@ static int visit_list(node_t *head, pre_t* pre, post_t* post, ebpf_t* ctx) {
 	return 0;
 }
 
-#define do_list(_head)	visit_list(_head, pre, post, e) 
-#define do_walk(_node) 	visit(_node, pre, post, e)
+#define do_list(_head) visit_list(_head, pre, post, e)
+#define do_walk(_node) visit(_node, pre, post, e)
 
-void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
-	if (pre) { pre(n, e);}
-	
-	switch (n->type) {
+void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e)
+{
+	if (pre)
+	{
+		pre(n, e);
+	}
+
+	switch (n->type)
+	{
 	case NODE_PROBE:
 		do_list(n->probe.stmts);
 		break;
@@ -238,5 +278,8 @@ void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e) {
 		break;
 	}
 
-	if (post) { post(n, e);}
+	if (post)
+	{
+		post(n, e);
+	}
 }

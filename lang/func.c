@@ -106,14 +106,14 @@ static builtin_t global_builtins[] = {
 	builtin("comm", annot_rstr, NULL),
 	builtin("arg", annot_probe_str, NULL),	
 	builtin("out", annot_out, NULL),
-	builtin("scmp", NULL, NULL),
 };
+
 
 int global_annot(node_t* n) {
     builtin_t* bi;
 
     for (bi = global_builtins; bi->name; bi++) {
-        if (vstreq(bi->name, n->name))
+		if (vstreq(bi->name, n->name))
             return bi->annotate(n);
     }
 

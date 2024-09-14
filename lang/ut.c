@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <string.h>
-
+#include <stdint.h>
+#include <assert.h>
 #include "ut.h"
 
-noreturn void verror(char* fmt, ...) {
+noreturn void verror(char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
@@ -11,23 +12,23 @@ noreturn void verror(char* fmt, ...) {
 	exit(1);
 }
 
-vec_t* vec_new() {
-    vec_t* vec = vmalloc(sizeof(vec));
-    vec->data = vmalloc(sizeof(void*) * 16);
-    vec->cap = 16;
-    vec->len = 0;
-    return vec;
+vec_t *vec_new() {
+	vec_t *vec = vmalloc(sizeof(vec));
+	vec->data = vmalloc(sizeof(void *) * 16);
+	vec->cap = 16;
+	vec->len = 0;
+	return vec;
 }
 
-void vec_push(vec_t* v, void* elem) {
-    if (v->len == v->cap) {
-        v->cap *= 2;
-        v->data = realloc(v->data, sizeof(void*)*v->cap);
-    }
-    v->data[v->len++] = elem;
+void vec_push(vec_t *v, void *elem) {
+	if (v->len == v->cap) {
+		v->cap *= 2;
+		v->data = realloc(v->data, sizeof(void *) * v->cap);
+	}
+	v->data[v->len++] = elem;
 }
 
-bool vec_contains(vec_t* v, void* elem) {
+bool vec_contains(vec_t *v, void *elem) {
 	int i;
 
 	for (i = 0; i < v->len; i++) {
@@ -38,19 +39,19 @@ bool vec_contains(vec_t* v, void* elem) {
 	return false;
 }
 
-bool vec_union(vec_t* v, void* elem) {
+bool vec_union(vec_t *v, void *elem) {
 	if (vec_contains(v, elem)) {
 		return false;
 	}
+
 	vec_push(v, elem);
-	
 	return true;
 }
 
-FILE* fopenf(const char* mode, const char* fmt, ...) {
+FILE *fopenf(const char *mode, const char *fmt, ...) {
 	va_list ap;
-	FILE* fp;
-	char* path;
+	FILE *fp;
+	char *path;
 	va_start(ap, fmt);
 	vasprintf(&path, fmt, ap);
 	va_end(ap);
@@ -60,10 +61,10 @@ FILE* fopenf(const char* mode, const char* fmt, ...) {
 	fp = fopen(path, mode);
 	free(path);
 	return fp;
-}	
+}
 
-void* vmalloc(size_t len) {
-	void* obj = malloc(len);
+void *vmalloc(size_t len) {
+	void *obj = malloc(len);
 	if (!obj) {
 		fprintf(stderr, "\n malloc failed\n");
 		exit(1);
@@ -71,18 +72,18 @@ void* vmalloc(size_t len) {
 	return obj;
 }
 
-void* vrealloc(void* p, size_t size) {
-	void* obj = realloc(p, size);
-	if (!obj) {
+void *vrealloc(void *p, size_t size) {
+	void *obj = realloc(p, size);
+	if (!obj)
+	{
 		fprintf(stderr, "\n Rand out of memory (realloc)\n");
 		exit(1);
 	}
 	return obj;
 }
 
-
-void* vcalloc(size_t num, size_t size) {
-	void* obj = calloc(num, size);
+void *vcalloc(size_t num, size_t size) {
+	void *obj = calloc(num, size);
 	if (!obj) {
 		fprintf(stderr, "\n Rand out of memory (calloc)\n");
 		exit(1);
@@ -90,24 +91,25 @@ void* vcalloc(size_t num, size_t size) {
 	return obj;
 }
 
-char* vstr(char* s) {
-	char* p = vmalloc(strlen(s) + 1);
+char *vstr(char *s) {
+	char *p = vmalloc(strlen(s) + 1);
 	strcpy(p, s);
 	return p;
 }
 
-bool vstreq(char* s1, char* s2) {
+bool vstreq(char *s1, char *s2) {
 	return strcmp(s1, s2) == 0;
 }
 
-char* str_escape(char* str) {
-	char* in, *out;
+char *str_escape(char *str) {
+	char *in, *out;
 
 	for (in = out = str; *in; in++, out++) {
 		if (*in != '\\')
 			continue;
 		in++;
-		switch (*in) {
+		switch (*in)
+		{
 		case 'n':
 			*out = '\n';
 			break;
@@ -129,38 +131,69 @@ char* str_escape(char* str) {
 	return str;
 }
 
-
-static void print_line(char* buf, char* path, char* pos) {
-	char* start, *p;
+void print_line(char *buf, char *path, char *pos)
+{
+	char *start, *p;
 	int line = 0;
 	int col = 0;
 	int linelen = 0;
 	int i = 0;
 
-
 	start = buf;
 
-	for (p = buf; p; p++) {
-		if (*p == '\n') {
+	for (p = buf; p; p++)
+	{
+		if (*p == '\n')
+		{
 			start = p + 1;
 			line++;
 			col = 0;
 			continue;
 		}
 
-		if (p != pos) {
+		if (p != pos)
+		{
 			col++;
 			continue;
 		}
 
-		fprintf(stderr, "error at %s:%d:%d\n\n", path, line+1, col+1);
+		fprintf(stderr, "error at %s:%d:%d\n\n", path, line + 1, col + 1);
 		linelen = strchr(p, '\n') - start;
 		fprintf(stderr, "%.*s\n", linelen, start);
 
-		for (i = 0; i < col; i++) {
+		for (i = 0; i < col; i++)
+		{
 			fprintf(stderr, (start[i] == '\t') ? "\t" : " ");
 		}
 		fprintf(stderr, "^\n\n");
 		return;
-	}	
+	}
+}
+
+char *read_file(char *filename) {
+	char *input = (char *)calloc(BUFSIZ, sizeof(char));
+	assert(input != NULL);
+	uint32_t size = 0, read;
+
+	FILE *f = fopen(filename, "r");
+
+	if (!f)
+	{
+		verror("Could not open \"%s\" for reading", filename);
+		exit(1);
+	}
+
+	while ((read = fread(input, sizeof(char), BUFSIZ, f)) > 0)
+	{
+		size += read;
+		if (read >= BUFSIZ)
+		{
+			input = vrealloc(input, size + BUFSIZ);
+			assert(input != NULL);
+		}
+	}
+	input[size] = '\0';
+
+	fclose(f);
+	return input;
 }

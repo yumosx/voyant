@@ -18,8 +18,7 @@
         .off = _off,                        \
         .imm = _imm})
 
-typedef enum extract
-{
+typedef enum extract{
     EXTRACT_OP_NONE,
     EXTRACT_OP_MASK,
     EXTRACT_OP_SHIFT,
@@ -62,8 +61,13 @@ typedef enum op_t{
 
 #define STW_IMM(_dst, _off, _imm) INSN(BPF_ST | BPF_SIZE(BPF_W) | BPF_MEM, _dst, 0, _off, _imm)
 #define STXDW(_dst, _off, _src) INSN(BPF_STX | BPF_SIZE(BPF_DW) | BPF_MEM, _dst, _src, _off, 0)
+#define STXB(_dst, _off, _src)   INSN(BPF_STX | BPF_SIZE(BPF_B) | BPF_MEM, _dst, _src, _off, 0)
+#define STXH(_dst, _off, _src)   INSN(BPF_STX | BPF_SIZE(BPF_H) | BPF_MEM, _dst, _src, _off, 0)
+#define STXW(_dst, _off, _src)   INSN(BPF_STX | BPF_SIZE(BPF_W) | BPF_MEM, _dst, _src, _off, 0)
 
 #define LDXDW(_dst, _off, _src) INSN(BPF_LDX | BPF_SIZE(BPF_DW) | BPF_MEM, _dst, _src, _off, 0)
 #define LDXB(_dst, _off, _src) INSN(BPF_LDX | BPF_SIZE(BPF_B) | BPF_MEM, _dst, _src, _off, 0)
+#define LDXH(_dst, _off, _src)  INSN(BPF_LDX | BPF_SIZE(BPF_H)  | BPF_MEM, _dst, _src, _off, 0)
+#define LDXW(_dst, _off, _src)  INSN(BPF_LDX | BPF_SIZE(BPF_W)  | BPF_MEM, _dst, _src, _off, 0)
 
 #endif
