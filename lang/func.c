@@ -80,7 +80,7 @@ static int annot_out(node_t* call) {
 
 	varg = call->call.args;
 	if (!varg) {
-		_errmsg("should has a string fromat");
+		verror("should has a string fromat");
 		return -1;
 	}
     

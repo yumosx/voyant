@@ -7,13 +7,6 @@
 #include <stdnoreturn.h>
 
 #define _size(arr) (sizeof(arr) / sizeof((arr)[0]))
-
-#define _error(_fmt, ...) \
-    fprintf(stderr, "ERR %-20s: " _fmt "\n", __func__, ##__VA_ARGS__)
-
-#define _errmsg(_fmt, ...) \
-    fprintf(stderr, "ERR %-20s: " _fmt " : %m\n", __func__, ##__VA_ARGS__)
-
 #define _foreach(_n, _in) for ((_n) = (_in); (_n); (_n) = (_n)->next)
 
 typedef struct vec_t {
@@ -35,4 +28,5 @@ extern char *vstr(char *str);
 extern char *str_escape(char *str);
 extern FILE *fopenf(const char *mode, const char *fmt, ...);
 extern char* read_file(char* name);
+extern void print_line(char* buf, char* path, char* pos);
 #endif

@@ -3,13 +3,13 @@
 #include "bpflib.h"
 
 ebpf_t* ebpf_new() {
-    ebpf_t* e = vcalloc(1, sizeof(*e));
+    ebpf_t* code = vcalloc(1, sizeof(*code));
     
-	e->st = symtable_new();     
-	e->ip = e->prog;
-    e->evp = vcalloc(1, sizeof(*e->evp));
+	code->st = symtable_new();     
+	code->ip = code->prog;
+    code->evp = vcalloc(1, sizeof(*code->evp));
 		
-	return e;
+	return code;
 }
 
 void ebpf_emit(ebpf_t* code, struct bpf_insn insn) {

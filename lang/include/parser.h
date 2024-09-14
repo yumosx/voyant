@@ -8,6 +8,8 @@ typedef enum {
     LOWEST = 1,
     DEC,
     ASSIGN,           //=
+    LOG_OR,           //||
+    LOG_AND,          //&&
     EQUALS,          //==
     LESSGREATERA,    //> or <
     SUM,            //+
@@ -29,5 +31,5 @@ node_t* parse_expr(parser_t* p, seq_t s);
 node_t* parse_block_stmts(parser_t* p);
 node_t* parse_probe(parser_t* p); 
 node_t* parse_program(parser_t* p);
-
+void free_parser(parser_t* p);
 #endif

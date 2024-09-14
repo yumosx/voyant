@@ -1,4 +1,3 @@
-#include <signal.h>
 
 #include "func.h"
 #include "ir.h"
@@ -41,7 +40,6 @@ void compile_map_update(ebpf_t* code, node_t* var) {
 	ebpf_emit(code, CALL(BPF_FUNC_map_update_elem));
 }
 
-
 void emit_read(ebpf_t* e, ssize_t to, int from, size_t size) {
 	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
 	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, to));
@@ -65,7 +63,6 @@ void compile_map_look(ebpf_t* code, node_t* map) {
 	ebpf_emit(code, CALL(BPF_FUNC_map_lookup_elem));
     emit_read(code, vaddr, BPF_REG_0, vsize);
 }
-
 
 void compile_comm(node_t* n, ebpf_t* e) {
 	size_t i;
@@ -192,8 +189,7 @@ void copy_data(ebpf_t* e, node_t* n) {
     from = sym->vannot.addr;
     size = n->annot.size;
 
-    printf("from %d --> to %d\n", from, to);
-
+    printf("copy from %d --> to %d\n", from, to);
 
     ebpf_value_copy(e, to, from, size);
 }
@@ -205,13 +201,14 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     int r2 = ir->r2 ? ir->r2->rn : 0;
 
     switch (ir->op) {
-    case IR_START:
-        break;
     case IR_IMM:
         ebpf_emit(code, MOV_IMM(gregs[r0], ir->imm));
         break;
     case IR_ADD:
         ebpf_emit(code, ALU(BPF_ADD, gregs[r0], gregs[r2]));
+        break;
+    case IR_MUL:
+        ebpf_emit(code, ALU(BPF_MUL, gregs[r0], gregs[r2]));
         break;
     case IR_GT:
         compile_bool(code, BPF_JGT, r0, r2);
@@ -252,6 +249,10 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_IF_END:
         ebpf_emit_at(at, JMP_IMM(BPF_JEQ, 0, 0, code->ip-at-1));
         break;
+    case IR_RETURN:
+        ebpf_emit(code, MOV_IMM(BPF_REG_0, 0));
+	    ebpf_emit(code, EXIT);
+        break;
     default:
         break;
     }
@@ -265,6 +266,7 @@ void compile(prog_t* prog) {
 
     e = prog->e;
 
+    ebpf_emit(e, MOV(BPF_CTX_REG, BPF_REG_1));
     store_data(prog->data, e);
 
     for (i = 0; i < prog->bbs->len; i++) {
@@ -274,43 +276,4 @@ void compile(prog_t* prog) {
             compile_ir(ir, e);
         }
     }
-}
-
-static int term_sig = 0;
-static void term(int sig) {
-    term_sig = sig;
-    return;
-}
-
-int main() {
-    char* input; 
-    lexer_t* l;
-    parser_t* p;
-    node_t* n;
-    ebpf_t* e;
-    prog_t* prog;
-
-    input = "probe sys_enter_execve{ a := 2; if (a > 1){out(\"%-18d %-16s\n\", pid(), comm());}}";  
-    l = lexer_init(input);
-    p = parser_init(l);
-    n = parse_program(p); 
-    e = ebpf_new();
-    evpipe_init(e->evp, 4<<10);
-
-    visit(n, get_annot, loc_assign, e);
-    prog = gen_prog(n);
-    prog->e = e;
-
-    ebpf_emit(e, MOV(BPF_CTX_REG, BPF_REG_1));
-    compile(prog);
-    ebpf_emit(prog->e, MOV_IMM(BPF_REG_0, 0));
-	ebpf_emit(prog->e, EXIT);
-    
-
-    siginterrupt(SIGINT, 1);
-    signal(SIGINT, term);
-    bpf_probe_attach(prog->e, 721);
-    evpipe_loop(e->evp, &term_sig, -1);
-
-    return 0;
 }

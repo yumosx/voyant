@@ -39,7 +39,6 @@ enum
     IR_MAP_UPDATE,
     IR_MAP_LOOK,
     IR_REC,
-    IR_START,
     IR_INIT,
     IR_LOAD,
     IR_COPY,
@@ -108,7 +107,8 @@ typedef struct prog_t
 
 extern reg_t *gen_expr(node_t *n);
 extern void gen_stmt(node_t *n);
-extern void dyn_store(node_t *dst, node_t *src);
+extern void gen_store(node_t *dst, node_t *src);
 extern int gen_ir(node_t *n);
 extern prog_t *gen_prog(node_t *n);
+extern void compile(prog_t* prog);
 #endif

@@ -156,7 +156,7 @@ int get_id(char* name) {
     int number;
 
     buffer = vmalloc(256);
-    sprintf(buffer, "/sys/kernel/debug/traceing/events/%s/id", name);
+    sprintf(buffer, "/sys/kernel/debug/tracing/events/syscalls/%s/id", name);
     
     fp = fopen(buffer, "r");
 

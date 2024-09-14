@@ -12,8 +12,7 @@ static int nreg = 1;
 static int nlabel = 1;
 static int regnum = 3;
 
-static bb_t *bb_new()
-{
+static bb_t *bb_new() {
     bb_t *bb = calloc(1, sizeof(*bb));
 
     bb->label = nlabel++;
@@ -25,6 +24,7 @@ static bb_t *bb_new()
     bb->out_regs = vec_new();
 
     vec_push(prog->bbs, bb);
+    
     return bb;
 }
 
@@ -36,16 +36,14 @@ static ir_t *ir_new(int op)
     return ir;
 }
 
-static reg_t *reg_new()
-{
+static reg_t *reg_new() {
     reg_t *reg = calloc(1, sizeof(*reg));
     reg->vn = nreg++;
     reg->rn = -1;
     return reg;
 }
 
-static ir_t *emit(int op, reg_t *r0, reg_t *r1, reg_t *r2)
-{
+static ir_t *emit(int op, reg_t *r0, reg_t *r1, reg_t *r2) {
     ir_t *ir = ir_new(op);
     ir->r0 = r0;
     ir->r1 = r1;
@@ -53,46 +51,44 @@ static ir_t *emit(int op, reg_t *r0, reg_t *r1, reg_t *r2)
     return ir;
 }
 
-static ir_t *if_then()
-{
+static ir_t* ir_exit() {
+    ir_t* ir = ir_new(IR_RETURN);
+    return ir;
+}
+
+static ir_t *if_then() {
     ir_t *ir = ir_new(IR_IF_THEN);
     return ir;
 }
 
-static ir_t *then_end()
-{
+static ir_t *then_end() {
     ir_t *ir = ir_new(IR_IF_END);
     return ir;
 }
 
-static ir_t *else_then()
-{
+static ir_t *else_then() {
     ir_t *ir = ir_new(IR_ELSE_THEN);
     return ir;
 }
 
-static ir_t *else_end()
-{
+static ir_t *else_end() {
     ir_t *ir = ir_new(IR_ELSE_END);
     return ir;
 }
 
-static ir_t *map_update(node_t *map)
-{
+static ir_t *map_update(node_t *map) {
     ir_t *ir = ir_new(IR_MAP_UPDATE);
     ir->value = map;
     return ir;
 }
 
-static ir_t *map_look(node_t* map) 
-{
+static ir_t *map_look(node_t* map) {
     ir_t* ir = ir_new(IR_MAP_LOOK);
     ir->value = map;
     return ir;
 }
 
-static ir_t *br(reg_t *r, bb_t *then, bb_t *els)
-{
+static ir_t *br(reg_t *r, bb_t *then, bb_t *els) {
     ir_t *ir = ir_new(IR_BR);
     ir->r2 = r;
     ir->bb1 = then;
@@ -101,16 +97,14 @@ static ir_t *br(reg_t *r, bb_t *then, bb_t *els)
     return ir;
 }
 
-static ir_t *jmp(bb_t *bb)
-{
+static ir_t *jmp(bb_t *bb) {
     ir_t *ir = ir_new(IR_JMP);
 
     ir->bb1 = bb;
     return ir;
 }
 
-static reg_t *imm(node_t *n)
-{
+static reg_t *imm(node_t *n) {
     ir_t *ir = ir_new(IR_IMM);
 
     ir->r0 = reg_new();
@@ -119,16 +113,14 @@ static reg_t *imm(node_t *n)
     return ir->r0;
 }
 
-static void push(node_t *value, ssize_t addr)
-{
+static void push(node_t *value, ssize_t addr) {
     if (addr)
         value->annot.addr = addr;
     
     vec_push(prog->data, value);
 }
 
-static ir_t *lval(node_t *var)
-{
+static ir_t *lval(node_t *var) {
     ir_t *ir;
 
     ir = ir_new(IR_INIT);
@@ -291,8 +283,7 @@ void gen_store(node_t* dst, node_t* src) {
 }
 
 
-void gen_dec(node_t *dec)
-{
+void gen_dec(node_t *dec) {
     node_t *var, *expr;
     ssize_t addr;
 
@@ -313,8 +304,8 @@ void gen_dec(node_t *dec)
     }
 }
 
-void gen_iff(node_t *n)
-{
+void gen_iff(node_t *n) {
+    node_t* stmt;
     bb_t *then = bb_new();
     bb_t *els = bb_new();
     bb_t *last = bb_new();
@@ -326,6 +317,8 @@ void gen_iff(node_t *n)
     if_then();
     gen_stmt(n->iff.then);
     jmp(last);
+    
+    
     then_end();
 
     curbb = els;
@@ -341,8 +334,7 @@ void gen_iff(node_t *n)
     curbb = last;
 }
 
-void gen_stmt(node_t *n)
-{
+void gen_stmt(node_t *n) {
     switch (n->type)
     {
     case NODE_IF:
@@ -360,25 +352,23 @@ void gen_stmt(node_t *n)
     }
 }
 
-int gen_ir(node_t *n)
-{
+int gen_ir(node_t *n) {
     node_t *head;
 
     curbb = bb_new();
-
     bb_t *bb = bb_new();
     jmp(bb);
     curbb = bb;
-
+    
     _foreach(head, n->probe.stmts) {
         gen_stmt(head);
     }
 
+    ir_exit();
     return 0;
 }
 
-prog_t *prog_new(node_t *n)
-{
+prog_t *prog_new(node_t *n) {
     prog_t *p = vmalloc(sizeof(*p));
     p->ast = n;
     p->data = vec_new();
@@ -386,103 +376,67 @@ prog_t *prog_new(node_t *n)
     return p;
 }
 
-static void ir_add_edges(bb_t *bb)
-{
-    if (bb->succ->len > 0)
-        return 0;
-    assert(bb->ir->len);
-
-    ir_t *ir = bb->ir->data[bb->ir->len - 1];
-
-    if (ir->bb1)
-    {
-        vec_push(bb->succ, ir->bb1);
-        vec_push(ir->bb1->pred, bb);
-        ir_add_edges(ir->bb1);
-    }
-
-    if (ir->bb2)
-    {
-        vec_push(bb->succ, ir->bb2);
-        vec_push(ir->bb2->pred, bb);
-        ir_add_edges(ir->bb2);
-    }
-}
-
-static void init_def_regs(bb_t *bb)
-{
+static void init_def_regs(bb_t *bb) {
+    ir_t* ir;
     int i;
 
-    for (i = 0; i < bb->ir->len; i++)
-    {
-        ir_t *ir = bb->ir->data[i];
-        if (ir->r0)
-        {
+    for (i = 0; i < bb->ir->len; i++) {
+        ir = bb->ir->data[i];
+        if (ir->r0) {
             vec_union(bb->def_regs, ir->r0);
         }
     }
 }
 
-static void ir_cfg(bb_t *bb, reg_t *reg)
-{
+static void ir_cfg(bb_t *bb, reg_t *reg) {
     if (!reg || vec_contains(bb->def_regs, reg))
         return;
 
     if (!vec_union(bb->in_regs, reg))
         return;
 
-    for (int i = 0; i < bb->pred->len; i++)
-    {
+    for (int i = 0; i < bb->pred->len; i++) {
         bb_t *pred = bb->pred->data[i];
 
-        if (vec_union(pred->out_regs, reg))
-        {
+        if (vec_union(pred->out_regs, reg)) {
             ir_cfg(pred, reg);
         }
     }
 }
 
-static void ir_init_it_regs(bb_t *bb, ir_t *ir)
-{
+static void ir_init_it_regs(bb_t *bb, ir_t *ir) {
     int i;
 
     ir_cfg(bb, ir->r1);
     ir_cfg(bb, ir->r2);
     ir_cfg(bb, ir->bbarg);
 
-    if (ir->op == IR_CALL)
-    {
-        for (i = 0; i < ir->nargs; i++)
-        {
+    if (ir->op == IR_CALL) {
+        for (i = 0; i < ir->nargs; i++) {
             ir_cfg(bb, ir->args[i]);
         }
     }
 }
 
-void ir_liveness(prog_t *prog)
-{
+void ir_liveness(prog_t *prog) {
     int i, j;
     bb_t *bb;
     ir_t *ir;
 
-    for (i = 0; i < prog->bbs->len; i++)
-    {
+    for (i = 0; i < prog->bbs->len; i++) {
         bb = prog->bbs->data[i];
 
         init_def_regs(bb);
 
-        for (j = 0; j < bb->ir->len; j++)
-        {
+        for (j = 0; j < bb->ir->len; j++) {
             ir = bb->ir->data[j];
             ir_init_it_regs(bb, ir);
         }
     }
 }
 
-static void ir_set_end(reg_t *reg, int ic)
-{
-    if (reg && reg->end < ic)
-    {
+static void ir_set_end(reg_t *reg, int ic) {
+    if (reg && reg->end < ic) {
         reg->end = ic;
     }
 }
@@ -493,12 +447,10 @@ static void ir_trans(bb_t *bb)
     ir_t *ir, *ir2;
     int i;
 
-    for (i = 0; i < bb->ir->len; i++)
-    {
+    for (i = 0; i < bb->ir->len; i++) {
         ir = bb->ir->data[i];
 
-        if (!ir->r0 || !ir->r1)
-        {
+        if (!ir->r0 || !ir->r1) {
             vec_push(v, ir);
             continue;
         }
@@ -518,75 +470,64 @@ static void ir_trans(bb_t *bb)
     bb->ir = v;
 }
 
-static vec_t *ir_collect(prog_t *prog)
-{
-    vec_t *v = vec_new();
+static vec_t *ir_collect(prog_t *prog) {
+    vec_t *vec = vec_new();
     int ic = 1;
     int i, j, k;
+    bb_t* bb;
+    ir_t* ir;
 
-    for (i = 0; i < prog->bbs->len; i++)
-    {
-        bb_t *bb = prog->bbs->data[i];
+    for (i = 0; i < prog->bbs->len; i++) {
+        bb = prog->bbs->data[i];
 
-        for (j = 0; j < bb->ir->len; j++, ic++)
-        {
-            ir_t *ir = bb->ir->data[j];
+        for (j = 0; j < bb->ir->len; j++, ic++) {
+            ir = bb->ir->data[j];
 
-            if (ir->r0 && !ir->r0->def)
-            {
+            if (ir->r0 && !ir->r0->def) {
                 ir->r0->def = ic;
-                vec_push(v, ir->r0);
+                vec_push(vec, ir->r0);
             }
 
             ir_set_end(ir->r1, ic);
             ir_set_end(ir->r2, ic);
             ir_set_end(ir->bbarg, ic);
 
-            if (ir->op == IR_CALL)
-            {
+            if (ir->op == IR_CALL) {
                 for (k = 0; k < ir->nargs; k++)
                     ir_set_end(ir->args[k], ic);
             }
         }
 
-        for (j = 0; j < bb->out_regs->len; j++)
-        {
+        for (j = 0; j < bb->out_regs->len; j++) {
             reg_t *reg = bb->out_regs->data[j];
             ir_set_end(reg, ic);
         }
     }
 
-    return v;
+    return vec;
 }
 
-static int ir_spill(reg_t **used)
-{
+static int ir_spill(reg_t **used) {
     int i, k = 0;
-    for (i = 1; i < regnum; i++)
-    {
-        if (used[k]->end < used[i]->end)
-        {
+    for (i = 1; i < regnum; i++) {
+        if (used[k]->end < used[i]->end) {
             k = i;
         }
     }
     return k;
 }
 
-void ir_scan(vec_t *regs)
-{
+void ir_scan(vec_t *regs) {
     int i, j, k;
     bool found;
     reg_t **used = calloc(regnum, sizeof(reg_t *));
 
-    for (i = 0; i < regs->len; i++)
-    {
+    for (i = 0; i < regs->len; i++) {
         reg_t *reg = regs->data[i];
         found = false;
 
-        for (j = 0; j < regnum - 1; j++)
-        {
-            if (used[j] && reg->def < used[j]->end)
-            {
+        for (j = 0; j < regnum - 1; j++) {
+            if (used[j] && reg->def < used[j]->end) {
                 continue;
             }
             reg->rn = j;
@@ -608,15 +549,13 @@ void ir_scan(vec_t *regs)
     }
 }
 
-void ir_regs_alloc(prog_t *prog)
-{
+void ir_regs_alloc(prog_t *prog) {
     int i;
     bb_t *bb;
     vec_t *regs;
     node_t *var;
 
-    for (i = 0; i < prog->bbs->len; i++)
-    {
+    for (i = 0; i < prog->bbs->len; i++) {
         bb = prog->bbs->data[i];
         ir_trans(bb);
     }
@@ -625,8 +564,7 @@ void ir_regs_alloc(prog_t *prog)
     ir_scan(regs);
 }
 
-prog_t *gen_prog(node_t *n)
-{
+prog_t *gen_prog(node_t *n) {
     prog = prog_new(n);
 
     gen_ir(n);

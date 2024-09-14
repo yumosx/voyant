@@ -1,78 +1,88 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
+#include <stdbool.h>
 
 #include "lexer.h"
 #include "parser.h"
 #include "ut.h"
 
-static int current(parser_t *p, token_type type) {
-    return p->this_tok->type == type;
+static bool current(parser_t *parser, token_type type) {
+    return parser->this_tok->type == type;
 }
 
-static int expect(parser_t *p, token_type type) {
-    return p->next_tok->type == type;
+static bool expect(parser_t *parser, token_type type) {
+    return parser->next_tok->type == type;
 }
 
-static void advance(parser_t *p) {
-    if (p->this_tok != NULL) {
-        free_token(p->this_tok);
+static void advance(parser_t *parser) {
+    if (parser->this_tok != NULL)
+        free_token(parser->this_tok);
+
+    parser->this_tok = parser->next_tok;
+    parser->next_tok = lexer_next_token(parser->lexer);
+}
+
+parser_t *parser_init(lexer_t *lexer) {
+    parser_t *parser = vmalloc(sizeof(*parser));
+    
+    parser->lexer = lexer;
+    parser->this_tok = NULL;
+    parser->next_tok = NULL;
+
+    advance(parser);
+    advance(parser);
+
+    return parser;
+}
+
+bool expect_next_token(parser_t* parser, token_type type) {
+    if (expect(parser, type)) {
+        advance(parser);
+        return true;
     }
 
-    p->this_tok = p->next_tok;
-    p->next_tok = lexer_next_token(p->lexer);
-}
-
-parser_t *parser_init(lexer_t *l) {
-    parser_t *p = vmalloc(sizeof(*p));
-    p->lexer = l;
-    p->this_tok = NULL;
-    p->next_tok = NULL;
-
-    advance(p);
-    advance(p);
-
-    return p;
-}
-
-int expect_next_token(parser_t *p, token_type t) {
-    if (expect(p, t)) {
-        advance(p);
-        return 1;
-    }
-    return 0;
+    return false;
 }
 
 static seq_t
-get_token_seq(token_type t) {
-    switch (t)
-    {
+get_token_seq(token_type type) {
+    switch (type) {
     case TOKEN_EQ:
         return EQUALS;
+    
     case TOKEN_PLUS:
         return SUM;
+    
     case TOKEN_STAR:
         return PRODUCT;
+    
     case LEFT_PAREN:
         return CALL;
+    
     case LEFT_BRACKET:
         return INDEX;
+    
     case TOKEN_ASSIGN:
         return ASSIGN;
+    
     case TOKEN_DEC:
         return DEC;
+    
     case TOKEN_PIPE:
         return PIPE;
+    
     case TOKEN_GT:
         return LESSGREATERA;
+    
     default:
         return LOWEST;
     }
 }
 
-int get_op(token_type t) {
-    switch (t)
-    {
+static int get_op(token_type type) {
+    switch (type) {
     case TOKEN_ASSIGN:
         return OP_MOV;
 
@@ -90,12 +100,13 @@ int get_op(token_type t) {
 
     case TOKEN_EQ:
         return OP_EQ;
+    
     default:
-        break;
+        return OP_ILLEGAL;
     }
 }
 
-node_t *parse_integer(char *name) {
+static node_t *parse_integer(char *name) {
     size_t integer = 0;
     char *s = name;
 
@@ -106,59 +117,58 @@ node_t *parse_integer(char *name) {
     return node_int_new(integer);
 }
 
-node_t *parse_dec(parser_t *p, node_t *var) {
-    node_t *expr;
+static node_t* parse_dec(parser_t *parser, node_t *var) {
+    node_t* expr;
     int seq;
 
-    seq = get_token_seq(p->this_tok->type);
-    advance(p);
-    expr = parse_expr(p, seq);
+    seq = get_token_seq(parser->this_tok->type);
+    advance(parser);
+    expr = parse_expr(parser, seq);
 
     return node_dec_new(var, expr);
 }
 
-node_t *parse_assign(parser_t *p, node_t *left) {
-    op_t op;
+node_t* parse_assign(parser_t *parser, node_t *left) {
     node_t *right;
     int seq;
 
-    seq = get_token_seq(p->this_tok->type);
-    advance(p);
-    right = parse_expr(p, seq);
+    seq = get_token_seq(parser->this_tok->type);
+    advance(parser);
+    right = parse_expr(parser, seq);
 
     return node_assign_new(left, right);
 }
 
-node_t *parse_infix_expr(parser_t *p, node_t *left) {
+node_t* parse_infix_expr(parser_t *parser, node_t *left) {
     node_t *right;
     seq_t seq;
     int opcode;
 
-    opcode = get_op(p->this_tok->type);
-    seq = get_token_seq(p->this_tok->type);
-    advance(p);
+    opcode = get_op(parser->this_tok->type);
+    seq = get_token_seq(parser->this_tok->type);
+    advance(parser);
 
-    right = parse_expr(p, seq);
+    right = parse_expr(parser, seq);
 
     return node_expr_new(opcode, left, right);
 }
 
-node_t *parse_call_args(parser_t *p) {
+node_t* parse_call_args(parser_t* parser) {
     node_t *n, *head;
 
-    advance(p);
+    advance(parser);
 
-    n = parse_expr(p, LOWEST);
+    n = parse_expr(parser, LOWEST);
     head = n;
 
-    while (expect(p, TOKEN_COMMA)) {
-        advance(p);
-        advance(p);
-        n->next = parse_expr(p, LOWEST);
+    while (expect(parser, TOKEN_COMMA)) {
+        advance(parser);
+        advance(parser);
+        n->next = parse_expr(parser, LOWEST);
         n = n->next;
     }
 
-    if (!expect_next_token(p, RIGHT_PAREN)) {
+    if (!expect_next_token(parser, RIGHT_PAREN)) {
         verror("expect a right paren");
         return NULL;
     }
@@ -166,15 +176,15 @@ node_t *parse_call_args(parser_t *p) {
     return head;
 }
 
-node_t *parse_call_expr(parser_t *p, node_t *left) {
+node_t *parse_call_expr(parser_t *parser, node_t *left) {
     left->type = NODE_CALL;
 
-    if (expect(p, RIGHT_PAREN)) {
-        advance(p);
+    if (expect(parser, RIGHT_PAREN)) {
+        advance(parser);
         return left;
     }
 
-    left->call.args = parse_call_args(p);
+    left->call.args = parse_call_args(parser);
     return left;
 }
 
@@ -231,7 +241,7 @@ node_t *parse_unroll_stmts(parser_t *p) {
 }
 
 node_t *parse_if_stmts(parser_t *p) {
-    node_t *cond, *stmts, *els;
+    node_t *cond, *stmts;
 
     if (!expect_next_token(p, LEFT_PAREN)) {
         return NULL;
@@ -271,8 +281,7 @@ node_t *parse_expr(parser_t *p, seq_t s) {
         return NULL;
     }
 
-    while (!expect(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) 
-    {
+    while (!expect(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
         switch (p->next_tok->type)
         {
         case TOKEN_GT:
@@ -299,6 +308,7 @@ node_t *parse_expr(parser_t *p, seq_t s) {
             left = parse_assign(p, left);
             break;
         default:
+            return left;
             break;
         }
     }
@@ -306,8 +316,7 @@ node_t *parse_expr(parser_t *p, seq_t s) {
     return left;
 }
 
-node_t *parse_block_stmts(parser_t *p) 
-{
+node_t *parse_block_stmts(parser_t *p) {
     node_t *n, *head;
 
     advance(p);
@@ -317,113 +326,107 @@ node_t *parse_block_stmts(parser_t *p)
 
     advance(p);
 
-    while (!expect(p, RIGHT_BLOCK) && !expect(p, END_OF_FILE))
-    {
+    while (!expect(p, RIGHT_BLOCK) && !expect(p, END_OF_FILE)) {
         node_t *stmts = parse_expr(p, LOWEST);
 
-        if (stmts != NULL)
-        {
+        if (stmts != NULL) {
             n->next = stmts;
             n = n->next;
         }
-
         advance(p);
     }
-
     advance(p);
     return head;
 }
 
-node_t *parse_probe(parser_t *p)
-{
-    char *name;
-    node_t *stmts, *prev;
+node_t* parse_probe(parser_t* parser) {
+    char* name;
+    node_t* stmts, *pred;
 
-    if (!expect_next_token(p, TOKEN_IDENT)) {
-        verror("expect a ident for probe");
+    if (!expect_next_token(parser, TOKEN_IDENT)) {
         return NULL;
     }
 
-    name = strdup(p->this_tok->literal);
-    advance(p);
+    name = strdup(parser->this_tok->literal);
+    advance(parser);
 
-    if (p->this_tok->type == TOKEN_SLASH) {
-        advance(p);
-        prev = parse_expr(p, LOWEST);
-        advance(p);
-        advance(p);
+    if (parser->this_tok->type == TOKEN_SLASH) {
+        advance(parser);
+        pred = parse_expr(parser, LOWEST);
+        advance(parser);
+        advance(parser);
     }
 
-    stmts = parse_block_stmts(p);
+    stmts = parse_block_stmts(parser);
 
     return node_probe_new(name, stmts);
 }
 
-node_t *parse_script(parser_t *p)
-{
-    char *name;
-    node_t *stmts;
 
-    name = p->this_tok->literal;
+node_t* parse_script(parser_t* parser) {
+    char* name;
+    node_t* stmts;
 
-    if (vstreq(name, "BEGIN") || vstreq(name, "END")) {
+    name = parser->this_tok->literal;
+
+    if (current(parser, TOKEN_BEGIN) || current(parser, TOKEN_END)) {
         name = strdup(name);
-        advance(p);
+        advance(parser);
 
-        stmts = parse_block_stmts(p);
-        advance(p);
+        stmts = parse_block_stmts(parser);
+        advance(parser);
 
         return node_probe_new(name, stmts);
     }
 
-    if (vstreq(name, "probe"))
-    {
-        return parse_probe(p);
+    if (current(parser, TOKEN_PROBE)) {
+        return parse_probe(parser);
     }
+
+    verror("Syntax error: unexpected token %s", name);
 }
 
-char* parse_event(parser_t *p) {
-    assert(p->this_tok->type == TOKEN_HASH);
+char* parse_event(parser_t *parser) {
+    assert(parser->this_tok->type == TOKEN_HASH);
     
     char* name;
-    if (!expect_next_token(p, TOKEN_IDENT)) {
+
+    if (!expect_next_token(parser, TOKEN_IDENT)) {
         return NULL;
     }
 
-    name = strdup(p->this_tok->literal);
+    name = strdup(parser->this_tok->literal);
 
-    if (!expect_next_token(p, TOKEN_SEMICOLON)) {
+    if (!expect_next_token(parser, TOKEN_SEMICOLON)) {
         return NULL;
     }
 
     return name;
 }
 
-node_t *parse_program(parser_t *p)
-{
+node_t *parse_program(parser_t *parser) {
     node_t *n, *head;
 
-    n = parse_script(p);
+    n = parse_script(parser);
     head = n;
 
-    while (p->next_tok->type != END_OF_FILE)
-    {
-        node_t *script = parse_script(p);
-        if (script)
-        {
+    while (parser->next_tok->type != END_OF_FILE){
+        node_t *script = parse_script(parser);
+        
+        if (script) {
             n->next = script;
             n = n->next;
         }
-        advance(p);
+        advance(parser);
     }
 
-    free_parser(p);
+    free_parser(parser);
+    
     return head;
 }
 
-void free_parser(parser_t *p)
-{
-    free_lexer(p->lexer);
-    free_token(p->this_tok);
-    free_token(p->next_tok);
+void free_parser(parser_t *parser) {
+    free_lexer(parser->lexer);
+    free_token(parser->this_tok);
+    free_token(parser->next_tok);
 }

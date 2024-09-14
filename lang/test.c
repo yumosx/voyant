@@ -3,30 +3,48 @@
 #include "ast.h"
 #include "ut.h"
 
-void test_parse_block() {
+#include "test.h"
 
-}
+lexer_t* lexer;
+parser_t* parser;
+node_t* node;
 
-int main(int argc, char** argv) {
-    char* string, *filename;
-    lexer_t* lexer;
-    parser_t* parser;
-    node_t* node;
-
-    if (argc != 2) {
-        return 0;
-    }
-
-    filename = argv[1];
-    string = read_file(filename);
+tstsuite("test the parser") {
+    tstcase("test the expr parser") {
+        char* string = "{ a := 1 + 2 * 3;}";
+        lexer = lexer_init(string);
+        parser = parser_init(lexer);
+        node = parse_block_stmts(parser);
     
-    if (!string) {
-        verror("read file error");
+        tstcheck(node->type == NODE_DEC);
+        tstcheck(node->dec.expr->expr.left->type == NODE_INT);
+        tstcheck(node->dec.expr->expr.opcode == OP_ADD);
+        tstcheck(node->dec.expr->expr.right->type == NODE_EXPR);
+        tstcheck(node->dec.expr->expr.right->expr.left->type == NODE_INT);
+        tstcheck(node->dec.expr->type == NODE_EXPR);
+
+        free(node);
+        free_lexer(lexer);
     }
     
+    tstcase("test the block parse") {
+        char* string = "{ a := 1; a := 2;}";
+        lexer = lexer_init(string);
+        parser = parser_init(lexer);
+        node = parse_block_stmts(parser);
 
-    lexer =  lexer_init(string);
-    parser = parser_init(lexer);
+        tstcheck(parser->this_tok->type == RIGHT_BLOCK);
+        tstcheck(node->type == NODE_DEC, "mismatch1");
+        tstcheck(node->next->type == NODE_DEC, "mismatch2");
+   
+        free_lexer(lexer);
+        free(node);
+   }
 
-    return 0;
+   tstcase("sad path") {
+        char* string = "{ a := ;}";
+        lexer = lexer_init(string);
+        parser = parser_init(lexer);
+        node = parse_block_stmts(parser);
+   }
 }

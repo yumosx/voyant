@@ -6,8 +6,7 @@
 #include "func.h"
 #include "ut.h"
 
-static void check_int(node_t *n)
-{
+static void check_int(node_t *n) {
 	node_type_t ty;
 
 	ty = n->type;
@@ -16,10 +15,8 @@ static void check_int(node_t *n)
 	}
 }
 
-static void annot_value(node_t *value)
-{
-	switch (value->type)
-	{
+static void annot_value(node_t *value) {
+	switch (value->type) {
 	case NODE_INT:
 		value->annot.type = TYPE_INT;
 		value->annot.size = sizeof(value->integer);
@@ -34,8 +31,12 @@ static void annot_value(node_t *value)
 	}
 }
 
-static void annot_map(node_t *map, ebpf_t *e)
-{
+static void annot_var(node_t *var, ebpf_t *e) {
+	var->annot.type = TYPE_VAR;
+	var->annot.size = 8;
+}
+
+static void annot_map(node_t *map, ebpf_t *e) {
 	node_t *arg;
 	ssize_t ksize;
 
@@ -48,14 +49,7 @@ static void annot_map(node_t *map, ebpf_t *e)
 	map->annot.ksize = ksize;
 }
 
-static void annot_var(node_t *var, ebpf_t *e)
-{
-	var->annot.type = TYPE_VAR;
-	var->annot.size = 8;
-}
-
-void annot_dec(node_t *n, ebpf_t *e)
-{
+void annot_dec(node_t *n, ebpf_t *e) {
 	node_t *var, *expr;
 
 	var = n->dec.var;
@@ -63,8 +57,7 @@ void annot_dec(node_t *n, ebpf_t *e)
 
 	get_annot(expr, e);
 
-	switch (var->type)
-	{
+	switch (var->type) {
 	case NODE_VAR:
 		annot_var(var, e);
 		var->annot.size = expr->annot.size;
@@ -82,10 +75,8 @@ void annot_dec(node_t *n, ebpf_t *e)
 	n->annot.type = TYPE_DEC;
 }
 
-void annot_assign(node_t *n, ebpf_t *e)
-{
+void annot_assign(node_t *n, ebpf_t *e) {
 	node_t *var, *expr;
-	sym_t *sym;
 
 	var = n->assign.lval;
 	expr = n->assign.expr;
@@ -98,7 +89,6 @@ void annot_assign(node_t *n, ebpf_t *e)
 
 void annot_expr(node_t *expr, ebpf_t *e)
 {
-	int opcode;
 	node_t *left, *right;
 
 	left = expr->expr.left;
@@ -107,7 +97,7 @@ void annot_expr(node_t *expr, ebpf_t *e)
 	get_annot(left, e);
 	get_annot(right, e);
 
-	expr->annot.type = TYPE_INT;
+	expr->annot.type = TYPE_EXPR;
 	expr->annot.size = 8;
 }
 
@@ -220,10 +210,8 @@ void assign_rec(node_t *n, ebpf_t *e)
 	}
 }
 
-void loc_assign(node_t *n, ebpf_t *e)
-{
-	switch (n->annot.type)
-	{
+void loc_assign(node_t *n, ebpf_t *e) {
+	switch (n->annot.type) {
 	case TYPE_RSTR:
 		assign_stack(n, e);
 		break;
@@ -238,48 +226,36 @@ void loc_assign(node_t *n, ebpf_t *e)
 	}
 }
 
-static int visit_list(node_t *head, pre_t *pre, post_t *post, ebpf_t *ctx)
-{
+static int visit_list(node_t *head, ebpf_t *ctx) {
 	node_t *elem, *next = head;
 
-	for (elem = next; elem;)
-	{
+	for (elem = next; elem;) {
 		next = elem->next;
-		visit(elem, pre, post, ctx);
+		sema(elem, ctx);
 		elem = next;
 	}
 
 	return 0;
 }
 
-#define do_list(_head) visit_list(_head, pre, post, e)
-#define do_walk(_node) visit(_node, pre, post, e)
-
-void visit(node_t *n, pre_t pre, post_t post, ebpf_t *e)
-{
-	if (pre)
-	{
-		pre(n, e);
-	}
-
-	switch (n->type)
-	{
+void sema(node_t *node, ebpf_t *e) {
+	
+	get_annot(node, e);
+	
+	switch (node->type) {
 	case NODE_PROBE:
-		do_list(n->probe.stmts);
+		visit_list(node->probe.stmts, e);
 		break;
 	case NODE_CALL:
-		do_list(n->call.args);
+		visit_list(node->call.args, e);
 		break;
 	case NODE_IF:
-		do_walk(n->iff.cond);
-		do_list(n->iff.then);
+		visit_list(node->iff.cond, e);
+		visit_list(node->iff.then, e);
 		break;
 	default:
 		break;
 	}
 
-	if (post)
-	{
-		post(n, e);
-	}
+	loc_assign(node, e);
 }

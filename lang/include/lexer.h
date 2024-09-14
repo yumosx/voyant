@@ -8,11 +8,13 @@
 typedef enum token_type token_type;
 
 enum token_type {
+    TOKEN_ILLEGAL,      // Illegal
     TOKEN_INT,          // Integer
     TOKEN_IDENT,        // Identifier
     TOKEN_STRING,       // String
-    TOKEN_ILLEGAL,      // Illegal
     TOKEN_PROBE,        // Probe
+    TOKEN_BEGIN,        // Begin
+    TOKEN_END,          // End
     TOKEN_SLASH,        // Slash '/'
     TOKEN_COLON,        // Colon ':'
     TOKEN_COMMA,        // Comma ','
@@ -49,10 +51,10 @@ typedef struct lexer_t{
     char* input;
 } lexer_t;
 
-char* read_ident(lexer_t* l);
-token_type get_type(char* str);
-lexer_t* lexer_init(char* s);
-token_t* lexer_next_token(lexer_t* l);
+char* read_ident(lexer_t* lexer);
+token_type get_type(char* string);
+lexer_t* lexer_init(char* string);
+token_t* lexer_next_token(lexer_t* lexer);
 
 void free_token(token_t* tok);
 void free_lexer(lexer_t* lex);

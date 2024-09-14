@@ -26,6 +26,7 @@ typedef enum extract{
 } extract_op_t;
 
 typedef enum op_t{
+    OP_ILLEGAL,
     OP_ADD,
     OP_SUB,
     OP_MUL,

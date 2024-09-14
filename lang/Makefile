@@ -5,7 +5,8 @@ HEADERS = include/*.h
 FRONT = lexer.c ast.c parser.c ut.c
 SEMA  = annot.c func.c symtable.c
 BACK  = bpflib.c buffer.c probe.c ir.c gen.c
-SRCS  = $(FRONT) $(SEMA) $(BACK)
+DSL   = dsl.c
+SRCS  = $(FRONT) $(SEMA) $(BACK) $(DSL)
 
 OBJS = $(SRCS:.c=.o)
 

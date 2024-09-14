@@ -22,6 +22,12 @@ token_type get_type(char *str) {
     if (strcmp(str, "probe") == 0)
         return TOKEN_PROBE;
 
+    if (vstreq(str, "BEGIN"))
+        return TOKEN_BEGIN;
+
+    if (vstreq(str, "END"))
+        return TOKEN_END;
+
     if (!strcmp(str, "if"))
         return TOKEN_IF;
 
@@ -219,10 +225,6 @@ token_t* lexer_next_token(lexer_t *l) {
             read_char(l);
             return t;
         }
-        t->type = TOKEN_COLON;
-        t->literal = strdup(":");
-        read_char(l);
-        return t;   
     case 0:
         t->literal = "";
         t->type = END_OF_FILE;
