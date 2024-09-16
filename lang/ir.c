@@ -88,6 +88,12 @@ static ir_t *map_look(node_t* map) {
     return ir;
 }
 
+static ir_t* map_count(node_t* map) {
+    ir_t* ir = ir_new(IR_MAP_METHOD);
+    ir->value = map;
+    return ir;
+}
+
 static ir_t *br(reg_t *r, bb_t *then, bb_t *els) {
     ir_t *ir = ir_new(IR_BR);
     ir->r2 = r;
@@ -174,7 +180,7 @@ reg_t* ret_call(node_t* call) {
     return ir->r0;
 }
 
-static void no_ret_call(node_t* call) {
+static void gen_noret_call(node_t* call) {
     ir_t* ir;
     node_t* rec;
     node_t* arg;
@@ -236,6 +242,7 @@ reg_t* gen_expr(node_t *n) {
     case NODE_VAR:
         return ld_var2reg(n);
     default:
+        verror("not match expr type");
         break;
     }
 }
@@ -271,6 +278,7 @@ void gen_store(node_t* dst, node_t* src) {
         return;
     case TYPE_STR:
     case TYPE_RSTR:
+        //_d("push str is %s", src->name);
         push(src, 0);
         return;
     default:
@@ -282,6 +290,15 @@ void gen_store(node_t* dst, node_t* src) {
     store(dst, r1);
 }
 
+
+void gen_map_method(node_t* expr) {
+    node_t* map;
+
+    map = expr->expr.left;
+
+    gen_store(map->map.args, map->map.args);
+    map_count(map);
+}
 
 void gen_dec(node_t *dec) {
     node_t *var, *expr;
@@ -344,10 +361,13 @@ void gen_stmt(node_t *n) {
         gen_dec(n);
         break;
     case NODE_CALL:
-        no_ret_call(n);
+        gen_noret_call(n);
+        break;
+    case NODE_EXPR:
+        gen_map_method(n);
         break;
     default:
-        verror("stmt not match");
+        verror("not match stmts type");
         break;
     }
 }
@@ -441,8 +461,7 @@ static void ir_set_end(reg_t *reg, int ic) {
     }
 }
 
-static void ir_trans(bb_t *bb)
-{
+static void ir_trans(bb_t *bb) {
     vec_t *v = vec_new();
     ir_t *ir, *ir2;
     int i;

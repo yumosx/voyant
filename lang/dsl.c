@@ -42,7 +42,8 @@ int main(int argc, char **argv) {
     prog->e = code;
     compile(prog);
     
-    id = get_id(node->probe.name);
+    id = bpf_get_probe_id(node->name, node->probe.name);
+    
     bpf_probe_attach(prog->e, id);
     
     siginterrupt(SIGINT, 1);

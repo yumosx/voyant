@@ -38,6 +38,7 @@ enum
     IR_ELSE_END,
     IR_MAP_UPDATE,
     IR_MAP_LOOK,
+    IR_MAP_METHOD,
     IR_REC,
     IR_INIT,
     IR_LOAD,
@@ -51,8 +52,7 @@ enum
     IR_NOP,
 };
 
-typedef struct reg_t
-{
+typedef struct reg_t {
     int vn;
     int rn;
     int def;
@@ -61,8 +61,7 @@ typedef struct reg_t
     char *str;
 } reg_t;
 
-typedef struct bb_t
-{
+typedef struct bb_t {
     int label;
     vec_t *ir;
     reg_t *parm;
@@ -74,8 +73,7 @@ typedef struct bb_t
     vec_t *out_regs;
 } bb_t;
 
-typedef struct ir_t
-{
+typedef struct ir_t {
     int op;
     reg_t *r0;
     reg_t *r1;
@@ -96,8 +94,7 @@ typedef struct ir_t
     reg_t *bbarg;
 } ir_t;
 
-typedef struct prog_t
-{
+typedef struct prog_t {
     char *name;
     node_t *ast;
     vec_t *data;

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sched.h>
 #include <errno.h>
@@ -71,6 +72,13 @@ int bpf_test_attach(ebpf_t* e) {
     return _bpf(BPF_PROG_TEST_RUN, &attr);
 }
 
+int bpf_kprobe_attach(ebpf_t* e, int id) {
+    int bd;
+
+    bd = bpf_prog_load(BPF_PROG_TYPE_KPROBE, e->prog, e->ip - e->prog);
+    return 0;
+}
+
 
 int bpf_probe_attach(ebpf_t* e, int id) {
     struct perf_event_attr attr = {};
@@ -112,7 +120,7 @@ int bpf_probe_attach(ebpf_t* e, int id) {
 }
 
 
-int read_field(char* name) {
+int bpf_read_field(char* name) {
     FILE* fmt;
     int offs;
     char line[0x80];
@@ -150,13 +158,16 @@ int read_field(char* name) {
     return 0;
 }
 
-int get_id(char* name) {
+int bpf_get_probe_id(char* event, char* name) {
+    char path[256];
     char* buffer;
     FILE* fp;
     int number;
 
+    snprintf(path, sizeof(path), "%s/%s", event, name);
+
     buffer = vmalloc(256);
-    sprintf(buffer, "/sys/kernel/debug/tracing/events/syscalls/%s/id", name);
+    sprintf(buffer, "/sys/kernel/debug/tracing/events/%s/id", path);
     
     fp = fopen(buffer, "r");
 
@@ -173,6 +184,24 @@ int get_id(char* name) {
     
     free(buffer);
     return number;
+}
+
+int bpf_get_kprobe_id(char* func) {
+    FILE* fp;
+    char str[128];
+
+	sprintf(str, "echo 'p %s' >/sys/kernel/debug/tracing/kprobe_events", func);
+	system(str);
+
+    sprintf(str, "/sys/kernel/debug/tracing/events/kprobes/p_%s_0/id", func);
+    fp = fopen(str, "r");
+    if (!fp)
+        return -1;
+    
+    fgets(str, sizeof(str), fp);
+    fclose(fp);
+
+    return strtol(str, NULL, 0);
 }
 
 static int bpf_map_op(enum bpf_cmd cmd, int fd, void* key, void* val, int flags) {

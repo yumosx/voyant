@@ -9,4 +9,9 @@
 #include "buffer.h"
 #include "probe.h"
 
+struct globals {
+    char* name;
+    int debug:1;
+};
+
 #endif

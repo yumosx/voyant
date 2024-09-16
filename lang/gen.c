@@ -14,7 +14,6 @@ const struct bpf_insn if_else_insn =
 	JMP_IMM(BPF_JA, 0xf, INT32_MIN, INT16_MIN + 3);
 
 int gregs[3] =  {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
-int args[5] = {BPF_REG_1, BPF_REG_2, BPF_REG_3, BPF_REG_4, BPF_REG_5};
 
 void compile_bool(ebpf_t* code, int op, int r0, int r2) {
     ebpf_emit(code, JMP(op, gregs[r0], gregs[r2], 2));
@@ -24,13 +23,15 @@ void compile_bool(ebpf_t* code, int op, int r0, int r2) {
 }
 
 void compile_map_update(ebpf_t* code, node_t* var) {
-    ssize_t kaddr, vaddr;
+    ssize_t kaddr, vaddr, size;
 
     vaddr = var->annot.addr;
     kaddr = var->map.args->annot.addr;
+    size = var->annot.ksize;
 
     ebpf_emit_mapld(code, BPF_REG_1, var->annot.mapid);
-	ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
+	
+    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
 	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_2, kaddr));
    
 	ebpf_emit(code, MOV(BPF_REG_3, BPF_REG_10));
@@ -48,6 +49,33 @@ void emit_read(ebpf_t* e, ssize_t to, int from, size_t size) {
 	ebpf_emit(e, CALL(BPF_FUNC_probe_read));
 }
 
+void emit_look(ebpf_t* code, int fd, ssize_t kaddr) {
+    ebpf_emit_mapld(code, BPF_REG_1, fd);
+    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_2, kaddr));
+	ebpf_emit(code, CALL(BPF_FUNC_map_lookup_elem));
+}
+
+void emit_update(ebpf_t* code, int fd, ssize_t kaddr, ssize_t vaddr) {
+    ebpf_emit_mapld(code, BPF_REG_1, fd);
+	
+    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_2, kaddr));
+   
+	ebpf_emit(code, MOV(BPF_REG_3, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_3, vaddr));
+
+	ebpf_emit(code, MOV_IMM(BPF_REG_4, 0));
+	ebpf_emit(code, CALL(BPF_FUNC_map_update_elem));
+}
+
+
+void emit_count(ssize_t addr, ebpf_t* code) {
+	ebpf_emit(code, LDXB(BPF_REG_0, addr, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_0, 1));
+	ebpf_emit(code, STXDW(BPF_REG_10, addr, BPF_REG_0));
+}
+
 void compile_map_look(ebpf_t* code, node_t* map) {
     int fd;
     ssize_t kaddr, vaddr, vsize;
@@ -62,6 +90,27 @@ void compile_map_look(ebpf_t* code, node_t* map) {
 	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_2, kaddr));
 	ebpf_emit(code, CALL(BPF_FUNC_map_lookup_elem));
     emit_read(code, vaddr, BPF_REG_0, vsize);
+}
+
+void map_count(node_t* map, ebpf_t* code) {
+    int fd;
+    ssize_t kaddr, vaddr, vsize;
+
+    fd = map->annot.mapid;
+    kaddr = map->map.args->annot.addr;
+    vsize = map->annot.size;
+    vaddr = map->annot.addr;
+
+   //_d("%d %d %d\n", kaddr, vsize, vaddr);
+
+    ebpf_stack_zero(map, code, 0);
+
+    emit_look(code, fd, kaddr);
+    ebpf_emit(code, JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 8));
+    emit_read(code, vaddr, BPF_REG_0, vsize);
+
+    emit_count(vaddr, code);
+    emit_update(code, fd, kaddr, vaddr);
 }
 
 void compile_comm(node_t* n, ebpf_t* e) {
@@ -100,56 +149,9 @@ void compile_rec(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, CALL(BPF_FUNC_perf_event_output));
 }
 
-
-int compile_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
-	ebpf_emit(e, CALL(func));
-    
-    switch(op) {
-        case EXTRACT_OP_MASK:
-            ebpf_emit(e, ALU_IMM(OP_AND, BPF_REG_0, 0xffffffff));
-            break;
-        case EXTRACT_OP_SHIFT:
-            ebpf_emit(e, ALU_IMM(OP_RSH, BPF_REG_0, 32));
-            break;
-		case EXTRACT_OP_DIV_1G:
-			ebpf_emit(e, ALU_IMM(OP_DIV, BPF_REG_0, 1000000000));
-        default:
-            break;
-    }
-	
-	return 0; 
-}
-
-int compile_pid(node_t* n, ebpf_t* e) {
-    return compile_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
-}
-
-int compile_ns(node_t* n, ebpf_t* e) {
-    return compile_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
-}
-
-int compile_cpu(node_t* n, ebpf_t* e) {
-	return compile_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
-}
-
 void compile_call(node_t* n, ebpf_t* e) {
     if (n->annot.type == TYPE_REC) {
         compile_rec(n, e);
-        return;
-    }
-    
-    if (vstreq(n->name, "pid")) {
-        compile_pid(n, e);
-        return;
-    }
-
-    if (vstreq(n->name, "ns")) {
-        compile_ns(n, e);
-        return;
-    }
-
-    if (vstreq(n->name, "cpu")) {
-        compile_cpu(n, e);
         return;
     }
 }
@@ -189,10 +191,21 @@ void copy_data(ebpf_t* e, node_t* n) {
     from = sym->vannot.addr;
     size = n->annot.size;
 
-    printf("copy from %d --> to %d\n", from, to);
-
+    //_d("copy value from the %d to %d", from, to);
     ebpf_value_copy(e, to, from, size);
 }
+
+void load_value(ebpf_t* code, node_t* n, int reg) {
+    sym_t* sym;
+    ssize_t from; 
+
+    sym = symtable_get(code->st, n->name);
+    from = n->annot.addr;
+    
+    //_d("load value from addr: %d to reg %d", from, reg);
+    ebpf_emit(code, LDXDW(reg, from, BPF_REG_10));
+}
+
 
 void compile_ir(ir_t* ir, ebpf_t* code) {
     ssize_t addr;
@@ -214,7 +227,7 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         compile_bool(code, BPF_JGT, r0, r2);
         break;
     case IR_LOAD:
-        ebpf_emit(code, MOV(gregs[r0], gregs[r2]));
+        load_value(code, ir->value, gregs[r0]);
         break;
     case IR_COPY:
         copy_data(code, ir->value);
@@ -233,7 +246,7 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         compile_map_look(code, ir->value);
         break;
     case IR_RCALL:
-        compile_call(ir->value, code);
+        global_compile(ir->value, code);
         ebpf_emit(code, MOV(gregs[r0], BPF_REG_0));
         break; 
     case IR_CALL:
@@ -248,6 +261,9 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         break;
     case IR_IF_END:
         ebpf_emit_at(at, JMP_IMM(BPF_JEQ, 0, 0, code->ip-at-1));
+        break;
+    case IR_MAP_METHOD:
+        map_count(ir->value, code);
         break;
     case IR_RETURN:
         ebpf_emit(code, MOV_IMM(BPF_REG_0, 0));

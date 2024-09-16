@@ -9,6 +9,9 @@
 #define _size(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define _foreach(_n, _in) for ((_n) = (_in); (_n); (_n) = (_n)->next)
 
+#define _d(_fmt, ...)\
+    fprintf(stderr, "dbg %-20s: " _fmt "\n", __func__, ##__VA_ARGS__);
+
 typedef struct vec_t {
     int len;
     int cap;

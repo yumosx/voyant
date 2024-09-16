@@ -49,13 +49,15 @@ void ebpf_stack_zero(node_t* value, ebpf_t* code, int reg) {
 
 void ebpf_str_to_stack(ebpf_t* code, node_t* value) {
 	ssize_t size, at, left;
-    int32_t* str;
+	void* obj;
+	uint32_t* str;
 
     at = value->annot.addr;
     size = value->annot.size;
-    str = value->name;
+ 	obj = value->name;
+	str = obj;
     left = size / sizeof(*str);
-    
+
     for (; left; left--, str++, at += sizeof(*str)) {
         ebpf_emit(code, STW_IMM(BPF_REG_10, at, *str));
     }

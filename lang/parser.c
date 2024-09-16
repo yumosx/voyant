@@ -260,8 +260,7 @@ node_t *parse_if_stmts(parser_t *p) {
 node_t *parse_expr(parser_t *p, seq_t s) {
     node_t *left;
 
-    switch (p->this_tok->type)
-    {
+    switch (p->this_tok->type) {
     case TOKEN_INT:
         left = parse_integer(p->this_tok->literal);
         break;
@@ -280,7 +279,7 @@ node_t *parse_expr(parser_t *p, seq_t s) {
     default:
         return NULL;
     }
-
+    
     while (!expect(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
         switch (p->next_tok->type)
         {
@@ -308,7 +307,6 @@ node_t *parse_expr(parser_t *p, seq_t s) {
             left = parse_assign(p, left);
             break;
         default:
-            return left;
             break;
         }
     }
@@ -404,26 +402,41 @@ char* parse_event(parser_t *parser) {
     return name;
 }
 
-node_t *parse_program(parser_t *parser) {
-    node_t *n, *head;
+node_t* parse_program(parser_t* parser) {
+    char* name;
+    node_t* head, *node;
 
-    n = parse_script(parser);
-    head = n;
+    name = parse_event(parser);
+    advance(parser);
+    
+    if (!name) {
+        verror("Syntax error: expected event name");
+    }
+
+    node = parse_script(parser);
+    
+    if (!node) {
+        verror("Syntax error: expected program");
+    }
+
+    head = node;
+    head->name = name;
 
     while (parser->next_tok->type != END_OF_FILE){
         node_t *script = parse_script(parser);
-        
         if (script) {
-            n->next = script;
-            n = n->next;
+            node->next = script;
+            node = node->next;
         }
         advance(parser);
     }
 
     free_parser(parser);
-    
+
     return head;
 }
+
+
 
 void free_parser(parser_t *parser) {
     free_lexer(parser->lexer);

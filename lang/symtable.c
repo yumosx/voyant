@@ -80,15 +80,23 @@ sym_t* symtable_add(symtable_t* st, char* name) {
     return sym;
 }
 
-void var_dec(symtable_t* st, char* name, node_t* value) {
+void var_dec(symtable_t* st, node_t* var) {
+    char* name;
     sym_t* sym;
 
-    sym = symtable_add(st, name);
+    name = var->name;
+    sym = symtable_get(st, name);
+    
+    if (sym) {
+        verror("Variable '%s' is already defined.", name);
+    }
 
+    sym = symtable_add(st, name);
     sym->type = SYM_VAR;
-    sym->vannot = value->annot; 
-    sym->var = value;
+    sym->vannot = var->annot;
+    sym->var = var;    
 }
+
 
 smap_t* map_create(node_t* map) {
     ssize_t ksize, vsize;
@@ -112,11 +120,19 @@ smap_t* map_create(node_t* map) {
 
 void map_dec(symtable_t* st, node_t* map) {
     sym_t* sym;
+    char* name;
     smap_t* smap;
+
+    name = map->name;
+    sym = symtable_get(st, name);
+    
+    if (sym) {
+        verror("map '%s' is already defined.", name);
+    }
 
     smap = map_create(map);
     
-    sym = symtable_add(st, map->name);
+    sym = symtable_add(st, name);
     sym->type = SYM_MAP;
     sym->vannot = map->annot;
     sym->map = smap;

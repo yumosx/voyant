@@ -49,7 +49,7 @@ static void annot_map(node_t *map, ebpf_t *e) {
 	map->annot.ksize = ksize;
 }
 
-void annot_dec(node_t *n, ebpf_t *e) {
+static void annot_dec(node_t *n, ebpf_t *e) {
 	node_t *var, *expr;
 
 	var = n->dec.var;
@@ -61,7 +61,7 @@ void annot_dec(node_t *n, ebpf_t *e) {
 	case NODE_VAR:
 		annot_var(var, e);
 		var->annot.size = expr->annot.size;
-		var_dec(e->st, var->name, var);
+		var_dec(e->st, var);
 		break;
 	case NODE_MAP:
 		annot_map(var, e);
@@ -72,6 +72,7 @@ void annot_dec(node_t *n, ebpf_t *e) {
 		verror("left type is not map or variable");
 		break;
 	}
+
 	n->annot.type = TYPE_DEC;
 }
 
@@ -83,26 +84,33 @@ void annot_assign(node_t *n, ebpf_t *e) {
 
 	get_annot(expr, e);
 	symtable_ref(e->st, var);
-
-	assert(expr->annot.type != var->annot.type);
 }
 
-void annot_expr(node_t *expr, ebpf_t *e)
-{
-	node_t *left, *right;
+void annot_expr(node_t* expr, ebpf_t* e) {
+	node_t* left, *right;
+	int opcode;
 
-	left = expr->expr.left;
-	right = expr->expr.right;
+	left   = expr->expr.left;
+	right  = expr->expr.right;
+	opcode = expr->expr.opcode;
 
-	get_annot(left, e);
-	get_annot(right, e);
-
-	expr->annot.type = TYPE_EXPR;
-	expr->annot.size = 8;
+	switch (opcode) {
+	case OP_PIPE:
+		annot_map(left, e);
+		right->prev = left;
+		map_dec(e->st, left);
+		expr->annot.type = TYPE_MAP_METHOD;
+		break;
+	default:
+		get_annot(left, e);
+		get_annot(right, e);
+		expr->annot.type = TYPE_EXPR;
+		expr->annot.size = 8;
+		break;
+	}
 }
 
-void annot_rec(node_t *n, ebpf_t *e)
-{
+void annot_rec(node_t *n, ebpf_t *e) {
 	node_t *arg;
 	ssize_t size = 0;
 
@@ -115,10 +123,8 @@ void annot_rec(node_t *n, ebpf_t *e)
 	n->annot.type = TYPE_REC;
 }
 
-void get_annot(node_t *n, ebpf_t *e)
-{
-	switch (n->type)
-	{
+void get_annot(node_t *n, ebpf_t *e) {
+	switch (n->type) {
 	case NODE_INT:
 	case NODE_STR:
 		annot_value(n);
@@ -147,57 +153,54 @@ void get_annot(node_t *n, ebpf_t *e)
 	}
 }
 
-void assign_stack(node_t *n, ebpf_t *e)
-{
+void assign_stack(node_t *n, ebpf_t *e) {
 	n->annot.addr = ebpf_addr_get(n, e);
 	n->annot.loc = LOC_STACK;
 }
 
 
-void assign_data(node_t* n, ssize_t addr) {
-	switch (n->annot.type) {
+void assign_data(node_t* node, ssize_t addr) {
+	switch (node->annot.type) {
 	case TYPE_STR:
-		n->annot.addr = addr;
+		node->annot.addr = addr;
 		break;
 	case TYPE_RSTR:
-		n->annot.addr = addr;
+		node->annot.addr = addr;
 		break;
 	case TYPE_VAR:
-		n->annot.addr = addr;
+		node->annot.addr = addr;
 		break;
 	default:
 		break;
 	}
 }
 
-void assign_dec(node_t *dec, ebpf_t *e)
-{
+void assign_dec(node_t *dec, ebpf_t *code) {
 	node_t *var, *expr;
 	ssize_t addr;
 	sym_t *sym;
 
 	var = dec->dec.var;
 	expr = dec->dec.expr;
-	sym = symtable_get(e->st, var->name);
-	addr = ebpf_addr_get(var, e);
-
-	var->annot.addr = addr;
-	sym->vannot.addr = addr;
-
-	assign_data(expr, addr);
-
+	sym = symtable_get(code->st, var->name);
+	
 	if (var->type == NODE_MAP) {
 		node_t *args;
 		args = var->map.args;
-		addr = ebpf_addr_get(args, e);
+		addr = ebpf_addr_get(args, code);
 
 		args->annot.addr = addr;
 		sym->map->kaddr = addr;
 	}
+	
+	addr = ebpf_addr_get(var, code);
+	var->annot.addr = addr;
+	sym->vannot.addr = addr;
+
+	assign_data(expr, addr);
 }
 
-void assign_rec(node_t *n, ebpf_t *e)
-{
+void assign_rec(node_t *n, ebpf_t *e) {
 	node_t *head;
 	size_t offs;
 	assign_stack(n, e);
@@ -210,16 +213,39 @@ void assign_rec(node_t *n, ebpf_t *e)
 	}
 }
 
-void loc_assign(node_t *n, ebpf_t *e) {
-	switch (n->annot.type) {
+void assign_method(node_t* expr, ebpf_t* code) {
+	node_t* map, *args;
+	sym_t* sym;
+	ssize_t addr;
+	
+	map = expr->expr.left;
+	args = map->map.args;
+	sym = symtable_get(code->st, map->name);
+
+	addr = ebpf_addr_get(args, code);
+
+	args->annot.addr = addr;
+	sym->map->kaddr = addr;
+
+	addr = ebpf_addr_get(map, code);
+	
+	sym->vannot.addr = addr;
+	map->annot.addr = addr;
+}
+
+void loc_assign(node_t *node, ebpf_t *code) {
+	switch (node->annot.type) {
 	case TYPE_RSTR:
-		assign_stack(n, e);
+		assign_stack(node, code);
 		break;
 	case TYPE_DEC:
-		assign_dec(n, e);
+		assign_dec(node, code);
 		break;
 	case TYPE_REC:
-		assign_rec(n, e);
+		assign_rec(node, code);
+		break;
+	case TYPE_MAP_METHOD:
+		assign_method(node, code);
 		break;
 	default:
 		break;

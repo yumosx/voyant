@@ -62,14 +62,7 @@ node_t *node_if_new(node_t *cond, node_t *then, node_t *els) {
     n->iff.cond = cond;
     n->iff.then = then;
     n->iff.els = els;
-
-    _foreach(c, then) {
-        if (!c->next)
-        {
-            n->iff.then_last = c;
-        }
-    }
-
+    
     return n;
 }
 
@@ -91,8 +84,7 @@ node_t *node_dec_new(node_t *var, node_t *expr) {
     return n;
 }
 
-node_t *node_probe_new(char *name, node_t *stmts)
-{
+node_t *node_probe_new(char *name, node_t *stmts) {
     node_t *n = node_new(NODE_PROBE);
 
     n->probe.name = name;
@@ -100,21 +92,17 @@ node_t *node_probe_new(char *name, node_t *stmts)
     return n;
 }
 
-void node_probe_free(node_t *n)
-{
+void node_probe_free(node_t *probe) {
     node_t *head;
 
-    _foreach(head, n->probe.stmts)
-    {
-        if (head->name)
-        {
+    _foreach(head, probe->probe.stmts) {
+        if (head->name) {
             free(head->name);
         }
     }
 }
 
-void node_stmts_free(node_t *n)
-{
+void node_stmts_free(node_t *n) {
     switch (n->type)
     {
     case NODE_STR:

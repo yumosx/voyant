@@ -237,10 +237,14 @@ void dump_int(FILE* fp, node_t* integer, void* data) {
 
 void dump(FILE* fp, node_t* n, void* data) {
 	switch (n->annot.type) {
+	case TYPE_STR:
 	case TYPE_RSTR:
 		dump_str(fp, n, data);
 		break;
 	case TYPE_INT:
+		dump_int(fp, n, data);
+		break;
+	case TYPE_RINT:
 		dump_int(fp, n, data);
 		break;
 	default:
@@ -255,13 +259,12 @@ void map_dump(node_t* map) {
 	size_t fd, rsize, ksize, vsize;
 	char* key, *val, *data;
 
-
 	arg = map->map.args;
 	fd = map->annot.mapid;
 	ksize = arg->annot.size;
 	vsize = map->annot.size;	
 	rsize = ksize + vsize;
-	
+
 	data = vmalloc(rsize * 1024);
 	key = data;
 	val = data + ksize;

@@ -13,6 +13,7 @@ typedef enum node_type_t{
     NODE_PREFIX_EXPR,
     NODE_EXPR,
     NODE_LOGAND,
+    NODE_LOGOR,
     NODE_DEC,
     NODE_VAR,
     NODE_MAP,
@@ -61,7 +62,7 @@ typedef struct rec_t {
 
 typedef struct iff_t {
     node_t *cond;
-    node_t *then, *then_last;
+    node_t *then;
     node_t *els;
 } iff_t;
 
@@ -113,8 +114,7 @@ struct node_t {
     node_type_t type;
     node_t *prev, *next;
 
-    union
-    {
+    union{
         probe_t probe;
         infix_t expr;
         prefix_t pexpr;

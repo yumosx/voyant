@@ -99,10 +99,41 @@ static int annot_out(node_t* call) {
 	varg->next = rec;
 }
 
+static int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
+	ebpf_emit(e, CALL(func));
+    
+    switch(op) {
+        case EXTRACT_OP_MASK:
+            ebpf_emit(e, ALU_IMM(OP_AND, BPF_REG_0, 0xffffffff));
+            break;
+        case EXTRACT_OP_SHIFT:
+            ebpf_emit(e, ALU_IMM(OP_RSH, BPF_REG_0, 32));
+            break;
+		case EXTRACT_OP_DIV_1G:
+			ebpf_emit(e, ALU_IMM(OP_DIV, BPF_REG_0, 1000000000));
+        default:
+            break;
+    }
+	
+	return 0; 
+}
+
+int compile_pid(node_t* n, ebpf_t* e) {
+    return compile_rint_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
+}
+
+int compile_ns(node_t* n, ebpf_t* e) {
+	return compile_rint_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
+}
+
+int compile_cpu(node_t* n, ebpf_t* e) {
+	return compile_rint_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
+}
+
 static builtin_t global_builtins[] = {
-	builtin("pid", annot_rint, NULL),
-	builtin("cpu", annot_rint, NULL),
-	builtin("ns", annot_rint,  NULL),
+	builtin("pid", annot_rint, compile_pid),
+	builtin("cpu", annot_rint, compile_cpu),
+	builtin("ns", annot_rint,  compile_ns),
 	builtin("comm", annot_rstr, NULL),
 	builtin("arg", annot_probe_str, NULL),	
 	builtin("out", annot_out, NULL),
