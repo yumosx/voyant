@@ -24,4 +24,12 @@ extern void ebpf_emit(ebpf_t *code, struct bpf_insn insn);
 extern void ebpf_emit_at(struct bpf_insn *at, struct bpf_insn insn);
 extern void ebpf_value_copy(ebpf_t* code, ssize_t to, ssize_t from, size_t size);
 extern void ebpf_str_to_stack(ebpf_t *code, node_t *value);
+extern void ebpf_emit_map_look(ebpf_t* code, int fd, ssize_t kaddr);
+extern void ebpf_emit_map_update(ebpf_t* code, int fd, ssize_t kaddr, ssize_t vaddr);
+extern void ebpf_emit_count(ebpf_t* code, ssize_t addr);
+extern void ebpf_emit_bool(ebpf_t* code, int op, int r0, int r2);
+extern void ebpf_emit_read(ebpf_t* code, ssize_t to, int from, size_t size);
+extern void ebpf_emit_read_str(ebpf_t* code, ssize_t to, int from, size_t size);
+extern void ebpf_emit_read_user(ebpf_t* code, ssize_t addr, size_t size, int reg);
+extern void ebpf_emit_read_user_string(ebpf_t* code, int reg, int off, ssize_t addr, size_t size);
 #endif

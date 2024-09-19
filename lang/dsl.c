@@ -3,11 +3,51 @@
 #include "dsl.h"
 #include "ut.h"
 
+static char* event;
 static int term_sig = 0;
+
 static void term(int sig) {
     term_sig = sig;
     return;
 }
+
+int run_progs(node_t* node) {
+    node_t* head;
+    ebpf_t* code;
+    prog_t* prog;
+    symtable_t* st;
+    int id;
+    
+    _foreach(head, node) {
+        code = ebpf_new();
+        evpipe_init(code->evp, 4<<10);
+        sema(head, code);
+        prog = gen_prog(head);
+        prog->e = code;
+        compile(prog);
+
+        if (vstreq("BEGIN", head->probe.name)) {
+            bpf_test_attach(code);
+            evpipe_loop(code->evp, &term_sig, 0);
+        } else {
+            id = bpf_get_probe_id(event, head->probe.name);
+            bpf_probe_attach(prog->e, id);
+            siginterrupt(SIGINT, 1);
+            signal(SIGINT, term);
+            evpipe_loop(code->evp, &term_sig, -1);
+
+            st = code->st;
+        
+            int i;
+            for (i = 0; i < st->len; i++) {
+                if (st->table[i].type == SYM_MAP) {
+                    map_dump(st->table[i].map->map);
+                }      
+            }
+        }
+    }
+}
+
 
 int main(int argc, char **argv) {
     char* filename, *input;
@@ -33,31 +73,8 @@ int main(int argc, char **argv) {
     lexer = lexer_init(input);
     parser = parser_init(lexer);
     node = parse_program(parser);
-    
-    code = ebpf_new();
-    evpipe_init(code->evp, 4<<10);
-    
-    sema(node, code);
-    prog = gen_prog(node);
-    prog->e = code;
-    compile(prog);
-    
-    id = bpf_get_probe_id(node->name, node->probe.name);
-    
-    bpf_probe_attach(prog->e, id);
-    
-    siginterrupt(SIGINT, 1);
-    signal(SIGINT, term);
-    evpipe_loop(code->evp, &term_sig, -1);
-
-    st = code->st;
-    
-    int i;
-    for (i = 0; i < st->len; i++) {
-        if (st->table[i].type == SYM_MAP) {
-            map_dump(st->table[i].map->map);
-        }      
-    }
-
+    event = node->name;
+   
+    run_progs(node);
     return 0;
 }

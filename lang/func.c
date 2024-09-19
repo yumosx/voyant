@@ -99,6 +99,61 @@ static int annot_out(node_t* call) {
 	varg->next = rec;
 }
 
+/*
+int print_join_string(event_t* ev, void* call) {
+	const char* str = " "; 
+	char *arg;	
+	void* data = ev->data;
+
+	int i, argnum = 16, argsize = 1024;
+
+	for (i = 0; i < argnum; i++) {
+		arg = data + i * argsize;
+		if (arg[0] == 0)
+			break;
+		
+		if (i)
+			printf("%s", str);
+		printf("%s", arg);
+	}
+	printf("\n");
+	return 0;
+}
+
+static int annot_join(node_t* call) {
+	evhandler_t* evh;
+	node_t* meta, *varg;
+	size_t ksize = 4, vsize = 16 + 16 * 1024, max_entries = 1;
+	int fd;
+
+	varg = call->call.args;
+
+	if (!varg) {
+		verror("expect a argument");
+		return -1;
+	}
+
+	fd = bpf_map_create(BPF_MAP_TYPE_PERCPU_ARRAY, ksize, vsize, max_entries);
+
+
+	evh = vcalloc(1, sizeof(*evh));
+	evh->priv = call;
+	evh->handle = print_join_string;
+
+	evhandler_register(evh);
+
+	meta = node_int_new(evh->type);
+	meta->annot.type = TYPE_INT;
+	meta->annot.size = 8;
+
+	varg->next = meta;
+
+	call->annot.mapid = fd;
+	call->annot.size = 16;
+}
+*/
+
+
 static int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
 	ebpf_emit(e, CALL(func));
     
@@ -130,13 +185,22 @@ int compile_cpu(node_t* n, ebpf_t* e) {
 	return compile_rint_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
 }
 
+int compile_stack(node_t* call, ebpf_t* code) {
+	ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_9));
+	ebpf_emit_mapld(code, BPF_REG_2, call->annot.mapid);
+	ebpf_emit(code, MOV_IMM(BPF_REG_3, 0));
+	ebpf_emit(code, CALL(BPF_FUNC_get_stackid));
+}
+
 static builtin_t global_builtins[] = {
 	builtin("pid", annot_rint, compile_pid),
 	builtin("cpu", annot_rint, compile_cpu),
 	builtin("ns", annot_rint,  compile_ns),
+	builtin("stack", NULL, compile_stack),
 	builtin("comm", annot_rstr, NULL),
 	builtin("arg", annot_probe_str, NULL),	
 	builtin("out", annot_out, NULL),
+	builtin("join", NULL, NULL),
 };
 
 
@@ -151,7 +215,7 @@ int global_annot(node_t* n) {
     return -1;
 }
 
-int global_compile(node_t* n, ebpf_t* e) {
+int global_compile(node_t* n, ebpf_t* e, type_t type) {
 	builtin_t* bi;
 
 	for (bi = global_builtins; bi->name; bi++) {

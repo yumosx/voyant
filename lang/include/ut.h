@@ -12,6 +12,9 @@
 #define _d(_fmt, ...)\
     fprintf(stderr, "dbg %-20s: " _fmt "\n", __func__, ##__VA_ARGS__);
 
+#define _e(_fmt, ...) \
+	fprintf(stderr, "ERR %-20s: " _fmt "\n", __func__, ##__VA_ARGS__)
+
 typedef struct vec_t {
     int len;
     int cap;

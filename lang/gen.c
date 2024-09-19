@@ -1,4 +1,3 @@
-
 #include "func.h"
 #include "ir.h"
 
@@ -15,65 +14,16 @@ const struct bpf_insn if_else_insn =
 
 int gregs[3] =  {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
 
-void compile_bool(ebpf_t* code, int op, int r0, int r2) {
-    ebpf_emit(code, JMP(op, gregs[r0], gregs[r2], 2));
-    ebpf_emit(code, MOV_IMM(gregs[r0], 0));
-    ebpf_emit(code, JMP_IMM(BPF_JA, 0, 0, 1));
-    ebpf_emit(code, MOV_IMM(gregs[r0], 1)); 
-}
-
 void compile_map_update(ebpf_t* code, node_t* var) {
     ssize_t kaddr, vaddr, size;
+    int fd;
 
     vaddr = var->annot.addr;
     kaddr = var->map.args->annot.addr;
     size = var->annot.ksize;
+    fd = var->annot.mapid;
 
-    ebpf_emit_mapld(code, BPF_REG_1, var->annot.mapid);
-	
-    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
-	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_2, kaddr));
-   
-	ebpf_emit(code, MOV(BPF_REG_3, BPF_REG_10));
-	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_3, vaddr));
-
-	ebpf_emit(code, MOV_IMM(BPF_REG_4, 0));
-	ebpf_emit(code, CALL(BPF_FUNC_map_update_elem));
-}
-
-void emit_read(ebpf_t* e, ssize_t to, int from, size_t size) {
-	ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_10));
-	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_1, to));
-	ebpf_emit(e, MOV_IMM(BPF_REG_2, size));
-	ebpf_emit(e, MOV(BPF_REG_3, from));
-	ebpf_emit(e, CALL(BPF_FUNC_probe_read));
-}
-
-void emit_look(ebpf_t* code, int fd, ssize_t kaddr) {
-    ebpf_emit_mapld(code, BPF_REG_1, fd);
-    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
-	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_2, kaddr));
-	ebpf_emit(code, CALL(BPF_FUNC_map_lookup_elem));
-}
-
-void emit_update(ebpf_t* code, int fd, ssize_t kaddr, ssize_t vaddr) {
-    ebpf_emit_mapld(code, BPF_REG_1, fd);
-	
-    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
-	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_2, kaddr));
-   
-	ebpf_emit(code, MOV(BPF_REG_3, BPF_REG_10));
-	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_3, vaddr));
-
-	ebpf_emit(code, MOV_IMM(BPF_REG_4, 0));
-	ebpf_emit(code, CALL(BPF_FUNC_map_update_elem));
-}
-
-
-void emit_count(ssize_t addr, ebpf_t* code) {
-	ebpf_emit(code, LDXB(BPF_REG_0, addr, BPF_REG_10));
-	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_0, 1));
-	ebpf_emit(code, STXDW(BPF_REG_10, addr, BPF_REG_0));
+    ebpf_emit_map_update(code, fd, kaddr, vaddr);
 }
 
 void compile_map_look(ebpf_t* code, node_t* map) {
@@ -84,12 +34,9 @@ void compile_map_look(ebpf_t* code, node_t* map) {
     kaddr = map->map.args->annot.addr;
     vsize = map->annot.size;
     vaddr = map->annot.addr;
-
-    ebpf_emit_mapld(code, BPF_REG_1, fd);
-    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
-	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_2, kaddr));
-	ebpf_emit(code, CALL(BPF_FUNC_map_lookup_elem));
-    emit_read(code, vaddr, BPF_REG_0, vsize);
+    
+    ebpf_emit_map_look(code, fd, kaddr);
+    ebpf_emit_read(code, vaddr, BPF_REG_0, vsize);
 }
 
 void map_count(node_t* map, ebpf_t* code) {
@@ -101,16 +48,14 @@ void map_count(node_t* map, ebpf_t* code) {
     vsize = map->annot.size;
     vaddr = map->annot.addr;
 
-   //_d("%d %d %d\n", kaddr, vsize, vaddr);
-
     ebpf_stack_zero(map, code, 0);
 
-    emit_look(code, fd, kaddr);
+    ebpf_emit_map_look(code, fd, kaddr);
     ebpf_emit(code, JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 8));
-    emit_read(code, vaddr, BPF_REG_0, vsize);
+    ebpf_emit_read(code, vaddr, BPF_REG_0, vsize);
 
-    emit_count(vaddr, code);
-    emit_update(code, fd, kaddr, vaddr);
+    ebpf_emit_count(code, vaddr);
+    ebpf_emit_map_update(code, fd, kaddr, vaddr);
 }
 
 void compile_comm(node_t* n, ebpf_t* e) {
@@ -134,14 +79,11 @@ void compile_rec(node_t* n, ebpf_t* e) {
     id = e->evp->mapfd;
     addr = n->annot.addr;
     size = n->annot.size;
-
-
-    ebpf_emit(e, CALL(BPF_FUNC_get_smp_processor_id));
-	ebpf_emit(e, MOV(BPF_REG_3, BPF_REG_0));
     
     ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_9));
 	ebpf_emit_mapld(e, BPF_REG_2, id);
 
+	ebpf_emit(e, MOV32_IMM(BPF_REG_3, BPF_F_CURRENT_CPU));
     ebpf_emit(e, MOV(BPF_REG_4, BPF_REG_10));
 	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_4, addr));
 
@@ -191,7 +133,6 @@ void copy_data(ebpf_t* e, node_t* n) {
     from = sym->vannot.addr;
     size = n->annot.size;
 
-    //_d("copy value from the %d to %d", from, to);
     ebpf_value_copy(e, to, from, size);
 }
 
@@ -202,7 +143,6 @@ void load_value(ebpf_t* code, node_t* n, int reg) {
     sym = symtable_get(code->st, n->name);
     from = n->annot.addr;
     
-    //_d("load value from addr: %d to reg %d", from, reg);
     ebpf_emit(code, LDXDW(reg, from, BPF_REG_10));
 }
 
@@ -224,7 +164,7 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         ebpf_emit(code, ALU(BPF_MUL, gregs[r0], gregs[r2]));
         break;
     case IR_GT:
-        compile_bool(code, BPF_JGT, r0, r2);
+        ebpf_emit_bool(code, BPF_JGT, r0, r2);
         break;
     case IR_LOAD:
         load_value(code, ir->value, gregs[r0]);
@@ -246,7 +186,7 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         compile_map_look(code, ir->value);
         break;
     case IR_RCALL:
-        global_compile(ir->value, code);
+        global_compile(ir->value, code, TYPE_RINT);
         ebpf_emit(code, MOV(gregs[r0], BPF_REG_0));
         break; 
     case IR_CALL:

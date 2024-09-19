@@ -46,9 +46,12 @@ typedef enum op_t{
     OP_JSGT,
     OP_JA,
     OP_PIPE,
+    OP_ACCESS,
 } op_t;
 
+
 #define MOV(_dst, _src) INSN(BPF_ALU64 | BPF_MOV | BPF_X, _dst, _src, 0, 0)
+#define MOV32_IMM(_dst, _imm) INSN(BPF_ALU | BPF_MOV | BPF_K, _dst, 0, 0, _imm)
 #define MOV_IMM(_dst, _imm) INSN(BPF_ALU64 | BPF_MOV | BPF_K, _dst, 0, 0, _imm)
 
 #define EXIT INSN(BPF_JMP | BPF_EXIT, 0, 0, 0, 0)

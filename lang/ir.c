@@ -28,8 +28,7 @@ static bb_t *bb_new() {
     return bb;
 }
 
-static ir_t *ir_new(int op)
-{
+static ir_t *ir_new(int op) {
     ir_t *ir = calloc(1, sizeof(*ir));
     ir->op = op;
     vec_push(curbb->ir, ir);
@@ -126,7 +125,7 @@ static void push(node_t *value, ssize_t addr) {
     vec_push(prog->data, value);
 }
 
-static ir_t *lval(node_t *var) {
+static ir_t *init(node_t *var) {
     ir_t *ir;
 
     ir = ir_new(IR_INIT);
@@ -135,7 +134,7 @@ static ir_t *lval(node_t *var) {
     return ir;
 }
 
-static reg_t* ld_var2reg(node_t* var) {
+static reg_t* rval(node_t* var) {
     ir_t* ir = ir_new(IR_LOAD);
     ir->r0 = reg_new();
     ir->value = var;
@@ -240,7 +239,7 @@ reg_t* gen_expr(node_t *n) {
     case NODE_CALL:
         return ret_call(n);
     case NODE_VAR:
-        return ld_var2reg(n);
+        return rval(n);
     default:
         verror("not match expr type");
         break;
@@ -278,7 +277,6 @@ void gen_store(node_t* dst, node_t* src) {
         return;
     case TYPE_STR:
     case TYPE_RSTR:
-        //_d("push str is %s", src->name);
         push(src, 0);
         return;
     default:
@@ -286,7 +284,7 @@ void gen_store(node_t* dst, node_t* src) {
     }
     
     r1 = gen_expr(src);
-    lval(dst);
+    init(dst);
     store(dst, r1);
 }
 
@@ -352,8 +350,7 @@ void gen_iff(node_t *n) {
 }
 
 void gen_stmt(node_t *n) {
-    switch (n->type)
-    {
+    switch (n->type) {
     case NODE_IF:
         gen_iff(n);
         break;

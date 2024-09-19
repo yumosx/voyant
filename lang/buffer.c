@@ -11,7 +11,7 @@
 
 #include "buffer.h"
 #include "errno.h"
-#include "syscall.h"
+#include "probe.h"
 #include "ut.h"
 
 static uint64_t next_type = 0;
@@ -37,6 +37,8 @@ static evhandler_t* evhandler_find(uint64_t type) {
 
 static struct ret_value event_handle(event_t* ev, size_t size) {
 	evhandler_t* evh;
+	
+	
 	evh = evhandler_find(ev->type);
 	if (!evh) {
 		verror("unknown event: type:%#"PRIx64" size:%#zx\n", 
@@ -153,12 +155,12 @@ struct ret_value evqueue_drain(evqueue_t* q) {
 				break;
 			case PERF_RECORD_LOST:
 				lost = (void*) ev;
-				verror("lost %"PRId64" events\n", lost->lost);
+				_e("lost %"PRId64" events\n", lost->lost);
 				ret.err = 1;
 				ret.val = EOVERFLOW;
 				break;
 			default:
-				verror("unknown perf event %#"PRIx32"\n", ev->hdr.type);
+				_e("unknown perf event %#"PRIx32"\n", ev->hdr.type);
 				ret.err = 1;
 				ret.val = EINVAL;
 				break;
@@ -252,6 +254,7 @@ void dump(FILE* fp, node_t* n, void* data) {
 		break;
 	}
 }
+
 
 void map_dump(node_t* map) {
 	node_t* arg;

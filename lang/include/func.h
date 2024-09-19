@@ -14,5 +14,5 @@ typedef struct builtin_t {
     {.name = _name, .annotate = _annot, .compile = _compile}  \
 
 int global_annot(node_t *call);
-int global_compile(node_t *n, ebpf_t *e);
+int global_compile(node_t *n, ebpf_t *e, type_t type);
 #endif

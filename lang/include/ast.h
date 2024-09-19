@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "insn.h"
 
-typedef enum node_type_t{
+typedef enum node_type{
     NODE_SCRIPT,
     NODE_PROBE,
     NODE_PROBE_PRED,
@@ -22,7 +22,7 @@ typedef enum node_type_t{
     NODE_CALL,
     NODE_STR,
     NODE_INT,
-} node_type_t;
+} node_type;
 
 typedef struct node_t node_t;
 
@@ -111,7 +111,7 @@ typedef struct annot_t {
 
 struct node_t {
     char *name;
-    node_type_t type;
+    node_type type;
     node_t *prev, *next;
 
     union{
@@ -131,7 +131,7 @@ struct node_t {
     annot_t annot;
 };
 
-extern node_t *node_new(node_type_t t);
+extern node_t *node_new(node_type t);
 extern node_t *node_probe_new(char *name, node_t *stmts);
 extern node_t *node_var_new(char *name);
 extern node_t *node_int_new(size_t name);

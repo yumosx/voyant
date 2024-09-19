@@ -94,3 +94,70 @@ void ebpf_value_copy(ebpf_t* code, ssize_t to, ssize_t from, size_t size) {
 		ebpf_emit(code, STXB(BPF_REG_10, to, BPF_REG_0));
 	}
 }
+
+void ebpf_emit_map_look(ebpf_t* code, int fd, ssize_t kaddr) {
+	ebpf_emit_mapld(code, BPF_REG_1, fd);
+	ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_2, kaddr));
+	ebpf_emit(code, CALL(BPF_FUNC_map_lookup_elem));
+}
+
+void ebpf_emit_map_update(ebpf_t* code, int fd, ssize_t kaddr, ssize_t vaddr) {
+	ebpf_emit_mapld(code, BPF_REG_1, fd);
+	
+    ebpf_emit(code, MOV(BPF_REG_2, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_2, kaddr));
+   
+	ebpf_emit(code, MOV(BPF_REG_3, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(OP_ADD, BPF_REG_3, vaddr));
+
+	ebpf_emit(code, MOV_IMM(BPF_REG_4, 0));
+	ebpf_emit(code, CALL(BPF_FUNC_map_update_elem));
+}
+
+void ebpf_emit_count(ebpf_t* code, ssize_t addr) {
+	ebpf_emit(code, LDXB(BPF_REG_0, addr, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_0, 1));
+	ebpf_emit(code, STXDW(BPF_REG_10, addr, BPF_REG_0));
+}
+
+void ebpf_emit_bool(ebpf_t* code, int op, int r0, int r2) {
+	int gregs[3] =  {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
+	
+	ebpf_emit(code, JMP(op, gregs[r0], gregs[r2], 2));
+    ebpf_emit(code, MOV_IMM(gregs[r0], 0));
+    ebpf_emit(code, JMP_IMM(BPF_JA, 0, 0, 1));
+    ebpf_emit(code, MOV_IMM(gregs[r0], 1)); 
+}
+
+void ebpf_emit_read(ebpf_t* code, ssize_t to, int from, size_t size) {
+	ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, to));
+	ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
+	ebpf_emit(code, MOV(BPF_REG_3, from));
+	ebpf_emit(code, CALL(BPF_FUNC_probe_read));
+}
+
+void ebpf_emit_read_str(ebpf_t* code, ssize_t to, int from, size_t size) {
+	ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, to));
+	ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
+	ebpf_emit(code, MOV(BPF_REG_3, from));
+	ebpf_emit(code, CALL(BPF_FUNC_probe_read_str));
+}
+
+void ebpf_emit_read_user(ebpf_t* code, ssize_t addr, size_t size, int reg) {
+	ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
+	ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
+	ebpf_emit(code, MOV(BPF_REG_3, reg));
+	ebpf_emit(code, CALL(BPF_FUNC_probe_read_user));
+}
+
+void ebpf_emit_read_user_string(ebpf_t* code, int reg, int off, ssize_t addr, size_t size) {
+	ebpf_emit(code, MOV(BPF_REG_1, reg));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, off));	
+	ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
+    ebpf_emit(code, LDXDW(BPF_REG_3, addr, BPF_REG_10));
+	ebpf_emit(code, CALL(BPF_FUNC_probe_read_user_str));
+}

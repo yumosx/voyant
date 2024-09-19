@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
+#include <bpf/btf.h>
 #include <linux/bpf.h>
 #include <linux/bpf.h>
 #include <linux/version.h>
@@ -16,7 +17,7 @@
 #include "probe.h"
 #include "ut.h"
 
-#define LOG_BUF_SIZE 0x1000
+#define LOG_BUF_SIZE 1 << 20
 char bpf_log_buf[LOG_BUF_SIZE];
 
 static __u64 ptr_to_u64(const void* ptr) {
@@ -120,12 +121,12 @@ int bpf_probe_attach(ebpf_t* e, int id) {
 }
 
 
-int bpf_read_field(char* name) {
+int bpf_read_field(char* name, char* field) {
     FILE* fmt;
     int offs;
     char line[0x80];
 
-    fmt = fopenf("r", "/sys/kernel/debug/traceing/events/%s/format", name); 
+    fmt = fopenf("r", "/sys/kernel/debug/tracing/events/%s/format", name); 
 
     if (!fmt) {
         fclose(fmt);
@@ -134,7 +135,7 @@ int bpf_read_field(char* name) {
     }
     
     char* save, *offs_s, *size_s, *sign_s;
-    char* type_s, *str;
+    char* type_s, *str, *tname;
 
 
     while (fgets(line, sizeof(line), fmt)) {
@@ -148,11 +149,20 @@ int bpf_read_field(char* name) {
 
         type_s += sizeof("field:");
         
-        printf("type: %s\n", type_s);
         offs_s += sizeof("offset:");
-        printf("offs: %s\n", offs_s);
         size_s += sizeof("size:");
         sign_s += sizeof("signed:");
+
+        if (type_s) {
+            tname = rindex(type_s, ' ');
+            *tname++ = '\0';
+
+            if (vstreq(tname, field)) {
+                int size;
+                size = strtoul(offs_s, NULL, 0);
+                return size;
+            }
+        }
     }
     
     return 0;
@@ -165,6 +175,7 @@ int bpf_get_probe_id(char* event, char* name) {
     int number;
 
     snprintf(path, sizeof(path), "%s/%s", event, name);
+
 
     buffer = vmalloc(256);
     sprintf(buffer, "/sys/kernel/debug/tracing/events/%s/id", path);
@@ -241,3 +252,38 @@ int perf_event_enable(int id) {
     }
     return 0;
 }
+#ifdef libbpf
+static struct btf* _btf = NULL;
+
+int bpf_btf_setup() {
+    _btf = btf__load_vmlinux_btf();
+    if (!_btf)
+        return bf_err_code(errno, "failed to load vmlinux BTF");
+    return 0;
+}
+
+void bpf_btf_teardown() {
+    btf__free(_btf);
+    _btf = NULL;
+}
+
+int bpf_btf_get_id(const char* name) {
+    int id;
+
+    assert(name != NULL);
+    id = btf__find_by_name(_btf, name);
+    if (id < 0)
+        return bf_err_code(errno, "failed to find BTF type for\"%s\"", name);
+    
+    return id;
+}
+
+int bpf_btf_get_filed_off(const char* struct_name, const char* field_name) {
+    int offset = -1;
+    int struct_id;
+    struct btf_member* member;
+    const struct btf_type* type;
+
+    struct_id = btf__find_by_name_kind(_btf, struct_name, BTF_KIND_STRUCT);
+}
+#endif

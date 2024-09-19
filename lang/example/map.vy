@@ -8,8 +8,3 @@ BEGIN{
     states[7] = "CLOSE";
     states[8] = "CLOSE_WAIT";
 }
-
-
-END {
-    close(tcp_states);
-}

@@ -6,34 +6,52 @@
 #include "func.h"
 #include "ut.h"
 
-static void check_int(node_t *n) {
-	node_type_t ty;
+void bind(node_t* from, node_t* to) {
+	type_t t1, t2;
+	size_t s1, s2;
 
-	ty = n->type;
-	if (ty != NODE_INT) {
-		verror("not an integer");
+	t1 = _na_type(from), t2 = _na_type(to);
+
+	if (xor(t1, t2)) {
+		if (t1)
+			to->annot.type = t1;
+		else
+			from->annot.type = t2;
+	} else if (t1 != t2) {
+		_e("type mismatch");
+	}
+
+	s1 = _na_size(from), s2 = _na_size(to);
+
+	if (xor(s1, s2)) {
+		if (s1)
+			to->annot.size = s2;
+		else
+			from->annot.type = s1;
+	} else if (s1 != s2) {
+		_e("");
 	}
 }
 
-static void annot_value(node_t *value) {
+
+static int annot_value(node_t *value) {
+	int err = 0;
+	
 	switch (value->type) {
 	case NODE_INT:
-		value->annot.type = TYPE_INT;
-		value->annot.size = sizeof(value->integer);
+		_annot(value, TYPE_INT, sizeof(value->integer));
 		break;
 	case NODE_STR:
-		value->annot.type = TYPE_STR;
-		value->annot.size = _ALIGNED(strlen(value->name) + 1);
+		_annot(value, TYPE_STR, _ALIGNED(strlen(value->name)+1));
+		break;
+	case NODE_CALL:
+		err = global_annot(value);
 		break;
 	default:
-		verror("not an integer or string valuie");
 		break;
 	}
-}
 
-static void annot_var(node_t *var, ebpf_t *e) {
-	var->annot.type = TYPE_VAR;
-	var->annot.size = 8;
+	return err;
 }
 
 static void annot_map(node_t *map, ebpf_t *e) {
@@ -44,14 +62,12 @@ static void annot_map(node_t *map, ebpf_t *e) {
 	get_annot(arg, e);
 	ksize = arg->annot.size;
 
-	map->annot.type = TYPE_MAP;
-	map->annot.size = 8;
-	map->annot.ksize = ksize;
+	_annot_map(map, TYPE_MAP, ksize, 8);
 }
 
-static void annot_dec(node_t *n, ebpf_t *e) {
+static int annot_dec(node_t *n, ebpf_t *e) {
 	node_t *var, *expr;
-
+	int err = 0;
 	var = n->dec.var;
 	expr = n->dec.expr;
 
@@ -59,7 +75,7 @@ static void annot_dec(node_t *n, ebpf_t *e) {
 
 	switch (var->type) {
 	case NODE_VAR:
-		annot_var(var, e);
+		_annot(var, TYPE_VAR, 8);
 		var->annot.size = expr->annot.size;
 		var_dec(e->st, var);
 		break;
@@ -69,21 +85,12 @@ static void annot_dec(node_t *n, ebpf_t *e) {
 		map_dec(e->st, var);
 		break;
 	default:
-		verror("left type is not map or variable");
+		verror("Declaration variable must be either a map or a variable");
 		break;
 	}
 
 	n->annot.type = TYPE_DEC;
-}
-
-void annot_assign(node_t *n, ebpf_t *e) {
-	node_t *var, *expr;
-
-	var = n->assign.lval;
-	expr = n->assign.expr;
-
-	get_annot(expr, e);
-	symtable_ref(e->st, var);
+	return err;
 }
 
 void annot_expr(node_t* expr, ebpf_t* e) {
@@ -100,6 +107,9 @@ void annot_expr(node_t* expr, ebpf_t* e) {
 		right->prev = left;
 		map_dec(e->st, left);
 		expr->annot.type = TYPE_MAP_METHOD;
+		break;
+	case OP_ACCESS:
+		//annot_args(right);
 		break;
 	default:
 		get_annot(left, e);
@@ -123,8 +133,10 @@ void annot_rec(node_t *n, ebpf_t *e) {
 	n->annot.type = TYPE_REC;
 }
 
+
 void get_annot(node_t *n, ebpf_t *e) {
 	switch (n->type) {
+	case NODE_CALL:
 	case NODE_INT:
 	case NODE_STR:
 		annot_value(n);
@@ -140,10 +152,6 @@ void get_annot(node_t *n, ebpf_t *e) {
 		annot_dec(n, e);
 		break;
 	case NODE_ASSIGN:
-		annot_assign(n, e);
-		break;
-	case NODE_CALL:
-		global_annot(n);
 		break;
 	case NODE_REC:
 		annot_rec(n, e);

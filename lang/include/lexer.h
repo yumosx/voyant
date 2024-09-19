@@ -33,8 +33,10 @@ enum token_type {
     TOKEN_DEC,          // Dec
     TOKEN_PLUS,         // Plus '+'
     TOKEN_STAR,         // Star '*'
+    TOKEN_SUB,          // SUB '-'
     TOKEN_GT,           // GT '>'
     TOKEN_HASH,         // Hash '#'
+    TOKEN_ACCESS,       // ACCESS '->'
     TOKEN_PIPE,         // Pipe '|'
     END_OF_FILE         // End of File
 };

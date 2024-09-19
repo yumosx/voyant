@@ -27,7 +27,9 @@ sudo ./voyant main.y
 
 ## hello, world
 
-```y
+```c
+#syscalls;
+
 probe sys_enter_execve {
     out("%s", "Hello, World!");
 }
@@ -35,7 +37,9 @@ probe sys_enter_execve {
 
 ### variable
 
-```y
+```c
+#syscalls;
+
 probe sys_enter_execve {
     a := 1;
     out("%d\n", a);
@@ -46,7 +50,9 @@ probe sys_enter_execve {
 
 ### helper function
 
-```y
+```c
+#syscalls;
+
 probe sys_enter_open {
     out("%-18d %-16s %-6s\n", pid(), comm(), arg());
 }
@@ -54,7 +60,9 @@ probe sys_enter_open {
 
 ### bpf map
 
-```y
+```c
+#syscalls;
+
 probe sys_enter_execve {
     map[pid()] |> count();
 }
@@ -66,11 +74,25 @@ probe sys_enter_execve {
 
 ### begin
 ```c
+#syscalls;
+
 BEGIN {
     out("%-18s %-16s %-6s\n", "PID", "COMM", "FILE");
 }
 
 probe sys_enter_open {
     out("%-18d %-16s %-6s\n", pid(), comm(), arg());
+}
+```
+
+### if stmts
+
+```c
+#syscalls;
+
+probe sys_enter_execve {
+    if (cpu() > 0) {
+        out("on cpu %d", cpu());
+    }
 }
 ```

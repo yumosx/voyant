@@ -4,7 +4,7 @@
 #include "ut.h"
 #include "ast.h"
 
-node_t *node_new(node_type_t t) {
+node_t *node_new(node_type t) {
     node_t *n = vmalloc(sizeof(*n));
 
     n->type = t;

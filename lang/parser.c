@@ -76,6 +76,8 @@ get_token_seq(token_type type) {
     case TOKEN_GT:
         return LESSGREATERA;
     
+    case TOKEN_ACCESS:
+        return SUM;
     default:
         return LOWEST;
     }
@@ -101,6 +103,9 @@ static int get_op(token_type type) {
     case TOKEN_EQ:
         return OP_EQ;
     
+    case TOKEN_ACCESS:
+        return OP_ACCESS;
+        
     default:
         return OP_ILLEGAL;
     }
@@ -283,6 +288,7 @@ node_t *parse_expr(parser_t *p, seq_t s) {
     while (!expect(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
         switch (p->next_tok->type)
         {
+        case TOKEN_ACCESS:
         case TOKEN_GT:
         case TOKEN_PIPE:
         case TOKEN_STAR:
@@ -435,8 +441,6 @@ node_t* parse_program(parser_t* parser) {
 
     return head;
 }
-
-
 
 void free_parser(parser_t *parser) {
     free_lexer(parser->lexer);

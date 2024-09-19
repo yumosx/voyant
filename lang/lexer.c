@@ -106,143 +106,157 @@ char *read_ident(lexer_t *l) {
     return ident;
 }
 
-token_t* lexer_next_token(lexer_t *l) {
-    token_t* t = vmalloc(sizeof(*t));
+token_t* lexer_next_token(lexer_t *lexer) {
+    token_t* token = vmalloc(sizeof(*token));
 
-    skip_whitespace(l);
+    skip_whitespace(lexer);
 
-    switch (l->ch) {
+    switch (lexer->ch) {
     case '"':
-        t->type = TOKEN_STRING;
-        t->literal = read_string(l);
-        return t;
+        token->type = TOKEN_STRING;
+        token->literal = read_string(lexer);
+        return token;
 
     case ',':
-        t->type = TOKEN_COMMA;
-        t->literal = strdup(",");
-        read_char(l);
-        return t;
+        token->type = TOKEN_COMMA;
+        token->literal = strdup(",");
+        read_char(lexer);
+        return token;
 
     case '/':
-        t->type = TOKEN_SLASH;
-        t->literal = strdup("/");
-        read_char(l);
-        return t;
+        token->type = TOKEN_SLASH;
+        token->literal = strdup("/");
+        read_char(lexer);
+        return token;
     
     case '>':
-        t->type = TOKEN_GT;
-        t->literal = strdup(">");
-        read_char(l);
-        return t; 
+        token->type = TOKEN_GT;
+        token->literal = strdup(">");
+        read_char(lexer);
+        return token; 
     
     case '(':
-        t->type = LEFT_PAREN;
-        t->literal = strdup("(");
-        read_char(l);
-        return t;
+        token->type = LEFT_PAREN;
+        token->literal = strdup("(");
+        read_char(lexer);
+        return token;
     
     case ')':
-        t->type = RIGHT_PAREN;
-        t->literal = strdup(")");
-        read_char(l);
-        return t;
+        token->type = RIGHT_PAREN;
+        token->literal = strdup(")");
+        read_char(lexer);
+        return token;
 
     case '[':
-        t->type = LEFT_BRACKET;
-        t->literal = strdup("[");
-        read_char(l);
-        return t;
+        token->type = LEFT_BRACKET;
+        token->literal = strdup("[");
+        read_char(lexer);
+        return token;
 
     case ']':
-        t->type = RIGHT_BRACKET;
-        t->literal = strdup("]");
-        read_char(l);
-        return t;
+        token->type = RIGHT_BRACKET;
+        token->literal = strdup("]");
+        read_char(lexer);
+        return token;
 
     case '{':
-        t->type = LEFT_BLOCK;
-        t->literal = strdup("{");
-        read_char(l);
-        return t;
+        token->type = LEFT_BLOCK;
+        token->literal = strdup("{");
+        read_char(lexer);
+        return token;
 
     case '}':
-        t->type = RIGHT_BLOCK;
-        t->literal = strdup("}");
-        read_char(l);
-        return t;
+        token->type = RIGHT_BLOCK;
+        token->literal = strdup("}");
+        read_char(lexer);
+        return token;
 
     case ';':
-        t->type = TOKEN_SEMICOLON;
-        t->literal = strdup(";");
-        read_char(l);
-        return t;
+        token->type = TOKEN_SEMICOLON;
+        token->literal = strdup(";");
+        read_char(lexer);
+        return token;
 
     case '+':
-        t->type = TOKEN_PLUS;
-        t->literal = strdup("+");
-        read_char(l);
-        return t;
+        token->type = TOKEN_PLUS;
+        token->literal = strdup("+");
+        read_char(lexer);
+        return token;
 
     case '*':
-        t->type = TOKEN_STAR;
-        t->literal = strdup("*");
-        read_char(l);
-        return t;
+        token->type = TOKEN_STAR;
+        token->literal = strdup("*");
+        read_char(lexer);
+        return token;
 
     case '#':
-        t->type = TOKEN_HASH;
-        t->literal = strdup("#");
-        read_char(l);
-        return t;
+        token->type = TOKEN_HASH;
+        token->literal = strdup("#");
+        read_char(lexer);
+        return token;
 
+    case '-':
+        if (lexer->input[lexer->read_pos] == '>') {
+            token->type = TOKEN_ACCESS;
+            token->literal = strdup("->");
+            read_char(lexer);
+            read_char(lexer);
+            return token;
+        }
+        token->type = TOKEN_SUB;
+        token->literal = strdup("-");
+        read_char(lexer);
+        return token;
+    
     case '|':
-        if (l->input[l->read_pos] == '>') {
-            t->type = TOKEN_PIPE;
-            t->literal = strdup("|>");
-            read_char(l);
-            read_char(l);
-            return t;
+        if (lexer->input[lexer->read_pos] == '>') {
+            token->type = TOKEN_PIPE;
+            token->literal = strdup("|>");
+            read_char(lexer);
+            read_char(lexer);
+            return token;
         }
+    
     case '=':
-        if (l->input[l->read_pos] == '=') {
-            t->type = TOKEN_EQ;
-            t->literal = strdup("==");
-            read_char(l);
-            read_char(l);
-            return t;
+        if (lexer->input[lexer->read_pos] == '=') {
+            token->type = TOKEN_EQ;
+            token->literal = strdup("==");
+            read_char(lexer);
+            read_char(lexer);
+            return token;
         }
 
-        t->type = TOKEN_ASSIGN;
-        t->literal = strdup("=");
-        read_char(l);
-        return t;
+        token->type = TOKEN_ASSIGN;
+        token->literal = strdup("=");
+        read_char(lexer);
+        return token;
 
     case ':':
-        if (l->input[l->read_pos] == '=') {
-            t->type = TOKEN_DEC;
-            t->literal = strdup(":=");
-            read_char(l);
-            read_char(l);
-            return t;
+        if (lexer->input[lexer->read_pos] == '=') {
+            token->type = TOKEN_DEC;
+            token->literal = strdup(":=");
+            read_char(lexer);
+            read_char(lexer);
+            return token;
         }
     case 0:
-        t->literal = "";
-        t->type = END_OF_FILE;
-        return t;
+        token->literal = "";
+        token->type = END_OF_FILE;
+        return token;
     default:
         goto out;
         break;        
     }
 
 out:
-    if (is_char(l->ch)) {
-        t->literal = read_ident(l);
-        t->type = get_type(t->literal);
-        return t;
+    if (is_char(lexer->ch)) {
+        token->literal = read_ident(lexer);
+        token->type = get_type(token->literal);
+        return token;
     } else {
-        t->type = TOKEN_ILLEGAL;
-        t->literal = NULL;
-        return t;
+        token->type = TOKEN_ILLEGAL;
+        token->literal = NULL;
+        return token;
     }
 }
 
