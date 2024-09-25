@@ -26,18 +26,11 @@ make
 sudo ls -F /sys/kernel/debug/tracing/events
 ```
 
-### 脚本生成
-
-在我们的仓库下面有一个emit.sh的脚本文件, 我们可以使用这个脚本文件生成对应的程序
-```sh
-./emit.sh
-
-输出对应的跟踪点
-```
-
 ### Hello, World
 
 ```c
+#syscalls;
+
 probe sys_enter_execve {
     out("%s", "hello, world");
 }
@@ -49,10 +42,10 @@ probe sys_enter_execve {
 ### 变量
 
 ```c
+#syscalls;
+
 probe sys_enter_execve {
     a := 1;
-    out("%d\n", a);
-    a = 2;
     out("%d\n", a);
 }
 ```
@@ -69,6 +62,8 @@ probe sys_enter_execve {
 - 字符串类型, comm
 
 ```c
+#syscalls;
+
 probe sys_enter_execve {
     out("pid: %d, cpu: %d", pid(), cpu());
 }
@@ -77,14 +72,11 @@ probe sys_enter_execve {
 ### BPF hash map
 
 ```c
+#syscalls;
+
 //示例1
 probe sys_enter_execve {
     map[comm()] |> count();
-}
-
-//示范2
-probe sys_enter_execve {
-    map[cpu()] |> count();
 }
 ```
 - **Map的作用域**: 不同于变量需要声明和做相应的寄存器分配，map的所有的数据都是存放在栈上面的
@@ -102,8 +94,11 @@ probe sys_enter_execve {
 ### 获取跟踪点函数的参数
 
 ```c
+#syscalls;
+
 probe sys_enter_execve {
-    out("%s", arg(0));
+    arg := args->filename;
+    out("%s\n", arg);
 }
 ```
 目前该功能整体上尚未达到完全稳定，但我可以确认，在捕获sys_enter_execve和sys_enter_open系统调用的filename参数方面，其表现是极为可靠的。
@@ -117,7 +112,8 @@ BEGIN {
 }
 
 probe sys_enter_execve {
-    out("%-18d %-16s %-6s\n", pid(), comm(), arg());
+    arg := args->filename;
+    out("%-18d %-16s %-6s\n", pid(), comm(), arg);
 }
 ```
 输出结果:
@@ -138,26 +134,15 @@ PID                COMM             FILE
 ```
 BEGIN是一个特殊的探针类型，它仅在脚本开始执行时触发一次。此处，我们利用BEGIN探针来定义一个立即执行的代码块，该代码块负责输出格式化的表头，包括进程ID（PID）、命令名称（COMM）和文件路径（FILE）。
 
-### 有限的循环
+### if语句
 
-我们采用了一种有限循环的方法。这种方法通过编译器自动展开循环，确保了代码的高效执行。以下是一个具体的示例，
-关于循环的更多特性, 我们会在后续相继支持
-```y
-BEGIN {
-    out("%s", "the unroll test");
-}
+```c
+#syscalls;
 
 probe sys_enter_execve {
-    unroll(3) {
-        out("%s\n", "1");
+    a := 2;
+    if (a > 2) {
+        out("%s\n", "gt 2");
     }
-    out("%s\n", "----------");
 }
-```
-打印的结果如下:
-```c
-1
-1
-1
-----------
 ```

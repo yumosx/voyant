@@ -43,8 +43,6 @@ probe sys_enter_execve {
 probe sys_enter_execve {
     a := 1;
     out("%d\n", a);
-    a = 2;
-    out("%d\n", a);
 }
 ```
 
@@ -54,7 +52,7 @@ probe sys_enter_execve {
 #syscalls;
 
 probe sys_enter_open {
-    out("%-18d %-16s %-6s\n", pid(), comm(), arg());
+    out("%-18d %-16s\n", pid(), comm());
 }
 ```
 
@@ -81,7 +79,8 @@ BEGIN {
 }
 
 probe sys_enter_open {
-    out("%-18d %-16s %-6s\n", pid(), comm(), arg());
+    arg := arg->filename;
+    out("%-18d %-16s %-6s\n", pid(), comm(), arg);
 }
 ```
 
