@@ -23,15 +23,15 @@ int run_progs(node_t* node) {
         evpipe_init(code->evp, 4<<10);
         sema(head, code);
         prog = gen_prog(head);
-        prog->e = code;
+        prog->ctx = code;
         compile(prog);
 
         if (vstreq("BEGIN", head->probe.name)) {
             bpf_test_attach(code);
             evpipe_loop(code->evp, &term_sig, 0);
         } else {
-            id = bpf_get_probe_id(event, head->probe.name);
-            bpf_probe_attach(prog->e, id);
+            id = bpf_get_probe_id(head->probe.name);
+            bpf_probe_attach(prog->ctx, id);
             siginterrupt(SIGINT, 1);
             signal(SIGINT, term);
             evpipe_loop(code->evp, &term_sig, -1);
@@ -73,7 +73,6 @@ int main(int argc, char **argv) {
     lexer = lexer_init(input);
     parser = parser_init(lexer);
     node = parse_program(parser);
-    event = node->name;
    
     run_progs(node);
     return 0;

@@ -43,6 +43,7 @@ enum
     IR_INIT,
     IR_LOAD,
     IR_COPY,
+    IR_READ,
     IR_PUSH,
     IR_STW,
     IR_LOAD_SPILL,
@@ -99,7 +100,7 @@ typedef struct prog_t {
     node_t *ast;
     vec_t *data;
     vec_t *bbs;
-    ebpf_t *e;
+    ebpf_t *ctx;
 } prog_t;
 
 extern reg_t *gen_expr(node_t *n);

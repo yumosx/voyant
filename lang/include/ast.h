@@ -26,6 +26,11 @@ typedef enum node_type{
 
 typedef struct node_t node_t;
 
+typedef enum {
+    PRODE_KPROBE,
+    PROBE_PROBE,
+} probe_type;
+
 typedef struct probe_t {
     char *name;
     int traceid;
@@ -95,7 +100,9 @@ typedef enum type_t {
     TYPE_DEC,
     TYPE_ASSIGN,
     TYPE_STMT,
+    TYPE_ACCESS,
     TYPE_MAP_METHOD,
+    TYPE_NULL,
 } type_t;
 
 typedef struct annot_t {
@@ -104,10 +111,18 @@ typedef struct annot_t {
 
     size_t ksize;
     ssize_t size;
+    size_t offs;
 
     loc_t loc;
     ssize_t addr;
 } annot_t;
+
+typedef struct field_t{
+    char* name;
+    char* field;
+    type_t type; 
+    size_t offs;
+} field_t;
 
 struct node_t {
     char *name;
@@ -130,6 +145,7 @@ struct node_t {
 
     annot_t annot;
 };
+
 
 extern node_t *node_new(node_type t);
 extern node_t *node_probe_new(char *name, node_t *stmts);

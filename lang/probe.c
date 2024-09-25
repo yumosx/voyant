@@ -62,26 +62,26 @@ int bpf_map_create(enum bpf_map_type type, int ksize, int size, int entries) {
     return _bpf(BPF_MAP_CREATE, &attr);
 }
 
-int bpf_test_attach(ebpf_t* e) {
+int bpf_test_attach(ebpf_t* ctx) {
     union bpf_attr attr;
     int id;
     
     memset(&attr, 0, sizeof(attr));
-    id = bpf_prog_load(BPF_PROG_TYPE_RAW_TRACEPOINT, e->prog, e->ip-e->prog);    
+    id = bpf_prog_load(BPF_PROG_TYPE_RAW_TRACEPOINT, ctx->prog, ctx->ip-ctx->prog);    
     attr.test.prog_fd = id;
 
     return _bpf(BPF_PROG_TEST_RUN, &attr);
 }
 
-int bpf_kprobe_attach(ebpf_t* e, int id) {
+int bpf_kprobe_attach(ebpf_t* ctx, int id) {
     int bd;
 
-    bd = bpf_prog_load(BPF_PROG_TYPE_KPROBE, e->prog, e->ip - e->prog);
+    bd = bpf_prog_load(BPF_PROG_TYPE_KPROBE, ctx->prog, ctx->ip - ctx->prog);
     return 0;
 }
 
 
-int bpf_probe_attach(ebpf_t* e, int id) {
+int bpf_probe_attach(ebpf_t* ctx, int id) {
     struct perf_event_attr attr = {};
     
     int ed, bd;
@@ -92,7 +92,7 @@ int bpf_probe_attach(ebpf_t* e, int id) {
     attr.wakeup_events = 1;
     attr.config = id;  
     
-    bd = bpf_prog_load(BPF_PROG_TYPE_TRACEPOINT, e->prog, e->ip - e->prog);
+    bd = bpf_prog_load(BPF_PROG_TYPE_TRACEPOINT, ctx->prog, ctx->ip - ctx->prog);
     
     if (bd < 0) {
         perror("bpf");
@@ -115,18 +115,39 @@ int bpf_probe_attach(ebpf_t* e, int id) {
     if (ioctl(ed, PERF_EVENT_IOC_SET_BPF, bd)) {
         perror("perf attach");
         return 1;
-     } 
+    } 
 
     return 0;
 }
 
+type_t get_filed_type(char* name, unsigned long size, unsigned long sign) {
+    int s = 1;
 
-int bpf_read_field(char* name, char* field) {
+    if (!strncmp(name, "signed ", sizeof("signed"))){
+		name += sizeof("signed");
+	} else if (!strncmp(name, "unsigned ", sizeof("unsigned"))){
+		name += sizeof("unsigned");
+    } else{
+		s = 0;
+    }
+
+
+    if (!strcmp(name, "int") || !strcmp(name, "long")) {
+        return TYPE_INT;
+    } else if(!strcmp(name, "const char *")) {
+        return TYPE_STR;
+    } else {
+        return TYPE_NULL;
+    }
+}
+
+int bpf_read_field(field_t* field) {
     FILE* fmt;
-    int offs;
+    unsigned long offs, size, sign, len = 0;
     char line[0x80];
 
-    fmt = fopenf("r", "/sys/kernel/debug/tracing/events/%s/format", name); 
+
+    fmt = fopenf("r", "/sys/kernel/debug/tracing/events/%s/format", field->name); 
 
     if (!fmt) {
         fclose(fmt);
@@ -147,38 +168,43 @@ int bpf_read_field(char* name, char* field) {
         size_s = strtok_r(NULL, ";", &save);
         sign_s = strtok_r(NULL, ";", &save);
 
+        if (!(type_s && offs_s && size_s && sign_s)) {
+            _e("read type_s, off_s error");
+        }
+
         type_s += sizeof("field:");
-        
         offs_s += sizeof("offset:");
         size_s += sizeof("size:");
         sign_s += sizeof("signed:");
 
-        if (type_s) {
-            tname = rindex(type_s, ' ');
-            *tname++ = '\0';
+        offs = strtol(offs_s, NULL, 0);
+        size = strtoul(size_s, NULL, 0);
+        sign = strtoul(sign_s, NULL, 0);
 
-            if (vstreq(tname, field)) {
-                int size;
-                size = strtoul(offs_s, NULL, 0);
-                return size;
-            }
+        if (!type_s) {
+            _e("type not found");
+        }
+
+        tname = rindex(type_s, ' ');
+        *tname++ = '\0';
+
+        if (!strcmp(tname, field->field)) {
+            field->offs = offs;
+            field->type = get_filed_type(type_s, size, sign);
+            return 0;
         }
     }
-    
+
     return 0;
 }
 
-int bpf_get_probe_id(char* event, char* name) {
-    char path[256];
+int bpf_get_probe_id(char* name) {
     char* buffer;
     FILE* fp;
     int number;
 
-    snprintf(path, sizeof(path), "%s/%s", event, name);
-
-
     buffer = vmalloc(256);
-    sprintf(buffer, "/sys/kernel/debug/tracing/events/%s/id", path);
+    sprintf(buffer, "/sys/kernel/debug/tracing/events/%s/id", name);
     
     fp = fopen(buffer, "r");
 

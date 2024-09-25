@@ -58,7 +58,6 @@ FILE *fopenf(const char *mode, const char *fmt, ...) {
 	va_start(ap, fmt);
 	vasprintf(&path, fmt, ap);
 	va_end(ap);
-
 	fp = fopen(path, mode);
 	free(path);
 	return fp;

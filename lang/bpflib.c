@@ -145,19 +145,3 @@ void ebpf_emit_read_str(ebpf_t* code, ssize_t to, int from, size_t size) {
 	ebpf_emit(code, MOV(BPF_REG_3, from));
 	ebpf_emit(code, CALL(BPF_FUNC_probe_read_str));
 }
-
-void ebpf_emit_read_user(ebpf_t* code, ssize_t addr, size_t size, int reg) {
-	ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_10));
-	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
-	ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
-	ebpf_emit(code, MOV(BPF_REG_3, reg));
-	ebpf_emit(code, CALL(BPF_FUNC_probe_read_user));
-}
-
-void ebpf_emit_read_user_string(ebpf_t* code, int reg, int off, ssize_t addr, size_t size) {
-	ebpf_emit(code, MOV(BPF_REG_1, reg));
-	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, off));	
-	ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
-    ebpf_emit(code, LDXDW(BPF_REG_3, addr, BPF_REG_10));
-	ebpf_emit(code, CALL(BPF_FUNC_probe_read_user_str));
-}

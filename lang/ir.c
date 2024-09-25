@@ -142,13 +142,14 @@ static reg_t* rval(node_t* var) {
     return ir->r0;    
 }
 
-//a := b;            copy a to b;
-//map[a] := 12;      copy a to index;
-//map[1] := a;       copy a to map;
-//out("%d\n", a);    copy a to parm
 static void copy(node_t* var) {
     ir_t* ir = ir_new(IR_COPY);
     ir->value = var;
+}
+
+static void args_read(node_t* var) {
+    ir_t* ir = ir_new(IR_READ);
+    ir->value = var;   
 }
 
 ir_t *store(node_t *dst, reg_t *src) {
@@ -226,10 +227,6 @@ reg_t* gen_binop(node_t *n) {
     }
 }
 
-//a = 1;
-//c = 2 + 2;
-//c = pid();
-//c = a + 1;
 reg_t* gen_expr(node_t *n) {
     switch (n->type) {
     case NODE_INT:
@@ -246,12 +243,6 @@ reg_t* gen_expr(node_t *n) {
     }
 }
 
-
-//a := "ww";
-//b := comm
-//map[comm] := 1;
-//map["12"] := 12;
-//map[1] := comm; 
 void gen_data(node_t* n) {
     switch (n->annot.type) {
     case TYPE_STR:
@@ -269,6 +260,9 @@ void gen_store(node_t* dst, node_t* src) {
     reg_t* r1;
     
     switch (src->annot.type) {
+    case TYPE_ACCESS:
+        args_read(src);
+        return;
     case TYPE_MAP:
         map_look(src);
         return;
@@ -287,7 +281,6 @@ void gen_store(node_t* dst, node_t* src) {
     init(dst);
     store(dst, r1);
 }
-
 
 void gen_map_method(node_t* expr) {
     node_t* map;

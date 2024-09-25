@@ -6,34 +6,6 @@
 #include "func.h"
 #include "ut.h"
 
-void bind(node_t* from, node_t* to) {
-	type_t t1, t2;
-	size_t s1, s2;
-
-	t1 = _na_type(from), t2 = _na_type(to);
-
-	if (xor(t1, t2)) {
-		if (t1)
-			to->annot.type = t1;
-		else
-			from->annot.type = t2;
-	} else if (t1 != t2) {
-		_e("type mismatch");
-	}
-
-	s1 = _na_size(from), s2 = _na_size(to);
-
-	if (xor(s1, s2)) {
-		if (s1)
-			to->annot.size = s2;
-		else
-			from->annot.type = s1;
-	} else if (s1 != s2) {
-		_e("");
-	}
-}
-
-
 static int annot_value(node_t *value) {
 	int err = 0;
 	
@@ -93,7 +65,36 @@ static int annot_dec(node_t *n, ebpf_t *e) {
 	return err;
 }
 
-void annot_expr(node_t* expr, ebpf_t* e) {
+void annot_probe_args(node_t* expr, ebpf_t* ctx) {
+	size_t offs;
+	field_t field;
+	node_t* arg, *data; 
+
+	data = expr->expr.right;
+	
+	field.name = ctx->name;
+	field.field = data->name;
+
+	bpf_read_field(&field);
+
+	data->annot.type = field.type;
+	data->annot.offs = field.offs;
+	expr->annot.type = TYPE_ACCESS;
+
+	switch (data->annot.type){
+	case TYPE_INT:
+		expr->annot.size = 8;
+		break;
+	case TYPE_STR:
+		expr->annot.size = 64;
+		break;
+	default:
+		break;
+	}
+
+}
+
+void annot_expr(node_t* expr, ebpf_t* ctx) {
 	node_t* left, *right;
 	int opcode;
 
@@ -103,17 +104,17 @@ void annot_expr(node_t* expr, ebpf_t* e) {
 
 	switch (opcode) {
 	case OP_PIPE:
-		annot_map(left, e);
+		annot_map(left, ctx);
 		right->prev = left;
-		map_dec(e->st, left);
+		map_dec(ctx->st, left);
 		expr->annot.type = TYPE_MAP_METHOD;
 		break;
 	case OP_ACCESS:
-		//annot_args(right);
+		annot_probe_args(expr, ctx);
 		break;
 	default:
-		get_annot(left, e);
-		get_annot(right, e);
+		get_annot(left, ctx);
+		get_annot(right, ctx);
 		expr->annot.type = TYPE_EXPR;
 		expr->annot.size = 8;
 		break;
@@ -163,7 +164,6 @@ void get_annot(node_t *n, ebpf_t *e) {
 
 void assign_stack(node_t *n, ebpf_t *e) {
 	n->annot.addr = ebpf_addr_get(n, e);
-	n->annot.loc = LOC_STACK;
 }
 
 
@@ -178,9 +178,13 @@ void assign_data(node_t* node, ssize_t addr) {
 	case TYPE_VAR:
 		node->annot.addr = addr;
 		break;
+	case TYPE_ACCESS:
+		node->expr.left->annot.addr = addr;
+		break;
 	default:
 		break;
 	}
+
 }
 
 void assign_dec(node_t *dec, ebpf_t *code) {
@@ -260,7 +264,7 @@ void loc_assign(node_t *node, ebpf_t *code) {
 	}
 }
 
-static int visit_list(node_t *head, ebpf_t *ctx) {
+static int do_list(node_t *head, ebpf_t *ctx) {
 	node_t *elem, *next = head;
 
 	for (elem = next; elem;) {
@@ -272,24 +276,25 @@ static int visit_list(node_t *head, ebpf_t *ctx) {
 	return 0;
 }
 
-void sema(node_t *node, ebpf_t *e) {
+void sema(node_t *node, ebpf_t *ctx) {
 	
-	get_annot(node, e);
+	get_annot(node, ctx);
 	
 	switch (node->type) {
 	case NODE_PROBE:
-		visit_list(node->probe.stmts, e);
+		ctx->name = node->probe.name;
+		do_list(node->probe.stmts, ctx);
 		break;
 	case NODE_CALL:
-		visit_list(node->call.args, e);
+		do_list(node->call.args, ctx);
 		break;
 	case NODE_IF:
-		visit_list(node->iff.cond, e);
-		visit_list(node->iff.then, e);
+		do_list(node->iff.cond, ctx);
+		do_list(node->iff.then, ctx);
 		break;
 	default:
 		break;
 	}
 
-	loc_assign(node, e);
+	loc_assign(node, ctx);
 }

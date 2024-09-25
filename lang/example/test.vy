@@ -1,8 +1,6 @@
-const(
-    struct sock* : args;
-    struct sock* : args2;
+define(
+    arry : struct skbuf;
 );
-
 
 probe sys_enter_open{
 

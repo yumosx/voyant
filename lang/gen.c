@@ -146,6 +146,37 @@ void load_value(ebpf_t* code, node_t* n, int reg) {
     ebpf_emit(code, LDXDW(reg, from, BPF_REG_10));
 }
 
+void read_args(node_t* expr, ebpf_t* code) {
+    node_t* left, *right;
+    ssize_t addr;
+    size_t size, offs;
+
+
+    left = expr->expr.left;
+    right = expr->expr.right;
+
+    addr = left->annot.addr;
+    offs = right->annot.offs;
+    size = expr->annot.size;
+
+    ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_10));
+    ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
+    ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
+
+    ebpf_emit(code, LDXDW(BPF_REG_3, offs, BPF_REG_9));
+    
+    switch (right->annot.type) {
+    case TYPE_INT:
+        ebpf_emit(code, CALL(BPF_FUNC_probe_read));
+        break;
+    case TYPE_STR:
+        ebpf_emit(code, CALL(BPF_FUNC_probe_read_user_str));
+        break;
+    default:
+        break;
+    }
+}
+
 
 void compile_ir(ir_t* ir, ebpf_t* code) {
     ssize_t addr;
@@ -205,6 +236,9 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_MAP_METHOD:
         map_count(ir->value, code);
         break;
+    case IR_READ:
+        read_args(ir->value, code);
+        break;
     case IR_RETURN:
         ebpf_emit(code, MOV_IMM(BPF_REG_0, 0));
 	    ebpf_emit(code, EXIT);
@@ -220,7 +254,7 @@ void compile(prog_t* prog) {
     ir_t* ir;
     ebpf_t* e;
 
-    e = prog->e;
+    e = prog->ctx;
 
     ebpf_emit(e, MOV(BPF_CTX_REG, BPF_REG_1));
     store_data(prog->data, e);

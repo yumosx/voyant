@@ -286,8 +286,7 @@ node_t *parse_expr(parser_t *p, seq_t s) {
     }
     
     while (!expect(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
-        switch (p->next_tok->type)
-        {
+        switch (p->next_tok->type) {
         case TOKEN_ACCESS:
         case TOKEN_GT:
         case TOKEN_PIPE:
@@ -343,7 +342,7 @@ node_t *parse_block_stmts(parser_t *p) {
     return head;
 }
 
-node_t* parse_probe(parser_t* parser) {
+node_t* parse_probe(parser_t* parser, char* event) {
     char* name;
     node_t* stmts, *pred;
 
@@ -352,6 +351,14 @@ node_t* parse_probe(parser_t* parser) {
     }
 
     name = strdup(parser->this_tok->literal);
+    
+    if (event) {
+        char* str = calloc(100, sizeof(char));
+        snprintf(str, 100, "%s/%s", event, name);
+        free(name);
+        name = str;
+    }
+
     advance(parser);
 
     if (parser->this_tok->type == TOKEN_SLASH) {
@@ -367,7 +374,7 @@ node_t* parse_probe(parser_t* parser) {
 }
 
 
-node_t* parse_script(parser_t* parser) {
+node_t* parse_script(parser_t* parser, char* event) {
     char* name;
     node_t* stmts;
 
@@ -384,7 +391,7 @@ node_t* parse_script(parser_t* parser) {
     }
 
     if (current(parser, TOKEN_PROBE)) {
-        return parse_probe(parser);
+        return parse_probe(parser, event);
     }
 
     verror("Syntax error: unexpected token %s", name);
@@ -416,10 +423,10 @@ node_t* parse_program(parser_t* parser) {
     advance(parser);
     
     if (!name) {
-        verror("Syntax error: expected event name");
+        _e("Syntax error: expected event name");
     }
 
-    node = parse_script(parser);
+    node = parse_script(parser, name);
     
     if (!node) {
         verror("Syntax error: expected program");
@@ -429,7 +436,7 @@ node_t* parse_program(parser_t* parser) {
     head->name = name;
 
     while (parser->next_tok->type != END_OF_FILE){
-        node_t *script = parse_script(parser);
+        node_t *script = parse_script(parser, name);
         if (script) {
             node->next = script;
             node = node->next;

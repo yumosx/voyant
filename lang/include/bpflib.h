@@ -9,6 +9,7 @@
 #include "ut.h"
 
 typedef struct ebpf_t{
+    char* name;
     ssize_t sp;
     symtable_t *st;
     evpipe_t *evp;
@@ -30,6 +31,4 @@ extern void ebpf_emit_count(ebpf_t* code, ssize_t addr);
 extern void ebpf_emit_bool(ebpf_t* code, int op, int r0, int r2);
 extern void ebpf_emit_read(ebpf_t* code, ssize_t to, int from, size_t size);
 extern void ebpf_emit_read_str(ebpf_t* code, ssize_t to, int from, size_t size);
-extern void ebpf_emit_read_user(ebpf_t* code, ssize_t addr, size_t size, int reg);
-extern void ebpf_emit_read_user_string(ebpf_t* code, int reg, int off, ssize_t addr, size_t size);
 #endif

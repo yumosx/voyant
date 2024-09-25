@@ -99,60 +99,6 @@ static int annot_out(node_t* call) {
 	varg->next = rec;
 }
 
-/*
-int print_join_string(event_t* ev, void* call) {
-	const char* str = " "; 
-	char *arg;	
-	void* data = ev->data;
-
-	int i, argnum = 16, argsize = 1024;
-
-	for (i = 0; i < argnum; i++) {
-		arg = data + i * argsize;
-		if (arg[0] == 0)
-			break;
-		
-		if (i)
-			printf("%s", str);
-		printf("%s", arg);
-	}
-	printf("\n");
-	return 0;
-}
-
-static int annot_join(node_t* call) {
-	evhandler_t* evh;
-	node_t* meta, *varg;
-	size_t ksize = 4, vsize = 16 + 16 * 1024, max_entries = 1;
-	int fd;
-
-	varg = call->call.args;
-
-	if (!varg) {
-		verror("expect a argument");
-		return -1;
-	}
-
-	fd = bpf_map_create(BPF_MAP_TYPE_PERCPU_ARRAY, ksize, vsize, max_entries);
-
-
-	evh = vcalloc(1, sizeof(*evh));
-	evh->priv = call;
-	evh->handle = print_join_string;
-
-	evhandler_register(evh);
-
-	meta = node_int_new(evh->type);
-	meta->annot.type = TYPE_INT;
-	meta->annot.size = 8;
-
-	varg->next = meta;
-
-	call->annot.mapid = fd;
-	call->annot.size = 16;
-}
-*/
-
 
 static int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
 	ebpf_emit(e, CALL(func));
