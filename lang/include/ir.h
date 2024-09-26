@@ -6,8 +6,7 @@
 #include "parser.h"
 #include "annot.h"
 
-enum
-{
+enum{
     IR_ADD = 1,
     IR_SUB,
     IR_MUL,
@@ -100,6 +99,7 @@ typedef struct prog_t {
     node_t *ast;
     vec_t *data;
     vec_t *bbs;
+    bool is_end;
     ebpf_t *ctx;
 } prog_t;
 

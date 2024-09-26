@@ -3,9 +3,7 @@
 #include "dsl.h"
 #include "ut.h"
 
-static char* event;
 static int term_sig = 0;
-
 static void term(int sig) {
     term_sig = sig;
     return;

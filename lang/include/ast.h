@@ -2,6 +2,7 @@
 #define AST_H
 
 #include <unistd.h>
+#include <stdbool.h>
 #include "insn.h"
 
 typedef enum node_type{
@@ -34,13 +35,14 @@ typedef enum {
 typedef struct probe_t {
     char *name;
     int traceid;
-    node_t *stmts;
+    bool flag;
+    node_t* pred;
+    node_t* stmts;
 } probe_t;
 
 typedef struct call_t {
     node_t *args;
 } call_t;
-
 
 typedef struct infix_t {
     int opcode;

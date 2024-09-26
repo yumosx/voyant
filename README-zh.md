@@ -1,6 +1,6 @@
 # voyant
 
-**voyant 是一个基于bpf指令集的动态追踪领域特定语言**，
+**voyant 是一个基于 bpf 指令集的动态追踪领域特定语言**，
 
 **它相比于其它的动态追踪编程语言具有下面这些优势**:
 
@@ -13,7 +13,8 @@
 
 ## 使用
 
-### 从源码安装
+### 从源码构建
+
 ```shell
 git clone xxx
 cd lang
@@ -21,9 +22,16 @@ make
 ./voyant main.y
 ```
 
-可以使用下面这个命令来查看我们跟踪点所属于的类型:
+### 选择跟踪点
+
+目前我们程序只支持挂载到内核的跟踪程序上, 这是因为选择跟踪点挂载程序更加的稳定, 后续会支持对应的kprobe类型。
+
+在编写我们的 eBPF 程序之前, 我们可以通过下面这几种方式, 来查看跟踪点类型和跟踪点函数参数的类型
+
+
 ```shell
-sudo ls -F /sys/kernel/debug/tracing/events
+sudo cat /sys/kernel/debug/tracing/events/syscalls/sys_enter_mmap/format
+sudo cat /sys/kernel/debug/tracing/events/syscalls/sys_exit_execve/format
 ```
 
 ### Hello, World
@@ -32,7 +40,11 @@ sudo ls -F /sys/kernel/debug/tracing/events
 #syscalls;
 
 probe sys_enter_execve {
-    out("%s", "hello, world");
+    out("%s\n", "hello, world");
+}
+
+probe sys_exit_execve{
+    out("%s\n", "bye");
 }
 ```
 - probe 是一个关键字，其后通常跟随一个指定的跟踪点变量。编译器能够自动推断出该跟踪点的标识符（ID），并将随后的 {} 代码块作为跟踪点的挂载程序。这种设计使得跟踪点的设置和程序的挂载变得简洁而直观。
@@ -68,6 +80,25 @@ probe sys_enter_execve {
     out("pid: %d, cpu: %d", pid(), cpu());
 }
 ```
+
+### 跟踪点函数参数
+
+```c
+#syscalls;
+
+probe sys_enter_mmap {
+    len := args->len;
+    fd  := args->fd;
+
+    out("%-14d %-12d\n", pid(), comm(), len, fd);
+}
+```
+
+跟踪点参数有多种类型, 通常有两种类型:
+- 整数类型
+- 字符串类型
+- 复合类型, 这种类型, 会在后面支持
+
 
 ### BPF hash map
 
@@ -139,10 +170,11 @@ BEGIN是一个特殊的探针类型，它仅在脚本开始执行时触发一次
 ```c
 #syscalls;
 
-probe sys_enter_execve {
-    a := 2;
-    if (a > 2) {
-        out("%s\n", "gt 2");
+probe sys_enter_mmap {
+    len := args->len;
+
+    if (len > 0) {
+        out("%s\n", comm());
     }
 }
 ```

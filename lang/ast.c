@@ -89,6 +89,7 @@ node_t *node_probe_new(char *name, node_t *stmts) {
 
     n->probe.name = name;
     n->probe.stmts = stmts;
+
     return n;
 }
 

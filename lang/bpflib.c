@@ -5,7 +5,7 @@
 ebpf_t* ebpf_new() {
     ebpf_t* code = vcalloc(1, sizeof(*code));
     
-	code->st = symtable_new();     
+	code->st = symtable_create(NULL);   
 	code->ip = code->prog;
     code->evp = vcalloc(1, sizeof(*code->evp));
 		

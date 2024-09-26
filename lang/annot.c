@@ -94,6 +94,22 @@ void annot_probe_args(node_t* expr, ebpf_t* ctx) {
 
 }
 
+int annot_map_method(node_t* expr, ebpf_t* ctx) {
+	int err = 0;
+	node_t* left, *right;
+
+	left = expr->expr.left;
+	right = expr->expr.right;
+
+	annot_map(left, ctx);
+
+	right->prev = left;
+	map_dec(ctx->st, left);
+	expr->annot.type = TYPE_MAP_METHOD;
+
+	return err;
+}
+
 void annot_expr(node_t* expr, ebpf_t* ctx) {
 	node_t* left, *right;
 	int opcode;
@@ -104,10 +120,7 @@ void annot_expr(node_t* expr, ebpf_t* ctx) {
 
 	switch (opcode) {
 	case OP_PIPE:
-		annot_map(left, ctx);
-		right->prev = left;
-		map_dec(ctx->st, left);
-		expr->annot.type = TYPE_MAP_METHOD;
+		annot_map_method(expr, ctx);
 		break;
 	case OP_ACCESS:
 		annot_probe_args(expr, ctx);
@@ -245,10 +258,27 @@ void assign_method(node_t* expr, ebpf_t* code) {
 	map->annot.addr = addr;
 }
 
+
+void assign_rint(node_t* call, ebpf_t* code) {
+	node_t* arg;
+
+	if (vstreq(call->name, "strcmp")) {
+		arg = call->call.args;
+		arg->annot.addr = ebpf_addr_get(arg, code);
+
+		arg = arg->next;
+		arg->annot.addr = ebpf_addr_get(arg, code);
+		return;	
+	}
+}
+
 void loc_assign(node_t *node, ebpf_t *code) {
 	switch (node->annot.type) {
 	case TYPE_RSTR:
 		assign_stack(node, code);
+		break;
+	case TYPE_RINT:
+		assign_rint(node, code);
 		break;
 	case TYPE_DEC:
 		assign_dec(node, code);

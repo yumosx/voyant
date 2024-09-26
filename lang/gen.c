@@ -58,6 +58,7 @@ void map_count(node_t* map, ebpf_t* code) {
     ebpf_emit_map_update(code, fd, kaddr, vaddr);
 }
 
+
 void compile_comm(node_t* n, ebpf_t* e) {
 	size_t i;
 	
@@ -159,17 +160,16 @@ void read_args(node_t* expr, ebpf_t* code) {
     offs = right->annot.offs;
     size = expr->annot.size;
 
-    ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_10));
-    ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
-    ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
-
-    ebpf_emit(code, LDXDW(BPF_REG_3, offs, BPF_REG_9));
-    
     switch (right->annot.type) {
     case TYPE_INT:
-        ebpf_emit(code, CALL(BPF_FUNC_probe_read));
+        ebpf_emit(code, LDXDW(BPF_REG_0, offs, BPF_REG_9));
+        ebpf_emit(code, STXDW(BPF_REG_10, addr, BPF_REG_0));
         break;
     case TYPE_STR:
+        ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_10));
+        ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
+        ebpf_emit(code, MOV_IMM(BPF_REG_2, size));
+        ebpf_emit(code, LDXDW(BPF_REG_3, offs, BPF_REG_9));
         ebpf_emit(code, CALL(BPF_FUNC_probe_read_user_str));
         break;
     default:

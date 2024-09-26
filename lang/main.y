@@ -6,5 +6,5 @@ BEGIN {
 
 probe sys_enter_connect{
     a := pid();
-    out("-> connect() by %s PID %d\n", comm(), a);
+    out("-> connect() by (%s) PID %d\n", comm(), a);
 }

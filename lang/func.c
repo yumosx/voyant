@@ -99,6 +99,23 @@ static int annot_out(node_t* call) {
 	varg->next = rec;
 }
 
+static int annot_strcmp(node_t* call) {
+	node_t* arg = call->call.args;
+	
+	if (!arg || arg->type != NODE_STR) {
+		verror("strcmp requires string arguments");
+	}
+
+	arg = arg->next;
+
+	if (!arg || arg->type != NODE_STR) {
+		verror("strcmp requires string arguments");
+	}
+
+	call->annot.type = TYPE_RINT;
+    call->annot.size = 8;
+}
+
 
 static int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, node_t* n) {
 	ebpf_emit(e, CALL(func));
@@ -138,6 +155,7 @@ int compile_stack(node_t* call, ebpf_t* code) {
 	ebpf_emit(code, CALL(BPF_FUNC_get_stackid));
 }
 
+
 static builtin_t global_builtins[] = {
 	builtin("pid", annot_rint, compile_pid),
 	builtin("cpu", annot_rint, compile_cpu),
@@ -146,7 +164,7 @@ static builtin_t global_builtins[] = {
 	builtin("comm", annot_rstr, NULL),
 	builtin("arg", annot_probe_str, NULL),	
 	builtin("out", annot_out, NULL),
-	builtin("join", NULL, NULL),
+	builtin("strcmp", annot_strcmp, NULL),
 };
 
 
