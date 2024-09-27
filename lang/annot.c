@@ -6,15 +6,33 @@
 #include "func.h"
 #include "ut.h"
 
+#define STRING_SIZE 64
+
+void annot_str(node_t* string) {
+    size_t size;
+
+    size = strlen(string->name) + 1;
+    if (size > STRING_SIZE) {
+        verror("string is to long (over %d bytes): %s", STRING_SIZE, string->name);
+    }
+    string->annot.type = TYPE_STR;
+    string->annot.size = _ALIGNED(size);
+}
+
+void annot_int(node_t* integer) {
+	integer->annot.size = TYPE_INT;
+	integer->annot.size = sizeof(integer->integer);	
+}
+
 static int annot_value(node_t *value) {
 	int err = 0;
 	
 	switch (value->type) {
 	case NODE_INT:
-		_annot(value, TYPE_INT, sizeof(value->integer));
+		annot_int(value);
 		break;
 	case NODE_STR:
-		_annot(value, TYPE_STR, _ALIGNED(strlen(value->name)+1));
+		annot_str(value);
 		break;
 	case NODE_CALL:
 		err = global_annot(value);
@@ -37,31 +55,19 @@ static void annot_map(node_t *map, ebpf_t *e) {
 	_annot_map(map, TYPE_MAP, ksize, 8);
 }
 
-static int annot_dec(node_t *n, ebpf_t *e) {
-	node_t *var, *expr;
+int annot_map_method(node_t* expr, ebpf_t* ctx) {
 	int err = 0;
-	var = n->dec.var;
-	expr = n->dec.expr;
+	node_t* left, *right;
 
-	get_annot(expr, e);
+	left = expr->expr.left;
+	right = expr->expr.right;
 
-	switch (var->type) {
-	case NODE_VAR:
-		_annot(var, TYPE_VAR, 8);
-		var->annot.size = expr->annot.size;
-		var_dec(e->st, var);
-		break;
-	case NODE_MAP:
-		annot_map(var, e);
-		var->annot.size = expr->annot.size;
-		map_dec(e->st, var);
-		break;
-	default:
-		verror("Declaration variable must be either a map or a variable");
-		break;
-	}
+	annot_map(left, ctx);
 
-	n->annot.type = TYPE_DEC;
+	right->parent = left;
+	map_dec(ctx->st, left);
+	expr->annot.type = TYPE_MAP_METHOD;
+
 	return err;
 }
 
@@ -91,23 +97,6 @@ void annot_probe_args(node_t* expr, ebpf_t* ctx) {
 	default:
 		break;
 	}
-
-}
-
-int annot_map_method(node_t* expr, ebpf_t* ctx) {
-	int err = 0;
-	node_t* left, *right;
-
-	left = expr->expr.left;
-	right = expr->expr.right;
-
-	annot_map(left, ctx);
-
-	right->prev = left;
-	map_dec(ctx->st, left);
-	expr->annot.type = TYPE_MAP_METHOD;
-
-	return err;
 }
 
 void annot_expr(node_t* expr, ebpf_t* ctx) {
@@ -134,6 +123,48 @@ void annot_expr(node_t* expr, ebpf_t* ctx) {
 	}
 }
 
+int check_assign(node_t* expr) {
+	switch (expr->annot.type) {
+	case TYPE_INT:
+	case TYPE_STR:
+	case TYPE_RSTR:
+	case TYPE_RINT:
+		break;
+	default:
+		verror("assign bad value");
+		break;
+	}
+}
+
+static int annot_dec(node_t *n, ebpf_t *e) {
+	node_t *var, *expr;
+	int err = 0;
+	
+	var = n->dec.var;
+	expr = n->dec.expr;
+
+	get_annot(expr, e);
+	check_assign(expr);
+
+	switch (var->type) {
+	case NODE_VAR:
+		_annot(var, TYPE_VAR, 8);
+		var->annot.size = expr->annot.size;
+		var_dec(e->st, var);
+		break;
+	case NODE_MAP:
+		annot_map(var, e);
+		var->annot.size = expr->annot.size;
+		map_dec(e->st, var);
+		break;
+	default:
+		break;
+	}
+	
+	n->annot.type = TYPE_DEC;
+	return err;
+}
+
 void annot_rec(node_t *n, ebpf_t *e) {
 	node_t *arg;
 	ssize_t size = 0;
@@ -147,9 +178,30 @@ void annot_rec(node_t *n, ebpf_t *e) {
 	n->annot.type = TYPE_REC;
 }
 
+void annot_probe(node_t* probe, ebpf_t* ctx) {
+	int id;
+	
+	switch (probe->type) {
+	case NODE_KPROBE:
+		id = bpf_get_kprobe_id(probe->probe.name);
+		break;
+	case NODE_PROBE:
+		ctx->name = probe->probe.name;
+		id = bpf_get_probe_id(ctx->name);
+		break;
+	default:
+		break;
+	}
 
-void get_annot(node_t *n, ebpf_t *e) {
+	probe->probe.traceid = id;
+}
+
+void get_annot(node_t *n, ebpf_t *code) {
 	switch (n->type) {
+	case NODE_KPROBE:
+	case NODE_PROBE:
+		annot_probe(n, code);
+		break;
 	case NODE_CALL:
 	case NODE_INT:
 	case NODE_STR:
@@ -157,18 +209,18 @@ void get_annot(node_t *n, ebpf_t *e) {
 		break;
 	case NODE_VAR:
 	case NODE_MAP:
-		symtable_ref(e->st, n);
+		symtable_ref(code->st, n);
 		break;
 	case NODE_EXPR:
-		annot_expr(n, e);
+		annot_expr(n, code);
 		break;
 	case NODE_DEC:
-		annot_dec(n, e);
+		annot_dec(n, code);
 		break;
 	case NODE_ASSIGN:
 		break;
 	case NODE_REC:
-		annot_rec(n, e);
+		annot_rec(n, code);
 		break;
 	default:
 		break;
@@ -197,7 +249,6 @@ void assign_data(node_t* node, ssize_t addr) {
 	default:
 		break;
 	}
-
 }
 
 void assign_dec(node_t *dec, ebpf_t *code) {
@@ -311,8 +362,11 @@ void sema(node_t *node, ebpf_t *ctx) {
 	get_annot(node, ctx);
 	
 	switch (node->type) {
+	case NODE_KPROBE:
 	case NODE_PROBE:
-		ctx->name = node->probe.name;
+		do_list(node->probe.stmts, ctx);
+		break;
+	case NODE_TEST:
 		do_list(node->probe.stmts, ctx);
 		break;
 	case NODE_CALL:

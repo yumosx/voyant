@@ -8,6 +8,8 @@
 typedef enum node_type{
     NODE_SCRIPT,
     NODE_PROBE,
+    NODE_KPROBE,
+    NODE_TEST,
     NODE_PROBE_PRED,
     NODE_IF,
     NODE_UNROLL,
@@ -35,8 +37,6 @@ typedef enum {
 typedef struct probe_t {
     char *name;
     int traceid;
-    bool flag;
-    node_t* pred;
     node_t* stmts;
 } probe_t;
 
@@ -129,7 +129,7 @@ typedef struct field_t{
 struct node_t {
     char *name;
     node_type type;
-    node_t *prev, *next;
+    node_t *parent, *next;
 
     union{
         probe_t probe;
@@ -151,6 +151,8 @@ struct node_t {
 
 extern node_t *node_new(node_type t);
 extern node_t *node_probe_new(char *name, node_t *stmts);
+extern node_t *node_kprobe_new(char *name, node_t *stmts);
+extern node_t *node_test_new(char* name, node_t* stmts);
 extern node_t *node_var_new(char *name);
 extern node_t *node_int_new(size_t name);
 extern node_t *node_str_new(char *str);

@@ -148,17 +148,15 @@ int sym_ref(symtable_t* st, node_t* var) {
         return 0; 
     }
 
-    return 0;    
+    return -1;    
 }
 
-void symtable_ref(symtable_t* st, node_t* n) {
+int symtable_ref(symtable_t* st, node_t* n) {
     switch (n->type) {
     case NODE_VAR:
-        sym_ref(st, n);
-        break;
+        return sym_ref(st, n);
     case NODE_MAP:
-        sym_ref(st, n);
-        break;
+       return sym_ref(st, n);
     default:
         break;
     }

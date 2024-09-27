@@ -93,21 +93,29 @@ node_t *node_probe_new(char *name, node_t *stmts) {
     return n;
 }
 
-void node_probe_free(node_t *probe) {
-    node_t *head;
+node_t *node_kprobe_new(char *name, node_t *stmts) {
+    node_t *n = node_new(NODE_KPROBE);
 
-    _foreach(head, probe->probe.stmts) {
-        if (head->name) {
-            free(head->name);
-        }
-    }
+    n->probe.name = name;
+    n->probe.stmts = stmts;
+
+    return n;
+}
+
+node_t* node_test_new(char* name, node_t* stmts) {
+    node_t* n = node_new(NODE_TEST);
+
+    n->probe.name = name;
+    n->probe.stmts = stmts;
+
+    return n;
 }
 
 void node_stmts_free(node_t *n) {
-    switch (n->type)
-    {
+    switch (n->type) {
     case NODE_STR:
         free(n->name);
+        free(n);
         break;
     case NODE_INT:
         break;

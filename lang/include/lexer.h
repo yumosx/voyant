@@ -13,6 +13,7 @@ enum token_type {
     TOKEN_IDENT,        // Identifier
     TOKEN_STRING,       // String
     TOKEN_PROBE,        // Probe
+    TOKEN_KPROBE,       // Kprobe
     TOKEN_BEGIN,        // Begin
     TOKEN_END,          // End
     TOKEN_SLASH,        // Slash '/'

@@ -23,8 +23,7 @@ typedef struct sym {
     const char *name;
     annot_t vannot;
 
-    union
-    {
+    union{
         node_t *var;
         smap_t *map;
     };
@@ -43,6 +42,7 @@ extern int sym_transfer(sym_t *st, node_t *n);
 extern void var_dec(symtable_t *st, node_t *var);
 extern void map_dec(symtable_t *st, node_t *map);
 extern sym_t *symtable_add(symtable_t *st, char *name);
-extern void symtable_ref(symtable_t *st, node_t *n);
+extern int sym_ref(symtable_t* st, node_t* node);
+extern int symtable_ref(symtable_t *st, node_t *n);
 
 #endif

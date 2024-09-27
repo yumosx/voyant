@@ -34,8 +34,10 @@ void compile_map_look(ebpf_t* code, node_t* map) {
     kaddr = map->map.args->annot.addr;
     vsize = map->annot.size;
     vaddr = map->annot.addr;
-    
+
     ebpf_emit_map_look(code, fd, kaddr);
+
+    ebpf_emit(code, JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 5));
     ebpf_emit_read(code, vaddr, BPF_REG_0, vsize);
 }
 
@@ -72,24 +74,24 @@ void compile_comm(node_t* n, ebpf_t* e) {
 	ebpf_emit(e, CALL(BPF_FUNC_get_current_comm));
 }
 
-void compile_rec(node_t* n, ebpf_t* e) {
+void compile_rec(node_t* n, ebpf_t* code) {
     ssize_t addr, size;
     node_t* arg;
     int id;
 
-    id = e->evp->mapfd;
+    id = code->evp->mapfd;
     addr = n->annot.addr;
     size = n->annot.size;
     
-    ebpf_emit(e, MOV(BPF_REG_1, BPF_REG_9));
-	ebpf_emit_mapld(e, BPF_REG_2, id);
+    ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_9));
+	ebpf_emit_mapld(code, BPF_REG_2, id);
 
-	ebpf_emit(e, MOV32_IMM(BPF_REG_3, BPF_F_CURRENT_CPU));
-    ebpf_emit(e, MOV(BPF_REG_4, BPF_REG_10));
-	ebpf_emit(e, ALU_IMM(BPF_ADD, BPF_REG_4, addr));
+	ebpf_emit(code, MOV32_IMM(BPF_REG_3, BPF_F_CURRENT_CPU));
+    ebpf_emit(code, MOV(BPF_REG_4, BPF_REG_10));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, BPF_REG_4, addr));
 
-    ebpf_emit(e, MOV_IMM(BPF_REG_5, size));
-	ebpf_emit(e, CALL(BPF_FUNC_perf_event_output));
+    ebpf_emit(code, MOV_IMM(BPF_REG_5, size));
+	ebpf_emit(code, CALL(BPF_FUNC_perf_event_output));
 }
 
 void compile_call(node_t* n, ebpf_t* e) {

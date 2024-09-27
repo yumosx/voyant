@@ -1,5 +1,5 @@
-#syscalls;
+#kprobe;
 
-probe sys_enter_execve/strcmp("sh", "sh")/ {
-    out("%s\n", "hello");
+probe do_mmap{
+    out("->enter: %s\n", comm());
 }

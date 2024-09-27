@@ -73,10 +73,43 @@ int bpf_test_attach(ebpf_t* ctx) {
     return _bpf(BPF_PROG_TEST_RUN, &attr);
 }
 
-int bpf_kprobe_attach(ebpf_t* ctx, int id) {
-    int bd;
 
+int bpf_kprobe_attach(ebpf_t* ctx, int id) {
+    struct perf_event_attr attr = {};
+    
+    int ed, bd;
+
+    attr.type = PERF_TYPE_TRACEPOINT;
+    attr.sample_type = PERF_SAMPLE_RAW;
+    attr.sample_period = 1;
+    attr.wakeup_events = 1;
+    attr.config = id;  
+    
     bd = bpf_prog_load(BPF_PROG_TYPE_KPROBE, ctx->prog, ctx->ip - ctx->prog);
+    
+    if (bd < 0) {
+        perror("bpf");
+        fprintf(stderr, "bpf verifier:\n%s\n", bpf_log_buf);
+        return 1;
+    }
+    
+    ed = perf_event_open(&attr, -1, 0, -1, 0);
+
+    if (ed < 0){
+        perror("perf_event_open");
+        return 1;
+    }
+    
+    if (ioctl(ed, PERF_EVENT_IOC_ENABLE, 0)) {
+        perror("perf enable");
+        return 1;
+    }
+
+    if (ioctl(ed, PERF_EVENT_IOC_SET_BPF, bd)) {
+        perror("perf attach");
+        return 1;
+    } 
+
     return 0;
 }
 
@@ -278,38 +311,3 @@ int perf_event_enable(int id) {
     }
     return 0;
 }
-#ifdef libbpf
-static struct btf* _btf = NULL;
-
-int bpf_btf_setup() {
-    _btf = btf__load_vmlinux_btf();
-    if (!_btf)
-        return bf_err_code(errno, "failed to load vmlinux BTF");
-    return 0;
-}
-
-void bpf_btf_teardown() {
-    btf__free(_btf);
-    _btf = NULL;
-}
-
-int bpf_btf_get_id(const char* name) {
-    int id;
-
-    assert(name != NULL);
-    id = btf__find_by_name(_btf, name);
-    if (id < 0)
-        return bf_err_code(errno, "failed to find BTF type for\"%s\"", name);
-    
-    return id;
-}
-
-int bpf_btf_get_filed_off(const char* struct_name, const char* field_name) {
-    int offset = -1;
-    int struct_id;
-    struct btf_member* member;
-    const struct btf_type* type;
-
-    struct_id = btf__find_by_name_kind(_btf, struct_name, BTF_KIND_STRUCT);
-}
-#endif

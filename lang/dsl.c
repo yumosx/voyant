@@ -9,43 +9,47 @@ static void term(int sig) {
     return;
 }
 
-int run_progs(node_t* node) {
+void attach(node_t* node, ebpf_t* ctx, int id) {
+    switch (node->type) {
+    case NODE_TEST:
+        bpf_test_attach(ctx);
+        break;
+    case NODE_KPROBE:
+        bpf_kprobe_attach(ctx, id);
+        break;
+    case NODE_PROBE:
+        bpf_probe_attach(ctx, id);
+        break;
+    default:
+        break;
+    }
+}
+
+void run_probe(node_t* node) {
     node_t* head;
     ebpf_t* code;
     prog_t* prog;
-    symtable_t* st;
-    int id;
-    
+    symtable_t* st = symtable_new();
+    evpipe_t* evp = vcalloc(1, sizeof(*evp));
+    evpipe_init(evp, 4<<10);
+
     _foreach(head, node) {
         code = ebpf_new();
-        evpipe_init(code->evp, 4<<10);
+        code->evp = evp;
+        code->st = st;
+
         sema(head, code);
         prog = gen_prog(head);
         prog->ctx = code;
         compile(prog);
 
-        if (vstreq("BEGIN", head->probe.name)) {
-            bpf_test_attach(code);
-            evpipe_loop(code->evp, &term_sig, 0);
-        } else {
-            id = bpf_get_probe_id(head->probe.name);
-            bpf_probe_attach(prog->ctx, id);
-            siginterrupt(SIGINT, 1);
-            signal(SIGINT, term);
-            evpipe_loop(code->evp, &term_sig, -1);
-
-            st = code->st;
-        
-            int i;
-            for (i = 0; i < st->len; i++) {
-                if (st->table[i].type == SYM_MAP) {
-                    map_dump(st->table[i].map->map);
-                }      
-            }
-        }
+        attach(head, prog->ctx, head->probe.traceid);
     }
+    
+    siginterrupt(SIGINT, 1);
+    signal(SIGINT, term);
+    evpipe_loop(evp, &term_sig, -1);
 }
-
 
 int main(int argc, char **argv) {
     char* filename, *input;
@@ -72,6 +76,7 @@ int main(int argc, char **argv) {
     parser = parser_init(lexer);
     node = parse_program(parser);
    
-    run_progs(node);
+    //run_progs(node);
+    run_probe(node);
     return 0;
 }

@@ -13,4 +13,5 @@ extern int bpf_test_attach(ebpf_t* e);
 extern int bpf_get_probe_id(char* name);
 extern int bpf_get_kprobe_id(char* name);
 extern int bpf_probe_attach(ebpf_t* e, int id);
+extern int bpf_kprobe_attach(ebpf_t* ctx, int id);
 #endif

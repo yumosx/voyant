@@ -20,10 +20,31 @@ There are three aspectes that can account for my option;
 ```c
 cd lang
 make
-sudo ./voyant main.y
+sudo ./voyant main.vy
 ```
 
 ## syntax
+
+## tracepoint
+
+```c
+#syscalls;  <-----event name
+
+probe tracepoint { <----- tracepoint
+    ....
+}
+```
+
+## kprobe
+
+```c
+#kprobe;    <-----kprobe, keyword
+
+probe kprobe{
+    ...
+}
+```
+
 
 ## hello, world
 

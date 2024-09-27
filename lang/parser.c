@@ -344,6 +344,7 @@ node_t *parse_block_stmts(parser_t *p) {
 
 node_t* parse_probe(parser_t* parser, char* event) {
     char* name;
+    int flag = 0;
     node_t* stmts, *pred;
 
     if (!expect_next_token(parser, TOKEN_IDENT)) {
@@ -352,13 +353,14 @@ node_t* parse_probe(parser_t* parser, char* event) {
 
     name = strdup(parser->this_tok->literal);
     
-    if (event) {
+    if (!vstreq("kprobe", event) && event) {
+        flag = 1;
         char* str = calloc(100, sizeof(char));
         snprintf(str, 100, "%s/%s", event, name);
         free(name);
         name = str;
     }
-
+    
     advance(parser);
 
     if (parser->this_tok->type == TOKEN_SLASH) {
@@ -369,6 +371,10 @@ node_t* parse_probe(parser_t* parser, char* event) {
     }
 
     stmts = parse_block_stmts(parser);
+
+    if (!flag) {
+        return node_kprobe_new(name, stmts);
+    }
 
     return node_probe_new(name, stmts);
 }
@@ -387,7 +393,7 @@ node_t* parse_script(parser_t* parser, char* event) {
         stmts = parse_block_stmts(parser);
         advance(parser);
 
-        return node_probe_new(name, stmts);
+        return node_test_new(name, stmts);
     }
 
     if (current(parser, TOKEN_PROBE)) {

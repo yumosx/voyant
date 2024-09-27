@@ -10,7 +10,7 @@
 #define _foreach(_n, _in) for ((_n) = (_in); (_n); (_n) = (_n)->next)
 
 #define _d(_fmt, ...)\
-    fprintf(stderr, "dbg %-20s: " _fmt "\n", __func__, ##__VA_ARGS__);
+    fprintf(stderr, "DBG %-20s: " _fmt "\n", __func__, ##__VA_ARGS__);
 
 #define _e(_fmt, ...) \
 	fprintf(stderr, "ERR %-20s: " _fmt "\n", __func__, ##__VA_ARGS__)
