@@ -256,7 +256,6 @@ void gen_data(node_t* n) {
     }
 }
 
-
 void gen_store(node_t* dst, node_t* src) {
     reg_t* r1;
     

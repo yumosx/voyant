@@ -1,5 +1,9 @@
 #kprobe;
 
-probe do_mmap{
-    out("->enter: %s\n", comm());
+BEGIN{
+    out("%s\n", "exit");
+}
+
+probe smp_call_function_many{
+    out("%s\n", "----");
 }

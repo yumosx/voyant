@@ -397,7 +397,9 @@ node_t* parse_script(parser_t* parser, char* event) {
     }
 
     if (current(parser, TOKEN_PROBE)) {
-        return parse_probe(parser, event);
+        stmts = parse_probe(parser, event);
+        advance(parser);
+        return stmts;
     }
 
     verror("Syntax error: unexpected token %s", name);
@@ -447,7 +449,6 @@ node_t* parse_program(parser_t* parser) {
             node->next = script;
             node = node->next;
         }
-        advance(parser);
     }
 
     free_parser(parser);

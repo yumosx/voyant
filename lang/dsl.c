@@ -25,7 +25,16 @@ void attach(node_t* node, ebpf_t* ctx, int id) {
     }
 }
 
-void run_probe(node_t* node) {
+void print_map(symtable_t* st) {
+    int i;
+    for (i = 0; i < st->len; i++) {
+        if (st->table[i].type == SYM_MAP) {
+            map_dump(st->table[i].map->map);
+        }
+    }
+}
+
+void run(node_t* node) {
     node_t* head;
     ebpf_t* code;
     prog_t* prog;
@@ -49,19 +58,21 @@ void run_probe(node_t* node) {
     siginterrupt(SIGINT, 1);
     signal(SIGINT, term);
     evpipe_loop(evp, &term_sig, -1);
+    print_map(st);
 }
 
 int main(int argc, char **argv) {
     char* filename, *input;
     lexer_t* lexer;
     parser_t* parser;
-    node_t* node, *head;
+    node_t* node;
     ebpf_t* code;
     prog_t* prog;
     int id;
     symtable_t* st;
 
     if (argc != 2) {
+        verror("should have the two args");
         return 0;
     }
 
@@ -76,7 +87,6 @@ int main(int argc, char **argv) {
     parser = parser_init(lexer);
     node = parse_program(parser);
    
-    //run_progs(node);
-    run_probe(node);
+    run(node);
     return 0;
 }

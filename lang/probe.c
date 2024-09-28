@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <bpf/btf.h>
 #include <linux/bpf.h>
-#include <linux/bpf.h>
 #include <linux/version.h>
 #include <linux/perf_event.h>
 #include <sys/resource.h>

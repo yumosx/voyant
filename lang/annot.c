@@ -8,6 +8,40 @@
 
 #define STRING_SIZE 64
 
+int check_assign(node_t* expr) {
+	switch (expr->annot.type) {
+	case TYPE_INT:
+	case TYPE_STR:
+	case TYPE_RSTR:
+	case TYPE_EXPR:
+	case TYPE_ACCESS:
+	case TYPE_RINT:
+		break;
+	default:
+		verror("assign bad value");
+		break;
+	}
+}
+
+int check_args(node_t* expr) {
+	switch (expr->annot.type) {
+	case TYPE_INT:
+	case TYPE_STR:
+	case TYPE_RINT:
+	case TYPE_RSTR:
+	case TYPE_VAR:
+		break;
+	default:
+		verror("bad args");
+		break;
+	}
+}
+
+void annot_int(node_t* integer) {
+	integer->annot.type = TYPE_INT;
+	integer->annot.size = sizeof(integer->integer);	
+}
+
 void annot_str(node_t* string) {
     size_t size;
 
@@ -17,11 +51,6 @@ void annot_str(node_t* string) {
     }
     string->annot.type = TYPE_STR;
     string->annot.size = _ALIGNED(size);
-}
-
-void annot_int(node_t* integer) {
-	integer->annot.size = TYPE_INT;
-	integer->annot.size = sizeof(integer->integer);	
 }
 
 static int annot_value(node_t *value) {
@@ -44,7 +73,7 @@ static int annot_value(node_t *value) {
 	return err;
 }
 
-static void annot_map(node_t *map, ebpf_t *e) {
+static void annot_map_args(node_t *map, ebpf_t *e) {
 	node_t *arg;
 	ssize_t ksize;
 
@@ -62,7 +91,7 @@ int annot_map_method(node_t* expr, ebpf_t* ctx) {
 	left = expr->expr.left;
 	right = expr->expr.right;
 
-	annot_map(left, ctx);
+	annot_map_args(left, ctx);
 
 	right->parent = left;
 	map_dec(ctx->st, left);
@@ -70,6 +99,40 @@ int annot_map_method(node_t* expr, ebpf_t* ctx) {
 
 	return err;
 }
+
+static int annot_dec(node_t *n, ebpf_t *e) {
+	node_t *var, *expr;
+	int err = 0;
+	
+	var = n->dec.var;
+	expr = n->dec.expr;
+
+	get_annot(expr, e);
+	check_assign(expr);
+
+	switch (var->type) {
+	case NODE_VAR:
+		var->annot.type = TYPE_VAR;
+		var->annot.size = expr->annot.size;
+		var_dec(e->st, var);
+		break;
+	case NODE_MAP:
+		annot_map_args(var, e);
+		var->annot.size = expr->annot.size;
+		map_dec(e->st, var);
+		break;
+	default:
+		break;
+	}
+	
+	n->annot.type = TYPE_DEC;
+	return err;
+}
+
+void annot_assign(node_t* expr, ebpf_t* code) {
+	node_t* left, *right;
+}
+
 
 void annot_probe_args(node_t* expr, ebpf_t* ctx) {
 	size_t offs;
@@ -123,54 +186,17 @@ void annot_expr(node_t* expr, ebpf_t* ctx) {
 	}
 }
 
-int check_assign(node_t* expr) {
-	switch (expr->annot.type) {
-	case TYPE_INT:
-	case TYPE_STR:
-	case TYPE_RSTR:
-	case TYPE_RINT:
-		break;
-	default:
-		verror("assign bad value");
-		break;
-	}
-}
-
-static int annot_dec(node_t *n, ebpf_t *e) {
-	node_t *var, *expr;
-	int err = 0;
-	
-	var = n->dec.var;
-	expr = n->dec.expr;
-
-	get_annot(expr, e);
-	check_assign(expr);
-
-	switch (var->type) {
-	case NODE_VAR:
-		_annot(var, TYPE_VAR, 8);
-		var->annot.size = expr->annot.size;
-		var_dec(e->st, var);
-		break;
-	case NODE_MAP:
-		annot_map(var, e);
-		var->annot.size = expr->annot.size;
-		map_dec(e->st, var);
-		break;
-	default:
-		break;
-	}
-	
-	n->annot.type = TYPE_DEC;
-	return err;
-}
-
 void annot_rec(node_t *n, ebpf_t *e) {
 	node_t *arg;
 	ssize_t size = 0;
 
 	_foreach(arg, n->rec.args) {
 		get_annot(arg, e);
+		
+		if (arg->type == NODE_MAP) {
+			size += arg->annot.ksize;
+		}
+		
 		size += arg->annot.size;
 	}
 
@@ -217,8 +243,6 @@ void get_annot(node_t *n, ebpf_t *code) {
 	case NODE_DEC:
 		annot_dec(n, code);
 		break;
-	case NODE_ASSIGN:
-		break;
 	case NODE_REC:
 		annot_rec(n, code);
 		break;
@@ -227,10 +251,9 @@ void get_annot(node_t *n, ebpf_t *code) {
 	}
 }
 
-void assign_stack(node_t *n, ebpf_t *e) {
-	n->annot.addr = ebpf_addr_get(n, e);
+void assign_stack(node_t* node, ebpf_t *code) {
+	node->annot.addr = ebpf_addr_get(node, code);
 }
-
 
 void assign_data(node_t* node, ssize_t addr) {
 	switch (node->annot.type) {
@@ -271,19 +294,27 @@ void assign_dec(node_t *dec, ebpf_t *code) {
 	
 	addr = ebpf_addr_get(var, code);
 	var->annot.addr = addr;
+	
+	
 	sym->vannot.addr = addr;
 
 	assign_data(expr, addr);
 }
 
-void assign_rec(node_t *n, ebpf_t *e) {
+void assign_rec(node_t *node, ebpf_t *code) {
 	node_t *head;
 	size_t offs;
-	assign_stack(n, e);
+	assign_stack(node, code);
 
-	offs = n->annot.addr;
+	offs = node->annot.addr;
 
-	_foreach(head, n->rec.args) {
+	_foreach(head, node->rec.args) {
+		
+		if (head->type == NODE_MAP) {
+			head->map.args->annot.addr = offs;
+			offs += head->map.args->annot.ksize;
+		}
+
 		head->annot.addr = offs;
 		offs += head->annot.size;
 	}
@@ -309,28 +340,8 @@ void assign_method(node_t* expr, ebpf_t* code) {
 	map->annot.addr = addr;
 }
 
-
-void assign_rint(node_t* call, ebpf_t* code) {
-	node_t* arg;
-
-	if (vstreq(call->name, "strcmp")) {
-		arg = call->call.args;
-		arg->annot.addr = ebpf_addr_get(arg, code);
-
-		arg = arg->next;
-		arg->annot.addr = ebpf_addr_get(arg, code);
-		return;	
-	}
-}
-
 void loc_assign(node_t *node, ebpf_t *code) {
 	switch (node->annot.type) {
-	case TYPE_RSTR:
-		assign_stack(node, code);
-		break;
-	case TYPE_RINT:
-		assign_rint(node, code);
-		break;
 	case TYPE_DEC:
 		assign_dec(node, code);
 		break;
