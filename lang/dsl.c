@@ -34,6 +34,23 @@ void print_map(symtable_t* st) {
     }
 }
 
+void _free(node_t* node) {
+    node_t* head;
+    vec_t* vec = vec_new();
+    size_t i;
+
+    _foreach(head, node) {
+        vec_push(vec, head);
+    }
+
+    for (i = 0; i < vec->len; i++) {
+        node_t* value = vec->data[i];
+        free_node(value);   
+    }
+    free(vec->data);
+    free(vec);
+}
+
 void run(node_t* node) {
     node_t* head;
     ebpf_t* code;
@@ -88,5 +105,6 @@ int main(int argc, char **argv) {
     node = parse_program(parser);
    
     run(node);
+    _free(node);
     return 0;
 }

@@ -6,20 +6,13 @@
 #include "ut.h"
 
 static int annot_rint(node_t* n) {
-    n->annot.type = TYPE_RINT;
+    n->annot.type = TYPE_INT;
     n->annot.size = 8;
 }
 
 static int annot_rstr(node_t* n) {
-    n->annot.type = TYPE_RSTR;
+    n->annot.type = TYPE_STR;
 	n->annot.size = _ALIGNED(16);
-}
-
-static int annot_probe_str(node_t* n) {
-	node_t* arg;
-
-	n->annot.type = TYPE_RSTR;
-	n->annot.size = 16;
 }
 
 static void printf_spec(const char* spec, const char* term, void* data, node_t* arg) {
@@ -112,7 +105,7 @@ static int annot_strcmp(node_t* call) {
 		verror("strcmp requires string arguments");
 	}
 
-	call->annot.type = TYPE_RINT;
+	call->annot.type = TYPE_INT;
     call->annot.size = 8;
 }
 
@@ -122,13 +115,13 @@ static int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, 
     
     switch(op) {
         case EXTRACT_OP_MASK:
-            ebpf_emit(e, ALU_IMM(OP_AND, BPF_REG_0, 0xffffffff));
+			ebpf_emit(e, ALU_IMM(BPF_AND, BPF_REG_0, 0x7fffffff));
             break;
         case EXTRACT_OP_SHIFT:
-            ebpf_emit(e, ALU_IMM(OP_RSH, BPF_REG_0, 32));
+            ebpf_emit(e, ALU_IMM(BPF_RSH, BPF_REG_0, 32));
             break;
 		case EXTRACT_OP_DIV_1G:
-			ebpf_emit(e, ALU_IMM(OP_DIV, BPF_REG_0, 1000000000));
+			ebpf_emit(e, ALU_IMM(BPF_DIV, BPF_REG_0, 1000000000));
         default:
             break;
     }
@@ -136,11 +129,19 @@ static int compile_rint_func(enum bpf_func_id func, extract_op_t op, ebpf_t* e, 
 	return 0; 
 }
 
-int compile_pid(node_t* n, ebpf_t* e) {
-    return compile_rint_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
+int compile_gid(node_t* n, ebpf_t* e) {
+	return compile_rint_func(BPF_FUNC_get_current_uid_gid, EXTRACT_OP_SHIFT, e, n);
 }
 
-int compile_ns(node_t* n, ebpf_t* e) {
+int compile_uid(node_t* n, ebpf_t* e) {
+	return compile_rint_func(BPF_FUNC_get_current_uid_gid, EXTRACT_OP_MASK, e, n);
+}
+
+int compile_pid(node_t* n, ebpf_t* e) {
+    return compile_rint_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_SHIFT, e, n);
+}
+
+int compile_sens(node_t* n, ebpf_t* e) {
 	return compile_rint_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
 }
 
@@ -155,14 +156,13 @@ int compile_stack(node_t* call, ebpf_t* code) {
 	ebpf_emit(code, CALL(BPF_FUNC_get_stackid));
 }
 
-
 static builtin_t global_builtins[] = {
 	builtin("pid", annot_rint, compile_pid),
+	builtin("uid", annot_rint, compile_uid),
 	builtin("cpu", annot_rint, compile_cpu),
-	builtin("ns", annot_rint,  compile_ns),
+	builtin("secs", annot_rint,  compile_sens),
 	builtin("stack", NULL, compile_stack),
 	builtin("comm", annot_rstr, NULL),
-	builtin("arg", annot_probe_str, NULL),	
 	builtin("out", annot_out, NULL),
 	builtin("strcmp", annot_strcmp, NULL),
 };

@@ -60,7 +60,6 @@ void map_count(node_t* map, ebpf_t* code) {
     ebpf_emit_map_update(code, fd, kaddr, vaddr);
 }
 
-
 void compile_comm(node_t* n, ebpf_t* e) {
 	size_t i;
 	
@@ -102,11 +101,11 @@ void compile_call(node_t* n, ebpf_t* e) {
 }
 
 void to_stack(node_t* obj, ebpf_t* code) {
-    switch (obj->annot.type) {
-    case TYPE_STR:
+    switch (obj->type) {
+    case NODE_STR:
         ebpf_str_to_stack(code, obj);
         break;
-    case TYPE_RSTR:
+    case NODE_CALL:
         compile_comm(obj, code);
         break;
     default:
@@ -126,27 +125,23 @@ void store_data(vec_t* vec, ebpf_t* e) {
     }
 }
 
-void copy_data(ebpf_t* e, node_t* n) {
+void copy_data(ebpf_t* ebpf, ir_t* ir) {
     ssize_t to, from;
     size_t size;
     sym_t* sym;
-    
-    sym = symtable_get(e->st, n->name);
+    node_t* n = ir->value;
+
+    sym = symtable_get(ebpf->st, n->name);
     to = n->annot.addr;
     from = sym->vannot.addr;
     size = n->annot.size;
 
-    ebpf_value_copy(e, to, from, size);
-}
+    if (n->annot.type == TYPE_INT) {
+        ebpf_emit(ebpf, LDXDW(gregs[ir->r0->rn], from, BPF_REG_10));
+        return;
+    }
 
-void load_value(ebpf_t* code, node_t* n, int reg) {
-    sym_t* sym;
-    ssize_t from; 
-
-    sym = symtable_get(code->st, n->name);
-    from = n->annot.addr;
-    
-    ebpf_emit(code, LDXDW(reg, from, BPF_REG_10));
+    ebpf_value_copy(ebpf, to, from, size);
 }
 
 void read_args(node_t* expr, ebpf_t* code) {
@@ -199,11 +194,8 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_GT:
         ebpf_emit_bool(code, BPF_JGT, r0, r2);
         break;
-    case IR_LOAD:
-        load_value(code, ir->value, gregs[r0]);
-        break;
     case IR_COPY:
-        copy_data(code, ir->value);
+        copy_data(code, ir);
         break;
     case IR_INIT:
         ebpf_stack_zero(ir->value, code, BPF_REG_0);
@@ -211,6 +203,9 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_STORE:
         addr = ir->value->annot.addr;
         ebpf_emit(code, STXDW(BPF_REG_10, addr, gregs[r2]));
+        break;
+    case IR_ARG:
+        ebpf_emit(code, STXDW(BPF_REG_10, ir->addr, gregs[r0]));
         break;
     case IR_MAP_UPDATE:
         compile_map_update(code, ir->value);

@@ -118,10 +118,8 @@ static reg_t *imm(node_t *n) {
     return ir->r0;
 }
 
-static void push(node_t *value, ssize_t addr) {
-    if (addr)
-        value->annot.addr = addr;
-    
+
+static void push(node_t *value) {
     vec_push(prog->data, value);
 }
 
@@ -142,9 +140,12 @@ static reg_t* rval(node_t* var) {
     return ir->r0;    
 }
 
-static void copy(node_t* var) {
+static reg_t* var_copy(node_t* var) {
     ir_t* ir = ir_new(IR_COPY);
+    ir->r0 = reg_new();
     ir->value = var;
+
+    return ir->r0;
 }
 
 static void args_read(node_t* var) {
@@ -163,15 +164,21 @@ ir_t *store(node_t *dst, reg_t *src) {
     return ir;
 }
 
-reg_t* ret_call(node_t* call) {
-    ir_t* ir;
-    node_t* arg;    
+ir_t* arg_reg_to_stack(node_t* arg, reg_t* reg) {
+    ir_t *ir;
 
-    if (call->call.args) {
-        _foreach(arg, call->call.args) {
-            gen_store(arg, arg);
-        }
-    }
+    ir = ir_new(IR_ARG);
+    
+    ir->value = arg;
+    ir->r0 = reg;
+    ir->addr = arg->annot.addr;
+    ir->size = arg->annot.size;
+
+    return ir;
+}
+
+reg_t* ret(node_t* call) {
+    ir_t* ir;
 
     ir = ir_new(IR_RCALL);
     ir->r0 = reg_new();
@@ -188,7 +195,7 @@ static void gen_noret_call(node_t* call) {
     if (call->call.args) {
         rec = call->call.args->next;
         _foreach(arg, rec->rec.args) {
-            gen_store(arg, arg);
+            dyn_args(arg);
         }
     }
 
@@ -209,7 +216,6 @@ static reg_t *binop(int op, node_t *node) {
     return r1;
 }
 
-
 reg_t* gen_binop(node_t *n) {
     switch (n->expr.opcode) {
     case OP_ADD: 
@@ -227,29 +233,40 @@ reg_t* gen_binop(node_t *n) {
     }
 }
 
-reg_t* gen_expr(node_t *n) {
-    switch (n->type) {
+reg_t* gen_expr(node_t *expr) {
+    switch (expr->type) {
     case NODE_INT:
-        return imm(n);
+        return imm(expr);
     case NODE_EXPR:
-        return gen_binop(n);
+        return gen_binop(expr);
     case NODE_CALL:
-        return ret_call(n);
+        return ret(expr);
     case NODE_VAR:
-        return rval(n);
+        return var_copy(expr);
     default:
         verror("not match expr type");
         break;
     }
 }
 
-void gen_data(node_t* n) {
-    switch (n->annot.type) {
-    case TYPE_STR:
-        push(n, 0);
+void reg_to_stack(node_t* dst, node_t* src) {
+    reg_t* r1;
+
+    r1 = gen_expr(src);
+    init(dst);
+    store(dst, r1);
+}
+
+void direct_to_stack(node_t* dst, node_t* src) {
+    switch (src->type) {
+    case NODE_CALL:
+        push(src);
         break;
-    case TYPE_RSTR:
-        push(n, 0);
+    case NODE_STR:
+        push(src);
+        break;
+    case NODE_VAR:
+        var_copy(dst);
         break;
     default:
         break;
@@ -257,29 +274,68 @@ void gen_data(node_t* n) {
 }
 
 void gen_store(node_t* dst, node_t* src) {
-    reg_t* r1;
-    
-    switch (src->annot.type) {
-    case TYPE_ACCESS:
-        args_read(src);
-        return;
-    case TYPE_MAP:
-        map_look(src);
-        return;
-    case TYPE_VAR:
-        copy(src);
-        return;
+    switch (dst->annot.type) {
+    case TYPE_INT:
+        reg_to_stack(dst, src);
+        break;
     case TYPE_STR:
-    case TYPE_RSTR:
-        push(src, 0);
-        return;
+        direct_to_stack(dst, src);
+        break; 
     default:
         break;
     }
-    
-    r1 = gen_expr(src);
-    init(dst);
-    store(dst, r1);
+}
+
+
+void dyn_int_store(node_t* dst) {
+    reg_t* reg;
+
+    switch (dst->type) {
+    case NODE_INT:
+        reg = gen_expr(dst);
+        break;
+    case NODE_CALL:
+        reg = gen_expr(dst);
+        break;
+    case NODE_VAR:
+        reg = gen_expr(dst);
+        break;
+    case NODE_EXPR:
+        reg = gen_expr(dst);
+        break;
+    case NODE_MAP:
+        break; 
+    default:
+        break;
+    }
+
+    arg_reg_to_stack(dst, reg);
+}
+
+void dyn_str_store(node_t* dst) {
+    switch (dst->type) {
+    case NODE_STR:
+        push(dst);
+        break;
+    case NODE_CALL:
+        push(dst);
+        break;
+    default:
+        break;
+    }
+}
+
+void dyn_args(node_t* dst) {
+    switch (dst->annot.type) {
+    case TYPE_INT:
+        dyn_int_store(dst);
+        break;
+    case TYPE_STR:
+        dyn_str_store(dst);
+        break;
+    default:
+        break;
+    }
 }
 
 void gen_map_method(node_t* expr) {
@@ -287,7 +343,7 @@ void gen_map_method(node_t* expr) {
 
     map = expr->expr.left;
 
-    gen_store(map->map.args, map->map.args);
+    dyn_args(map->map.args);
     map_count(map);
 }
 
@@ -300,7 +356,7 @@ void gen_dec(node_t *dec) {
 
     switch (var->type) {
     case NODE_MAP:
-        gen_store(var->map.args, var->map.args);
+        dyn_args(var->map.args);
         gen_store(var, expr);
         map_update(var);
         break;

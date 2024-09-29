@@ -81,7 +81,7 @@ static void annot_map_args(node_t *map, ebpf_t *e) {
 	get_annot(arg, e);
 	ksize = arg->annot.size;
 
-	_annot_map(map, TYPE_MAP, ksize, 8);
+	_annot_map(map, TYPE_INT, ksize, 8);
 }
 
 int annot_map_method(node_t* expr, ebpf_t* ctx) {
@@ -112,7 +112,7 @@ static int annot_dec(node_t *n, ebpf_t *e) {
 
 	switch (var->type) {
 	case NODE_VAR:
-		var->annot.type = TYPE_VAR;
+		var->annot.type = expr->annot.type;
 		var->annot.size = expr->annot.size;
 		var_dec(e->st, var);
 		break;
@@ -180,7 +180,7 @@ void annot_expr(node_t* expr, ebpf_t* ctx) {
 	default:
 		get_annot(left, ctx);
 		get_annot(right, ctx);
-		expr->annot.type = TYPE_EXPR;
+		expr->annot.type = TYPE_INT;
 		expr->annot.size = 8;
 		break;
 	}
@@ -222,29 +222,29 @@ void annot_probe(node_t* probe, ebpf_t* ctx) {
 	probe->probe.traceid = id;
 }
 
-void get_annot(node_t *n, ebpf_t *code) {
-	switch (n->type) {
+void get_annot(node_t *node, ebpf_t *code) {
+	switch (node->type) {
 	case NODE_KPROBE:
 	case NODE_PROBE:
-		annot_probe(n, code);
+		annot_probe(node, code);
 		break;
 	case NODE_CALL:
 	case NODE_INT:
 	case NODE_STR:
-		annot_value(n);
+		annot_value(node);
 		break;
 	case NODE_VAR:
 	case NODE_MAP:
-		symtable_ref(code->st, n);
+		symtable_ref(code->st, node);
 		break;
 	case NODE_EXPR:
-		annot_expr(n, code);
+		annot_expr(node, code);
 		break;
 	case NODE_DEC:
-		annot_dec(n, code);
+		annot_dec(node, code);
 		break;
 	case NODE_REC:
-		annot_rec(n, code);
+		annot_rec(node, code);
 		break;
 	default:
 		break;

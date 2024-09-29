@@ -41,6 +41,7 @@ enum{
     IR_REC,
     IR_INIT,
     IR_LOAD,
+    IR_ARG,
     IR_COPY,
     IR_READ,
     IR_PUSH,
@@ -86,6 +87,8 @@ typedef struct ir_t {
     bb_t *bb2;
 
     ssize_t addr;
+    size_t size;
+    
     char *name;
     int nargs;
     reg_t *args[5];

@@ -111,15 +111,36 @@ node_t* node_test_new(char* name, node_t* stmts) {
     return n;
 }
 
-void node_stmts_free(node_t *n) {
-    switch (n->type) {
+static int do_list(node_t *head) {
+	node_t *elem, *next = head;
+
+	for (elem = next; elem;) {
+		next = elem->next;
+		free_node(elem);
+		elem = next;
+	}
+
+	return 0;
+}
+
+
+void free_node(node_t *node) {
+    switch (node->type) {
+    case NODE_PROBE:
+    case NODE_KPROBE:
+        free(node->probe.name);
+        do_list(node->probe.stmts);
+        break;
+    case NODE_CALL:
+        free(node->name);
+        if (node->call.args)
+            do_list(node->call.args);
+        break;
+    case NODE_REC:
+        do_list(node->rec.args);
+        break;
     case NODE_STR:
-        free(n->name);
-        free(n);
-        break;
-    case NODE_INT:
-        break;
-    case NODE_DEC:
+        free(node->name);
         break;
     default:
         break;

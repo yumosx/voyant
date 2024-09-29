@@ -240,17 +240,13 @@ void dump_int(FILE* fp, node_t* integer, void* data) {
 void dump(FILE* fp, node_t* n, void* data) {
 	switch (n->annot.type) {
 	case TYPE_STR:
-	case TYPE_RSTR:
 		dump_str(fp, n, data);
 		break;
 	case TYPE_INT:
 		dump_int(fp, n, data);
 		break;
-	case TYPE_RINT:
-		dump_int(fp, n, data);
-		break;
 	default:
-		dump_int(fp, n, data);
+		_e("err map or key type");
 		break;
 	}
 }

@@ -110,7 +110,7 @@ typedef enum type_t {
 typedef struct annot_t {
     type_t type;
     int mapid;
-
+    int isarg;
     size_t ksize;
     ssize_t size;
     size_t offs;
@@ -162,5 +162,6 @@ extern node_t *node_unroll_new(size_t count, node_t *stmts);
 extern node_t *node_rec_new(node_t *args);
 extern node_t *node_assign_new(node_t *left, node_t *expr);
 extern node_t *node_dec_new(node_t *var, node_t *expr);
+extern void free_node(node_t* node);
 
 #endif
