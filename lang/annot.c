@@ -8,35 +8,6 @@
 
 #define STRING_SIZE 64
 
-int check_assign(node_t* expr) {
-	switch (expr->annot.type) {
-	case TYPE_INT:
-	case TYPE_STR:
-	case TYPE_RSTR:
-	case TYPE_EXPR:
-	case TYPE_ACCESS:
-	case TYPE_RINT:
-		break;
-	default:
-		verror("assign bad value");
-		break;
-	}
-}
-
-int check_args(node_t* expr) {
-	switch (expr->annot.type) {
-	case TYPE_INT:
-	case TYPE_STR:
-	case TYPE_RINT:
-	case TYPE_RSTR:
-	case TYPE_VAR:
-		break;
-	default:
-		verror("bad args");
-		break;
-	}
-}
-
 void annot_int(node_t* integer) {
 	integer->annot.type = TYPE_INT;
 	integer->annot.size = sizeof(integer->integer);	
@@ -81,7 +52,9 @@ static void annot_map_args(node_t *map, ebpf_t *e) {
 	get_annot(arg, e);
 	ksize = arg->annot.size;
 
-	_annot_map(map, TYPE_INT, ksize, 8);
+	map->annot.type = TYPE_INT;
+	map->annot.ksize = ksize;
+	map->annot.size = 8;
 }
 
 int annot_map_method(node_t* expr, ebpf_t* ctx) {
@@ -108,7 +81,6 @@ static int annot_dec(node_t *n, ebpf_t *e) {
 	expr = n->dec.expr;
 
 	get_annot(expr, e);
-	check_assign(expr);
 
 	switch (var->type) {
 	case NODE_VAR:
@@ -118,6 +90,7 @@ static int annot_dec(node_t *n, ebpf_t *e) {
 		break;
 	case NODE_MAP:
 		annot_map_args(var, e);
+		var->annot.type = expr->annot.type;
 		var->annot.size = expr->annot.size;
 		map_dec(e->st, var);
 		break;
@@ -127,10 +100,6 @@ static int annot_dec(node_t *n, ebpf_t *e) {
 	
 	n->annot.type = TYPE_DEC;
 	return err;
-}
-
-void annot_assign(node_t* expr, ebpf_t* code) {
-	node_t* left, *right;
 }
 
 
@@ -148,14 +117,15 @@ void annot_probe_args(node_t* expr, ebpf_t* ctx) {
 
 	data->annot.type = field.type;
 	data->annot.offs = field.offs;
-	expr->annot.type = TYPE_ACCESS;
 
 	switch (data->annot.type){
 	case TYPE_INT:
 		expr->annot.size = 8;
+		expr->annot.type = TYPE_INT;
 		break;
 	case TYPE_STR:
 		expr->annot.size = 64;
+		expr->annot.type = TYPE_STR;
 		break;
 	default:
 		break;
@@ -260,14 +230,8 @@ void assign_data(node_t* node, ssize_t addr) {
 	case TYPE_STR:
 		node->annot.addr = addr;
 		break;
-	case TYPE_RSTR:
-		node->annot.addr = addr;
-		break;
 	case TYPE_VAR:
 		node->annot.addr = addr;
-		break;
-	case TYPE_ACCESS:
-		node->expr.left->annot.addr = addr;
 		break;
 	default:
 		break;
@@ -312,7 +276,8 @@ void assign_rec(node_t *node, ebpf_t *code) {
 		
 		if (head->type == NODE_MAP) {
 			head->map.args->annot.addr = offs;
-			offs += head->map.args->annot.ksize;
+			_d("%d", offs);
+			offs += head->annot.ksize;
 		}
 
 		head->annot.addr = offs;

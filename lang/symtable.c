@@ -58,6 +58,7 @@ int sym_transfer(sym_t* sym, node_t *n) {
         node_t* args;
 
         args = n->map.args;
+        args->annot.type = sym->map->ktype;
         args->annot.addr = sym->map->kaddr;
     }
 
@@ -112,6 +113,7 @@ smap_t* map_create(node_t* map) {
 
     smap->ksize = ksize;
     smap->vsize = vsize;
+    smap->ktype = map->map.args->annot.type;
     smap->id = map->annot.mapid;
     smap->map = map;
 

@@ -132,14 +132,6 @@ static ir_t *init(node_t *var) {
     return ir;
 }
 
-static reg_t* rval(node_t* var) {
-    ir_t* ir = ir_new(IR_LOAD);
-    ir->r0 = reg_new();
-    ir->value = var;
-
-    return ir->r0;    
-}
-
 static reg_t* var_copy(node_t* var) {
     ir_t* ir = ir_new(IR_COPY);
     ir->r0 = reg_new();
@@ -148,10 +140,22 @@ static reg_t* var_copy(node_t* var) {
     return ir->r0;
 }
 
-static void args_read(node_t* var) {
-    ir_t* ir = ir_new(IR_READ);
-    ir->value = var;   
+static reg_t* map_copy(node_t* map) {
+    ir_t* ir = ir_new(IR_MAP_LOOK);
+    ir->r0 = reg_new();
+    ir->value = map;
+
+    return ir->r0;
 }
+
+static reg_t* arg_read(node_t* expr) {
+    ir_t* ir = ir_new(IR_READ);
+    ir->r0 = reg_new();
+    ir->value = expr;
+
+    return ir->r0;
+}
+
 
 ir_t *store(node_t *dst, reg_t *src) {
     ir_t *ir;
@@ -228,6 +232,8 @@ reg_t* gen_binop(node_t *n) {
         return binop(IR_GT, n);
     case OP_GE:
         return binop(IR_GE, n);
+    case OP_ACCESS:
+        return arg_read(n);
     default:
         break;
     }
@@ -243,6 +249,10 @@ reg_t* gen_expr(node_t *expr) {
         return ret(expr);
     case NODE_VAR:
         return var_copy(expr);
+    case NODE_MAP:
+        _d("int: %d", expr->map.args->annot.type == TYPE_INT);
+        dyn_args(expr->map.args);
+        return map_copy(expr);
     default:
         verror("not match expr type");
         break;
@@ -267,6 +277,13 @@ void direct_to_stack(node_t* dst, node_t* src) {
         break;
     case NODE_VAR:
         var_copy(dst);
+        break;
+    case NODE_MAP:
+        dyn_args(dst->map.args);
+        map_copy(dst);
+        break;
+    case NODE_EXPR:
+        arg_read(src);
         break;
     default:
         break;
@@ -304,7 +321,8 @@ void dyn_int_store(node_t* dst) {
         reg = gen_expr(dst);
         break;
     case NODE_MAP:
-        break; 
+        reg = gen_expr(dst);
+        break;
     default:
         break;
     }
@@ -319,6 +337,17 @@ void dyn_str_store(node_t* dst) {
         break;
     case NODE_CALL:
         push(dst);
+        break;
+    case NODE_VAR:
+        var_copy(dst);
+        break;
+    case NODE_MAP:
+        //_d("%d\n", dst->map.args->integer);
+        dyn_args(dst->map.args);
+        map_copy(dst);
+        break;
+    case NODE_EXPR:
+        arg_read(dst);
         break;
     default:
         break;

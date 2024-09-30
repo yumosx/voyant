@@ -14,6 +14,7 @@ typedef struct smap_t{
     int id;
     enum bpf_map_type type;
     size_t ksize, vsize, nelem;
+    type_t ktype;
     ssize_t kaddr;
     node_t *map;
 } smap_t;

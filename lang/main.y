@@ -1,5 +1,11 @@
-#kprobe;
+#syscalls;
 
-probe do_mmap {
-    out("%d\n", 1+2+3);
+probe sys_enter_execve {
+    enter[pid()] := comm();
+
+    out("%s\n", args->filename);
+}
+
+probe sys_exit_execve{
+    ext[pid()] := comm();
 }

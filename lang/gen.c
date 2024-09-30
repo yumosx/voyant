@@ -26,7 +26,7 @@ void compile_map_update(ebpf_t* code, node_t* var) {
     ebpf_emit_map_update(code, fd, kaddr, vaddr);
 }
 
-void compile_map_look(ebpf_t* code, node_t* map) {
+void compile_map_look(ebpf_t* code, node_t* map, ir_t* ir) {
     int fd;
     ssize_t kaddr, vaddr, vsize;
 
@@ -34,10 +34,8 @@ void compile_map_look(ebpf_t* code, node_t* map) {
     kaddr = map->map.args->annot.addr;
     vsize = map->annot.size;
     vaddr = map->annot.addr;
-
+    
     ebpf_emit_map_look(code, fd, kaddr);
-
-    ebpf_emit(code, JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 5));
     ebpf_emit_read(code, vaddr, BPF_REG_0, vsize);
 }
 
@@ -144,23 +142,22 @@ void copy_data(ebpf_t* ebpf, ir_t* ir) {
     ebpf_value_copy(ebpf, to, from, size);
 }
 
-void read_args(node_t* expr, ebpf_t* code) {
-    node_t* left, *right;
+void read_args(ir_t* ir, ebpf_t* code) {
+    node_t* right, *expr;
     ssize_t addr;
     size_t size, offs;
-
-
-    left = expr->expr.left;
+    
+    expr = ir->value;
     right = expr->expr.right;
 
-    addr = left->annot.addr;
-    offs = right->annot.offs;
+    addr = expr->annot.addr;
     size = expr->annot.size;
+    offs = right->annot.offs;
 
     switch (right->annot.type) {
     case TYPE_INT:
         ebpf_emit(code, LDXDW(BPF_REG_0, offs, BPF_REG_9));
-        ebpf_emit(code, STXDW(BPF_REG_10, addr, BPF_REG_0));
+        ebpf_emit(code, MOV(gregs[ir->r0->rn], BPF_REG_0));
         break;
     case TYPE_STR:
         ebpf_emit(code, MOV(BPF_REG_1, BPF_REG_10));
@@ -211,10 +208,10 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         compile_map_update(code, ir->value);
         break;
     case IR_MAP_LOOK:
-        compile_map_look(code, ir->value);
+        compile_map_look(code, ir->value, ir);
         break;
     case IR_RCALL:
-        global_compile(ir->value, code, TYPE_RINT);
+        global_compile(ir->value, code, 0);
         ebpf_emit(code, MOV(gregs[r0], BPF_REG_0));
         break; 
     case IR_CALL:
@@ -234,7 +231,7 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
         map_count(ir->value, code);
         break;
     case IR_READ:
-        read_args(ir->value, code);
+        read_args(ir, code);
         break;
     case IR_RETURN:
         ebpf_emit(code, MOV_IMM(BPF_REG_0, 0));
