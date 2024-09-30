@@ -1,9 +1,5 @@
-#syscalls;
+#kprobe;
 
-probe sys_enter_execve {
-    out("%d\n", 1+2);
-}
-
-probe sys_exit_execve {
+probe do_mmap {
     out("%d\n", 1+2+3);
 }
