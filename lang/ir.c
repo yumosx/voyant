@@ -250,7 +250,6 @@ reg_t* gen_expr(node_t *expr) {
     case NODE_VAR:
         return var_copy(expr);
     case NODE_MAP:
-        _d("int: %d", expr->map.args->annot.type == TYPE_INT);
         dyn_args(expr->map.args);
         return map_copy(expr);
     default:
@@ -342,7 +341,6 @@ void dyn_str_store(node_t* dst) {
         var_copy(dst);
         break;
     case NODE_MAP:
-        //_d("%d\n", dst->map.args->integer);
         dyn_args(dst->map.args);
         map_copy(dst);
         break;
