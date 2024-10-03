@@ -141,6 +141,10 @@ int compile_pid(node_t* n, ebpf_t* e) {
     return compile_rint_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_SHIFT, e, n);
 }
 
+int compile_tid(node_t* n, ebpf_t* e) {
+    return compile_rint_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
+}
+
 int compile_sens(node_t* n, ebpf_t* e) {
 	return compile_rint_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
 }
@@ -157,6 +161,8 @@ int compile_stack(node_t* call, ebpf_t* code) {
 }
 
 static builtin_t global_builtins[] = {
+	builtin("tid", annot_rint, compile_tid),
+	builtin("gid", annot_rint, compile_gid),
 	builtin("pid", annot_rint, compile_pid),
 	builtin("uid", annot_rint, compile_uid),
 	builtin("cpu", annot_rint, compile_cpu),

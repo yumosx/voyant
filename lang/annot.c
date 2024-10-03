@@ -156,15 +156,15 @@ void annot_expr(node_t* expr, ebpf_t* ctx) {
 	}
 }
 
-void annot_rec(node_t *n, ebpf_t *e) {
+void annot_rec(node_t *n, ebpf_t *code) {
 	node_t *arg;
 	ssize_t size = 0;
 
 	_foreach(arg, n->rec.args) {
-		get_annot(arg, e);
+		get_annot(arg, code);
 		
 		if (arg->type == NODE_MAP) {
-			size += arg->annot.ksize;
+			arg->annot.addr = ebpf_addr_get(arg->map.args, code);
 		}
 		
 		size += arg->annot.size;
@@ -273,13 +273,6 @@ void assign_rec(node_t *node, ebpf_t *code) {
 	offs = node->annot.addr;
 
 	_foreach(head, node->rec.args) {
-		
-		if (head->type == NODE_MAP) {
-			head->map.args->annot.addr = offs;
-			_d("%d", offs);
-			offs += head->annot.ksize;
-		}
-
 		head->annot.addr = offs;
 		offs += head->annot.size;
 	}

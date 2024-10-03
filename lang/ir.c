@@ -253,7 +253,6 @@ reg_t* gen_expr(node_t *expr) {
         dyn_args(expr->map.args);
         return map_copy(expr);
     default:
-        verror("not match expr type");
         break;
     }
 }

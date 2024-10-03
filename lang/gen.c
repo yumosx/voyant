@@ -36,7 +36,13 @@ void compile_map_look(ebpf_t* code, node_t* map, ir_t* ir) {
     vaddr = map->annot.addr;
     
     ebpf_emit_map_look(code, fd, kaddr);
+    
     ebpf_emit_read(code, vaddr, BPF_REG_0, vsize);
+
+    if (map->annot.type == TYPE_INT) {
+        ebpf_emit(code, LDXDW(gregs[ir->r0->rn], vaddr, BPF_REG_10));
+    }
+
 }
 
 void map_count(node_t* map, ebpf_t* code) {
