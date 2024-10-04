@@ -5,61 +5,68 @@
 
 #define is_char(c) isalnum(c) || c == '_'
 
-typedef enum token_type token_type;
+#define TOKEN_TYPE_TABLE                     \
+    TYPE(TOKEN_ILLEGAL, "Illegal")           \
+    TYPE(TOKEN_INT, "Int")                   \
+    TYPE(TOKEN_IDENT, "Ident")               \
+    TYPE(TOKEN_STRING, "String")             \
+    TYPE(TOKEN_PROBE, "Probe")               \
+    TYPE(TOKEN_KPROBE, "Kprobe")             \
+    TYPE(TOKEN_BEGIN, "Begin")               \
+    TYPE(TOKEN_END, "End")                   \
+    TYPE(TOKEN_SLASH, "Slash")               \
+    TYPE(TOKEN_COLON, "Colon")               \
+    TYPE(TOKEN_COMMA, "Comma")               \
+    TYPE(LEFT_BRACKET, "Left Bracket")       \
+    TYPE(RIGHT_BRACKET, "Right Bracket")     \
+    TYPE(LEFT_BLOCK, "Left Block")           \
+    TYPE(RIGHT_BLOCK, "Right Block")         \
+    TYPE(TOKEN_UNDERLINE, "Underline")       \
+    TYPE(LEFT_PAREN, "Left Paren")           \
+    TYPE(RIGHT_PAREN, "Right Paren")         \
+    TYPE(TOKEN_ASSIGN, "Assign")             \
+    TYPE(TOKEN_EQ, "Equal")                  \
+    TYPE(TOKEN_SEMICOLON, "Semicolon")       \
+    TYPE(TOKEN_IF, "If")                     \
+    TYPE(TOKEN_UNROLL, "Unroll")             \
+    TYPE(TOKEN_DEC, "Dec")                   \
+    TYPE(TOKEN_PLUS, "Plus")                 \
+    TYPE(TOKEN_STAR, "Star")                 \
+    TYPE(TOKEN_SUB, "Sub")                   \
+    TYPE(TOKEN_GT, "Gt")                     \
+    TYPE(TOKEN_HASH, "Hash")                 \
+    TYPE(TOKEN_ACCESS, "Access")             \
+    TYPE(TOKEN_PIPE, "Pipe")                 \
+    TYPE(END_OF_FILE, "End of File")
 
-enum token_type {
-    TOKEN_ILLEGAL,      // Illegal
-    TOKEN_INT,          // Integer
-    TOKEN_IDENT,        // Identifier
-    TOKEN_STRING,       // String
-    TOKEN_PROBE,        // Probe
-    TOKEN_KPROBE,       // Kprobe
-    TOKEN_BEGIN,        // Begin
-    TOKEN_END,          // End
-    TOKEN_SLASH,        // Slash '/'
-    TOKEN_COLON,        // Colon ':'
-    TOKEN_COMMA,        // Comma ','
-    LEFT_BRACKET,       // Left Bracket '['
-    RIGHT_BRACKET,      // Right Bracket ']'
-    LEFT_BLOCK,         // Left Block '{'
-    RIGHT_BLOCK,        // Right Block '}'
-    TOKEN_UNDERLINE,    // Underline '_'
-    LEFT_PAREN,         // Left Paren '('
-    RIGHT_PAREN,        // Right Paren ')'
-    TOKEN_ASSIGN,       // Assign '='
-    TOKEN_EQ,           // Equal '=='
-    TOKEN_SEMICOLON,    // Semicolon ';'
-    TOKEN_IF,           // If
-    TOKEN_UNROLL,       // Unroll
-    TOKEN_DEC,          // Dec
-    TOKEN_PLUS,         // Plus '+'
-    TOKEN_STAR,         // Star '*'
-    TOKEN_SUB,          // SUB '-'
-    TOKEN_GT,           // GT '>'
-    TOKEN_HASH,         // Hash '#'
-    TOKEN_ACCESS,       // ACCESS '->'
-    TOKEN_PIPE,         // Pipe '|'
-    END_OF_FILE         // End of File
-};
 
-typedef struct token_t {
-    char* literal;
+#define TYPE(_type, _typestr) _type,
+typedef enum token_type {
+    TOKEN_TYPE_TABLE
+} token_type;
+#undef TYPE
+
+
+typedef struct token_t{
+    char *literal;
     token_type type;
 } token_t;
 
-typedef struct lexer_t{
+typedef struct lexer_t {
     size_t read_pos;
     size_t pos;
     char ch;
-    char* input;
+    char *input;
 } lexer_t;
 
-char* read_ident(lexer_t* lexer);
-token_type get_type(char* string);
-lexer_t* lexer_init(char* string);
-token_t* lexer_next_token(lexer_t* lexer);
+char *read_ident(lexer_t *lexer);
+token_type get_type(char *string);
+lexer_t *lexer_init(char *string);
+token_t *lexer_next_token(lexer_t *lexer);
 
-void free_token(token_t* tok);
-void free_lexer(lexer_t* lex);
+void free_token(token_t *tok);
+void free_lexer(lexer_t *lex);
+
+const char* token_to_str(token_type type);
 
 #endif

@@ -188,11 +188,20 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_IMM:
         ebpf_emit(code, MOV_IMM(gregs[r0], ir->imm));
         break;
+    case IR_SUB:
+        ebpf_emit(code, ALU(BPF_SUB, gregs[r0], gregs[r2]));
+        break;
     case IR_ADD:
         ebpf_emit(code, ALU(BPF_ADD, gregs[r0], gregs[r2]));
         break;
+    case IR_EQ:
+        ebpf_emit_bool(code, BPF_JEQ, r0, r2);
+        break;
     case IR_MUL:
         ebpf_emit(code, ALU(BPF_MUL, gregs[r0], gregs[r2]));
+        break;
+    case IR_DIV:
+        ebpf_emit(code, ALU(BPF_DIV, gregs[r0], gregs[r2]));
         break;
     case IR_GT:
         ebpf_emit_bool(code, BPF_JGT, r0, r2);

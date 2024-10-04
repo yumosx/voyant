@@ -136,6 +136,10 @@ void free_node(node_t *node) {
         if (node->call.args)
             do_list(node->call.args);
         break;
+    case NODE_DEC:
+        free(node->dec.var);
+        free(node->dec.expr);
+        break;
     case NODE_REC:
         do_list(node->rec.args);
         break;

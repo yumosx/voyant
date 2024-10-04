@@ -163,10 +163,6 @@ void annot_rec(node_t *n, ebpf_t *code) {
 	_foreach(arg, n->rec.args) {
 		get_annot(arg, code);
 		
-		if (arg->type == NODE_MAP) {
-			arg->annot.addr = ebpf_addr_get(arg->map.args, code);
-		}
-		
 		size += arg->annot.size;
 	}
 
@@ -192,6 +188,15 @@ void annot_probe(node_t* probe, ebpf_t* ctx) {
 	probe->probe.traceid = id;
 }
 
+void sym_ref_assign(node_t* node, ebpf_t* code) {
+	node_t* arg;
+	arg = node->map.args;
+
+	symtable_ref(code->st, node);
+	arg->annot.addr = ebpf_addr_get(node, code);
+}
+
+
 void get_annot(node_t *node, ebpf_t *code) {
 	switch (node->type) {
 	case NODE_KPROBE:
@@ -204,8 +209,10 @@ void get_annot(node_t *node, ebpf_t *code) {
 		annot_value(node);
 		break;
 	case NODE_VAR:
-	case NODE_MAP:
 		symtable_ref(code->st, node);
+		break;
+	case NODE_MAP:
+		sym_ref_assign(node, code);
 		break;
 	case NODE_EXPR:
 		annot_expr(node, code);
@@ -298,16 +305,38 @@ void assign_method(node_t* expr, ebpf_t* code) {
 	map->annot.addr = addr;
 }
 
-void loc_assign(node_t *node, ebpf_t *code) {
-	switch (node->annot.type) {
-	case TYPE_DEC:
+void assign_expr(node_t* node, ebpf_t* code) {
+	int op = node->expr.opcode;
+	node_t* left = node->expr.left;
+	node_t* right = node->expr.right;
+
+	switch (op) {
+	case OP_PIPE:
+		assign_method(node, code);
+		return;
+	default:
+		break;
+	}
+
+	if (left->type == NODE_MAP) {
+		left->annot.addr = ebpf_addr_get(left, code);
+	}
+
+	if (right->type == NODE_MAP) {
+		right->annot.addr = ebpf_addr_get(right, code);
+	}
+}
+
+void loc_assign(node_t* node, ebpf_t* code) {
+	switch (node->type) {
+	case NODE_DEC:
 		assign_dec(node, code);
 		break;
-	case TYPE_REC:
+	case NODE_REC:
 		assign_rec(node, code);
 		break;
-	case TYPE_MAP_METHOD:
-		assign_method(node, code);
+	case NODE_EXPR:
+		assign_expr(node, code);
 		break;
 	default:
 		break;

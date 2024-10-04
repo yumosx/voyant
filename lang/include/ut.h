@@ -22,6 +22,7 @@ typedef struct vec_t {
 } vec_t;
 
 extern noreturn void verror(char *fmt, ...);
+extern void error_at(char* input, int loc);
 extern vec_t *vec_new();
 extern void vec_push(vec_t *vec, void *data);
 extern bool vec_contains(vec_t *vec, void *elem);
@@ -34,5 +35,4 @@ extern char *vstr(char *str);
 extern char *str_escape(char *str);
 extern FILE *fopenf(const char *mode, const char *fmt, ...);
 extern char* read_file(char* name);
-extern void print_line(char* buf, char* path, char* pos);
 #endif

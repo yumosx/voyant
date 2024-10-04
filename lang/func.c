@@ -145,6 +145,10 @@ int compile_tid(node_t* n, ebpf_t* e) {
     return compile_rint_func(BPF_FUNC_get_current_pid_tgid, EXTRACT_OP_MASK, e, n);
 }
 
+int compile_ns(node_t* n, ebpf_t* e) {
+	 return compile_rint_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_NONE, e, n);
+}
+
 int compile_sens(node_t* n, ebpf_t* e) {
 	return compile_rint_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
 }
@@ -166,6 +170,7 @@ static builtin_t global_builtins[] = {
 	builtin("pid", annot_rint, compile_pid),
 	builtin("uid", annot_rint, compile_uid),
 	builtin("cpu", annot_rint, compile_cpu),
+	builtin("ns", annot_rint, compile_ns),
 	builtin("secs", annot_rint,  compile_sens),
 	builtin("stack", NULL, compile_stack),
 	builtin("comm", annot_rstr, NULL),

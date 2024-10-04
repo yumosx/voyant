@@ -24,6 +24,25 @@ static void advance(parser_t *parser) {
     parser->next_tok = lexer_next_token(parser->lexer);
 }
 
+static void bad_token(parser_t* parser, token_type type, bool is_next) {
+    char* token, *expect;
+    
+    if (is_next) {
+        token = parser->this_tok->literal;
+        expect = token_to_str(type);
+        
+        verror("Parsing error: expected next token to be [%s], got [%s] instead", expect, token);
+        return;
+    }
+
+    printf("%s %s\n", token, expect);
+    token = parser->this_tok->literal;
+    expect = token_to_str(type);
+
+    verror("Parser error: expected this token to be %s got %s instead %s", expect, token);
+
+}
+
 parser_t *parser_init(lexer_t *lexer) {
     parser_t *parser = vmalloc(sizeof(*parser));
     
@@ -51,6 +70,9 @@ get_token_seq(token_type type) {
     switch (type) {
     case TOKEN_EQ:
         return EQUALS;
+
+    case TOKEN_SUB:
+        return SUM;
     
     case TOKEN_PLUS:
         return SUM;
@@ -58,6 +80,9 @@ get_token_seq(token_type type) {
     case TOKEN_STAR:
         return PRODUCT;
     
+    case TOKEN_SLASH:
+        return PRODUCT;
+
     case LEFT_PAREN:
         return CALL;
     
@@ -93,6 +118,12 @@ static int get_op(token_type type) {
 
     case TOKEN_PLUS:
         return OP_ADD;
+    
+    case TOKEN_SUB:
+        return OP_SUB;
+
+    case TOKEN_SLASH:
+        return OP_DIV;
 
     case TOKEN_PIPE:
         return OP_PIPE;
@@ -287,8 +318,11 @@ node_t *parse_expr(parser_t *p, seq_t s) {
     
     while (!expect(p, TOKEN_SEMICOLON) && s < get_token_seq(p->next_tok->type)) {
         switch (p->next_tok->type) {
+        case TOKEN_SLASH:
+        case TOKEN_EQ:
         case TOKEN_ACCESS:
         case TOKEN_GT:
+        case TOKEN_SUB:
         case TOKEN_PIPE:
         case TOKEN_STAR:
         case TOKEN_PLUS:
@@ -401,22 +435,25 @@ node_t* parse_script(parser_t* parser, char* event) {
         advance(parser);
         return stmts;
     }
-
-    verror("Syntax error: unexpected token %s", name);
 }
 
 char* parse_event(parser_t *parser) {
-    assert(parser->this_tok->type == TOKEN_HASH);
-    
+    if (!current(parser, TOKEN_HASH)) {
+        bad_token(parser, TOKEN_HASH, false);
+        return NULL;
+    }
+
     char* name;
 
     if (!expect_next_token(parser, TOKEN_IDENT)) {
+        bad_token(parser, TOKEN_IDENT, true);
         return NULL;
     }
 
     name = strdup(parser->this_tok->literal);
 
     if (!expect_next_token(parser, TOKEN_SEMICOLON)) {
+        bad_token(parser, TOKEN_SEMICOLON, true);
         return NULL;
     }
 
@@ -429,10 +466,6 @@ node_t* parse_program(parser_t* parser) {
 
     name = parse_event(parser);
     advance(parser);
-    
-    if (!name) {
-        _e("Syntax error: expected event name");
-    }
 
     node = parse_script(parser, name);
     

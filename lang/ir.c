@@ -224,6 +224,8 @@ reg_t* gen_binop(node_t *n) {
     switch (n->expr.opcode) {
     case OP_ADD: 
         return binop(IR_ADD, n);
+    case OP_SUB:
+        return binop(IR_SUB, n);
     case OP_DIV:
         return binop(IR_DIV, n);
     case OP_MUL:
@@ -232,6 +234,8 @@ reg_t* gen_binop(node_t *n) {
         return binop(IR_GT, n);
     case OP_GE:
         return binop(IR_GE, n);
+    case OP_EQ:
+        return binop(IR_EQ, n);
     case OP_ACCESS:
         return arg_read(n);
     default:

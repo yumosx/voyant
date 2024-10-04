@@ -260,6 +260,16 @@ out:
     }
 }
 
+
+const char* token_to_str(token_type type) {
+#define TYPE(_type, _type_str) [_type] = _type_str,
+    static const char* strs[] = {
+        TOKEN_TYPE_TABLE
+    };
+#undef TYPE
+    return strs[type];
+}
+
 void free_token(token_t *tok) {
     if (tok->type != END_OF_FILE) {
         free(tok->literal);

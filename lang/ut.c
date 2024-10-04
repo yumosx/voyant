@@ -15,6 +15,21 @@ noreturn void verror(char *fmt, ...) {
 	exit(1);
 }
 
+void error_at(char* input, int loc) {
+	char* p;
+	int line = 0;
+	int col = 0;
+
+	for (line = 0; line < loc; line++) {
+		col++;
+		if (input[loc] == '\n') {
+			line++;
+			col = 0;
+		}
+	}
+}
+
+
 vec_t *vec_new() {
 	vec_t *vec = vmalloc(sizeof(vec));
 	vec->data = vmalloc(sizeof(void *) * 16);
@@ -128,40 +143,6 @@ char *str_escape(char *str) {
 	if (out < in)
 		*out = '\0';
 	return str;
-}
-
-void print_line(char *buf, char *path, char *pos) {
-	char *start, *p;
-	int line = 0;
-	int col = 0;
-	int linelen = 0;
-	int i = 0;
-
-	start = buf;
-
-	for (p = buf; p; p++) {
-		if (*p == '\n') {
-			start = p + 1;
-			line++;
-			col = 0;
-			continue;
-		}
-
-		if (p != pos) {
-			col++;
-			continue;
-		}
-
-		fprintf(stderr, "error at %s:%d:%d\n\n", path, line + 1, col + 1);
-		linelen = strchr(p, '\n') - start;
-		fprintf(stderr, "%.*s\n", linelen, start);
-
-		for (i = 0; i < col; i++) {
-			fprintf(stderr, (start[i] == '\t') ? "\t" : " ");
-		}
-		fprintf(stderr, "^\n\n");
-		return;
-	}
 }
 
 char *read_file(char *filename) {
