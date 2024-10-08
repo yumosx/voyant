@@ -108,7 +108,7 @@ typedef struct prog_t {
 
 extern reg_t *gen_expr(node_t *n);
 extern void gen_stmt(node_t *n);
-extern void gen_store(node_t *dst, node_t *src);
+extern void dyn_assign(node_t *dst, node_t *src);
 extern int gen_ir(node_t *n);
 extern prog_t *gen_prog(node_t *n);
 extern void compile(prog_t* prog);

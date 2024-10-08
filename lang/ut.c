@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "ut.h"
 
@@ -14,21 +15,6 @@ noreturn void verror(char *fmt, ...) {
 	fprintf(stderr, "\n");
 	exit(1);
 }
-
-void error_at(char* input, int loc) {
-	char* p;
-	int line = 0;
-	int col = 0;
-
-	for (line = 0; line < loc; line++) {
-		col++;
-		if (input[loc] == '\n') {
-			line++;
-			col = 0;
-		}
-	}
-}
-
 
 vec_t *vec_new() {
 	vec_t *vec = vmalloc(sizeof(vec));
@@ -169,4 +155,58 @@ char *read_file(char *filename) {
 
 	fclose(f);
 	return input;
+}
+
+
+void print_bar_ascii(FILE *fp, int64_t count, int64_t max) {
+	int w = (((float)count / (float)max) * 32.0) + 0.5;
+	int i;
+
+	fputc('|', fp);
+
+	for (i = 0; i < 32; i++, w--)
+		fputc((w > 0) ? '@' : ' ', fp);
+
+	fputc('|', fp);
+}
+
+static int quantize_normalize(int log2, char* const** suffix) {
+    static const char* s[] = {NULL, "k", "M", "G", "T", "P", "Z"};
+    int i;
+
+    for (i = 0; log2 >= 10; i++, log2 -= 10);
+    *suffix = s[i];
+
+    return (1 << log2);
+}
+
+void output_hist(FILE* fp, int log2, int64_t count, int64_t max) {
+    int lo, hi;
+    const char* ls, *hs;
+    
+    switch (log2) {
+    case -1:
+        fputs("\t         < 0", fp);
+        break;
+    case 0:
+        fputs("\t           0", fp);
+        break;
+    case 1:
+        fputs("\t           1", fp);
+        break;
+    default:
+        lo = quantize_normalize(log2-1, &ls);
+        hi = quantize_normalize(log2, &hs);
+
+        if (!hs)
+			fprintf(fp, "\t[%4d, %4d]", lo, hi - 1);
+		else
+			fprintf(fp, "\t[%*d%s, %*d%s)",
+				ls ? 3 : 4, lo, ls ? : "",
+				hs ? 3 : 4, hi, hs ? : "");
+    }
+	
+	fprintf(fp, "\t%8" PRId64 " ", count);
+	print_bar_ascii(fp, count, max);
+    fputc('\n', fp);
 }

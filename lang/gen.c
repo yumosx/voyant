@@ -14,6 +14,41 @@ const struct bpf_insn if_else_insn =
 
 int gregs[3] =  {BPF_REG_6, BPF_REG_7, BPF_REG_8}; 
 
+#define LOG2_CMP(_bit)\
+	ebpf_emit(code, JMP_IMM(BPF_JSGE, src, (1<<(_bit)), 1));\
+	ebpf_emit(code, JMP_IMM(BPF_JA, 0, 0, 2));\
+	ebpf_emit(code, ALU_IMM(BPF_ADD, dst, _bit));\
+	ebpf_emit(code, ALU_IMM(BPF_RSH, src, _bit));\
+
+int emit_log2(ebpf_t* code, int dst, int src) {
+	int cmp = BPF_REG_5;
+
+	ebpf_emit(code, MOV_IMM(dst, 0));
+
+	ebpf_emit(code, JMP_IMM(BPF_JSGE, src, 0, 2));
+	ebpf_emit(code, ALU_IMM(BPF_SUB, dst, 1));
+	ebpf_emit(code, JMP_IMM(BPF_JA, 0, 0, 8+5*4));
+
+	ebpf_emit(code, JMP_IMM(BPF_JEQ, src, 0, 7+5*4));
+	
+	ebpf_emit(code, ALU_IMM(BPF_ADD, dst, 1));
+
+	ebpf_emit(code, MOV_IMM(cmp, 1));
+	ebpf_emit(code, ALU_IMM(BPF_LSH, cmp, 32));
+	
+	ebpf_emit(code, JMP(BPF_JSGE, src, cmp, 1));
+	ebpf_emit(code, JMP_IMM(BPF_JA, 0, 0, 2));
+	ebpf_emit(code, ALU_IMM(BPF_ADD, dst, 32));
+	ebpf_emit(code, ALU_IMM(BPF_RSH, src, 32));
+
+	LOG2_CMP(16);
+	LOG2_CMP(8);
+	LOG2_CMP(4);
+	LOG2_CMP(2);
+	LOG2_CMP(1);
+	return 0;
+}
+
 void compile_map_update(ebpf_t* code, node_t* var) {
     ssize_t kaddr, vaddr, size;
     int fd;

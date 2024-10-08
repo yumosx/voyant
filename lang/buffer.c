@@ -251,6 +251,34 @@ void dump(FILE* fp, node_t* n, void* data) {
 	}
 }
 
+void dump_rec(FILE* fp, node_t* rec, void* data, int len) {
+	node_t* first, *varg;
+	int backets = 0;
+
+	first = rec->rec.args;
+	if (!first || !len) 
+		return;
+	
+	if (first->next && (len > 1)) {
+		fputs("[ ", fp);
+		backets = 1;
+	}
+
+	_foreach(varg, first) {
+		if (varg != first)
+			fputs(", ", fp);
+		dump_node(fp, varg, data);
+		data += varg->annot.size;
+
+		if (!(--len))
+			break;
+	}
+
+	if (backets)
+		fputs(" ]", fp);
+}
+
+
 
 void map_dump(node_t* map) {
 	node_t* arg;
@@ -281,7 +309,7 @@ void map_dump(node_t* map) {
 		key += rsize;
 		val += rsize;
 	}
-	printf("\n%s\n", map->name);
+	printf("\n%s\n", map->name, c);
 	for (key = data, val = data+ksize; c > 0; c--) {
 		dump(stdout, arg, key);
 		fputs("\t", stdout);

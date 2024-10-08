@@ -39,7 +39,7 @@ static void bad_token(parser_t* parser, token_type type, bool is_next) {
     token = parser->this_tok->literal;
     expect = token_to_str(type);
 
-    verror("Parser error: expected this token to be %s got %s instead %s", expect, token);
+    verror("Parser error: expected this token to be [%s] got [%s] instead", expect, token);
 
 }
 
@@ -435,6 +435,8 @@ node_t* parse_script(parser_t* parser, char* event) {
         advance(parser);
         return stmts;
     }
+
+    return NULL;
 }
 
 char* parse_event(parser_t *parser) {
@@ -469,10 +471,6 @@ node_t* parse_program(parser_t* parser) {
 
     node = parse_script(parser, name);
     
-    if (!node) {
-        verror("Syntax error: expected program");
-    }
-
     head = node;
     head->name = name;
 

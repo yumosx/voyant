@@ -152,6 +152,39 @@ int bpf_probe_attach(ebpf_t* ctx, int id) {
     return 0;
 }
 
+static int profile_perf_event_open(profile_t* profile, int cpu, int freq) {
+    struct perf_event_attr attr = {};
+    int err = 0, i = profile->num, bd;
+
+    attr.type = PERF_TYPE_SOFTWARE;
+    attr.config = PERF_COUNT_SW_CPU_CLOCK;
+    attr.freq = 1;
+    attr.sample_freq = freq;
+
+    profile->efds[i] = perf_event_open(&attr, -1, cpu, -1, 0);
+
+    if (profile->efds[i] < 0) {
+        return -errno;
+    }
+
+    if (ioctl(profile->efds[i], PERF_EVENT_IOC_ENABLE, 0)) {
+        close(profile->efds[i]);
+        return -errno;
+    }
+
+    profile->num++;
+    return 0;
+}
+
+void profile_attach(ebpf_t* code) {
+    int ncpus;
+    profile_t* profile;
+
+    ncpus = sysconf(_SC_NPROCESSORS_ONLN);
+    profile = vcalloc(1, sizeof(*profile));
+}
+
+
 type_t get_filed_type(char* name, unsigned long size, unsigned long sign) {
     int s = 1;
 
@@ -162,7 +195,6 @@ type_t get_filed_type(char* name, unsigned long size, unsigned long sign) {
     } else{
 		s = 0;
     }
-
 
     if (!strcmp(name, "int") || !strcmp(name, "long")) {
         return TYPE_INT;

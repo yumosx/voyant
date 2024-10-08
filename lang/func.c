@@ -153,6 +153,10 @@ int compile_sens(node_t* n, ebpf_t* e) {
 	return compile_rint_func(BPF_FUNC_ktime_get_ns, EXTRACT_OP_DIV_1G, e, n);
 }
 
+int compile_bns(node_t* n, ebpf_t* e) {
+	return compile_rint_func(BPF_FUNC_ktime_get_boot_ns, EXTRACT_OP_NONE, e, n);
+}
+
 int compile_cpu(node_t* n, ebpf_t* e) {
 	return compile_rint_func(BPF_FUNC_get_smp_processor_id, EXTRACT_OP_NONE, e, n);
 }
@@ -172,7 +176,8 @@ static builtin_t global_builtins[] = {
 	builtin("cpu", annot_rint, compile_cpu),
 	builtin("ns", annot_rint, compile_ns),
 	builtin("secs", annot_rint,  compile_sens),
-	builtin("stack", NULL, compile_stack),
+	builtin("bns", annot_rint, compile_bns),
+	builtin("log", annot_rint, NULL),
 	builtin("comm", annot_rstr, NULL),
 	builtin("out", annot_out, NULL),
 	builtin("strcmp", annot_strcmp, NULL),

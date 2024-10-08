@@ -292,7 +292,7 @@ void direct_to_stack(node_t* dst, node_t* src) {
     }
 }
 
-void gen_store(node_t* dst, node_t* src) {
+void dyn_assign(node_t* dst, node_t* src) {
     switch (dst->annot.type) {
     case TYPE_INT:
         reg_to_stack(dst, src);
@@ -387,11 +387,11 @@ void gen_dec(node_t *dec) {
     switch (var->type) {
     case NODE_MAP:
         dyn_args(var->map.args);
-        gen_store(var, expr);
+        dyn_assign(var, expr);
         map_update(var);
         break;
     case NODE_VAR:
-        gen_store(var, expr);
+        dyn_assign(var, expr);
         break;
     default:
         break;
