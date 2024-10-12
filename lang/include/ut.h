@@ -15,6 +15,12 @@
 #define _e(_fmt, ...) \
 	fprintf(stderr, "ERR %-20s: " _fmt "\n", __func__, ##__VA_ARGS__)
 
+
+static inline void* ERR_PTR(long error_){
+    return (void*) error_;
+}
+
+
 typedef struct vec_t {
     int len;
     int cap;

@@ -205,6 +205,10 @@ type_t get_filed_type(char* name, unsigned long size, unsigned long sign) {
     }
 }
 
+int arch_reg_width(void) {
+    return sizeof(uint64_t);
+}
+
 int bpf_read_field(field_t* field) {
     FILE* fmt;
     unsigned long offs, size, sign, len = 0;
@@ -341,4 +345,63 @@ int perf_event_enable(int id) {
         return -1;
     }
     return 0;
+}
+
+btf_t* btf_parse_raw(const char* path) {
+    struct btf* btf = NULL;
+    void* data = NULL;
+    FILE* file = NULL;
+    __u16 magic;
+    int err = 0;
+    long sz;
+
+    file = fopen(path, "rbe");
+    if (!file) {
+        err = -errno;
+        goto err_out;
+    }
+
+    if (fread(&magic, 1, sizeof(magic), file) < sizeof(magic)) {
+        err = -EIO;
+        goto err_out;
+    }
+
+    if (magic != BTF_MAGIC) {
+        err = -EPROTO;
+        goto err_out;
+    }
+
+    if (fseek(file, 0, SEEK_END)) {
+        err = -errno;
+        goto err_out;
+    }
+
+    sz = ftell(file);
+    if (sz < 0) {
+        err = -errno;
+        goto err_out;
+    }
+
+    if (fseek(file, 0, SEEK_SET)) {
+        err = -errno;
+        goto err_out;
+    }
+
+    data = malloc(sz);
+    if (!data) {
+        err = -ENOMEM;
+        goto err_out;
+    }
+
+    if (fread(data, 1, sz, file) < sz) {
+        err = -EIO;
+        goto err_out;
+    }
+
+err_out:
+    free(data);
+    if (file) {
+        fclose(file);
+    }
+    return err ? ERR_PTR(err) : btf;
 }

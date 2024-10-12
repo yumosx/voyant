@@ -55,33 +55,33 @@ static ir_t* ir_exit() {
     return ir;
 }
 
-static ir_t *if_then() {
+static ir_t* if_then() {
     ir_t *ir = ir_new(IR_IF_THEN);
     return ir;
 }
 
-static ir_t *then_end() {
+static ir_t* then_end() {
     ir_t *ir = ir_new(IR_IF_END);
     return ir;
 }
 
-static ir_t *else_then() {
+static ir_t* else_then() {
     ir_t *ir = ir_new(IR_ELSE_THEN);
     return ir;
 }
 
-static ir_t *else_end() {
+static ir_t* else_end() {
     ir_t *ir = ir_new(IR_ELSE_END);
     return ir;
 }
 
-static ir_t *map_update(node_t *map) {
+static ir_t* map_update(node_t *map) {
     ir_t *ir = ir_new(IR_MAP_UPDATE);
     ir->value = map;
     return ir;
 }
 
-static ir_t *map_look(node_t* map) {
+static ir_t* map_look(node_t* map) {
     ir_t* ir = ir_new(IR_MAP_LOOK);
     ir->value = map;
     return ir;

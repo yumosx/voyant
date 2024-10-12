@@ -267,7 +267,7 @@ void dump_rec(FILE* fp, node_t* rec, void* data, int len) {
 	_foreach(varg, first) {
 		if (varg != first)
 			fputs(", ", fp);
-		dump_node(fp, varg, data);
+		dump(fp, varg, data);
 		data += varg->annot.size;
 
 		if (!(--len))
@@ -278,7 +278,33 @@ void dump_rec(FILE* fp, node_t* rec, void* data, int len) {
 		fputs(" ]", fp);
 }
 
+int cmp_node(node_t* node, const void* a, const void* b) {
+	node_t* arg;
 
+	switch (node->annot.type) {
+	case TYPE_INT:
+		break;
+	case TYPE_REC:
+		break;
+	default:
+		break;
+	}
+}
+
+
+void cmp_map(const void* ak, const void* bk, void* _map) {
+	node_t* map = _map;
+	node_t* rec = map->map.args;
+	const void* av = ak + rec->annot.size;
+	const void* bv = bk + rec->annot.size;
+	int cmp;
+
+	cmp = cmp_node(rec, ak, bk);
+	if (cmp)
+		return cmp_node(rec, ak, bk);
+
+	return cmp_node(map. av, bv);
+}
 
 void map_dump(node_t* map) {
 	node_t* arg;
@@ -309,6 +335,9 @@ void map_dump(node_t* map) {
 		key += rsize;
 		val += rsize;
 	}
+	
+	qsort_r(data, c, rsize, cmp_map, map);
+	
 	printf("\n%s\n", map->name, c);
 	for (key = data, val = data+ksize; c > 0; c--) {
 		dump(stdout, arg, key);

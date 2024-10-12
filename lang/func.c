@@ -195,13 +195,27 @@ int global_annot(node_t* n) {
     return -1;
 }
 
-int global_compile(node_t* n, ebpf_t* e, type_t type) {
+int global_compile(node_t* n, ebpf_t* code, type_t type) {
 	builtin_t* bi;
 
 	for (bi = global_builtins; bi->name; bi++) {
 		if (vstreq(bi->name, n->name))
-			return bi->compile(n, e);
+			return bi->compile(n, code);
 	}
 
 	return -1;
+}
+
+static int annot_hist(node_t* node) {
+	node_t* map = node->expr.left;
+	node_t* method = node->expr.right;
+}
+
+static builtin_t global_methods[] = {
+	builtin("count", annot_hist, NULL),
+	builtin("hist", annot_hist, NULL),
+};
+
+int global_method(node_t* map) {
+	return 0;
 }
