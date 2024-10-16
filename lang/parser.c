@@ -97,7 +97,10 @@ get_token_seq(token_type type) {
     
     case TOKEN_PIPE:
         return PIPE;
-    
+
+    case TOKEN_LE:
+    case TOKEN_LT:
+    case TOKEN_GE: 
     case TOKEN_GT:
         return LESSGREATERA;
     
@@ -128,8 +131,17 @@ static int get_op(token_type type) {
     case TOKEN_PIPE:
         return OP_PIPE;
 
+    case TOKEN_GE:
+        return OP_GE;
+
     case TOKEN_GT:
         return OP_GT;
+
+    case TOKEN_LT:
+        return OP_LT;
+
+    case TOKEN_LE:
+        return OP_LE;
 
     case TOKEN_EQ:
         return OP_EQ;
@@ -321,7 +333,10 @@ node_t *parse_expr(parser_t *p, seq_t s) {
         case TOKEN_SLASH:
         case TOKEN_EQ:
         case TOKEN_ACCESS:
+        case TOKEN_GE:
         case TOKEN_GT:
+        case TOKEN_LE:
+        case TOKEN_LT:
         case TOKEN_SUB:
         case TOKEN_PIPE:
         case TOKEN_STAR:

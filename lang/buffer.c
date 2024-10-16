@@ -303,7 +303,7 @@ void cmp_map(const void* ak, const void* bk, void* _map) {
 	if (cmp)
 		return cmp_node(rec, ak, bk);
 
-	return cmp_node(map. av, bv);
+	return cmp_node(map, av, bv);
 }
 
 void map_dump(node_t* map) {

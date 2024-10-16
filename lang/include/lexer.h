@@ -33,7 +33,10 @@
     TYPE(TOKEN_PLUS, "Plus")             \
     TYPE(TOKEN_STAR, "Star")             \
     TYPE(TOKEN_SUB, "Sub")               \
-    TYPE(TOKEN_GT, "Gt")                 \
+    TYPE(TOKEN_GE, "Ge")                 \
+    TYPE(TOKEN_GT, "Gt")                \
+    TYPE(TOKEN_LT, "Lt")                \
+    TYPE(TOKEN_LE, "Le")                \
     TYPE(TOKEN_HASH, "Hash")             \
     TYPE(TOKEN_ACCESS, "Access")         \
     TYPE(TOKEN_PIPE, "Pipe")             \

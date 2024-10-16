@@ -42,6 +42,8 @@ typedef enum op_t{
     OP_EQ,
     OP_GT,
     OP_GE,
+    OP_LT,
+    OP_LE,
     OP_NE,
     OP_JSGT,
     OP_JA,

@@ -234,6 +234,10 @@ reg_t* gen_binop(node_t *n) {
         return binop(IR_GT, n);
     case OP_GE:
         return binop(IR_GE, n);
+    case OP_LT:
+        return binop(IR_LT, n);
+    case OP_LE:
+        return binop(IR_LE, n);
     case OP_EQ:
         return binop(IR_EQ, n);
     case OP_ACCESS:

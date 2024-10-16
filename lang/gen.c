@@ -241,6 +241,15 @@ void compile_ir(ir_t* ir, ebpf_t* code) {
     case IR_GT:
         ebpf_emit_bool(code, BPF_JGT, r0, r2);
         break;
+    case IR_GE:
+        ebpf_emit_bool(code, BPF_JGE, r0, r2);
+        break;
+    case IR_LT:
+        ebpf_emit_bool(code, BPF_JGT, r2, r0);
+        break;
+    case IR_LE:
+        ebpf_emit_bool(code, BPF_JGE, r2, r0);
+        break;
     case IR_COPY:
         copy_data(code, ir);
         break;
