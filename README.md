@@ -32,7 +32,7 @@ Currently, our DSL supports two types of mounting targets: one is kernel functio
 ### tracepoint
 
 ```c
-#[syscalls];  <-----event name
+#[syscalls];  //<-----event name
 
 probe [tracepoint] {
     ....
@@ -42,7 +42,7 @@ probe [tracepoint] {
 ### kprobe
 
 ```c
-#kprobe;    <-----kprobe string
+#kprobe;    //<-----kprobe string
 
 probe [kprobe] {
     ...
@@ -73,6 +73,22 @@ probe sys_enter_execve {
     out("%d\n", a);
 }
 ```
+
+### operator
+
+```c
+#syscalls;
+
+probe sys_enter_execve{
+    a := 4 * 2;
+    b := 4 + 2;
+    c := 4 - 2;
+    d := 4 / 2;
+
+    out("a:%d b:%d c:%d d:%d\n", a, b, c, d);
+}
+```
+
 
 ### helper function
 
@@ -163,7 +179,7 @@ Our DSL also supports simple if statements, and it will later support correspond
 #syscalls;
 
 probe sys_enter_execve {
-    if (cpu() > 0) {
+    if (cpu() >= 0) {
         out("on cpu %d", cpu());
     }
 }

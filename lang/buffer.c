@@ -291,7 +291,6 @@ int cmp_node(node_t* node, const void* a, const void* b) {
 	}
 }
 
-
 void cmp_map(const void* ak, const void* bk, void* _map) {
 	node_t* map = _map;
 	node_t* rec = map->map.args;

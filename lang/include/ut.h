@@ -8,18 +8,39 @@
 
 #define _size(arr) (sizeof(arr) / sizeof((arr)[0]))
 #define _foreach(_n, _in) for ((_n) = (_in); (_n); (_n) = (_n)->next)
+#define __printf(a, b)	__attribute__((format(printf, a, b)))
 
 #define _d(_fmt, ...)\
     fprintf(stderr, "DBG %-20s: " _fmt "\n", __func__, ##__VA_ARGS__);
 
 #define _e(_fmt, ...) \
-	fprintf(stderr, "ERR %-20s: " _fmt "\n", __func__, ##__VA_ARGS__)
+	fprintf(stderr, "ERR %-20s: " _fmt "\n", __func__, ##__VA_ARGS__);
 
 
-static inline void* ERR_PTR(long error_){
+#define __pr(_level, _fmt, ...)\
+do{\
+    ut_print(_level, "voyant: " _fmt, ##__VA_ARGS__);\
+}while(0)
+
+#define _pr_warn(_fmt, ...) __pr(PRINT_WARN, _fmt,  ##__VA_ARGS__)
+#define _pr_info(_fmt, ...)  __pr(PRINT_INFO, _fmt,  ##__VA_ARGS__)
+#define _pr_debug(_fmt, ...) __pr(PRINT_DEBUG, _fmt,  ##__VA_ARGS__)
+
+static inline void* ERR_PTR(long error_) {
     return (void*) error_;
 }
 
+static inline long PTR_ERR(const void* ptr) {
+    return (long) ptr;
+}
+
+enum print_level {
+    PRINT_WARN,
+    PRINT_INFO,
+    PRINT_DEBUG,
+};
+
+typedef int(*ut_print_fn_t)(enum print_level level, const char*, va_list ap);
 
 typedef struct vec_t {
     int len;

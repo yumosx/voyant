@@ -405,3 +405,44 @@ err_out:
     }
     return err ? ERR_PTR(err) : btf;
 }
+
+__u32 btf__type_cnt(const btf_t* btf) {
+    return btf->start_id + btf->nr_types;
+}
+
+static btf_t* btf_new(const void* data, __u32 size, btf_t* base_btf) {
+    btf_t* btf;
+    int err;
+
+    btf = calloc(1, sizeof(struct btf_t));
+    if (!btf)
+        return ERR_PTR(-ENOMEM);
+
+    btf->nr_types = 0;
+    btf->start_id = 1;
+    btf->start_str_off = 0;
+    btf->fd = -1;
+
+    if (base_btf) {
+        btf->base_btf = base_btf;
+        btf->start_id = btf__type_cnt(base_btf);
+        btf->start_str_off = base_btf->hdr->str_len;
+    }
+
+    btf->raw_data = malloc(size);
+    if (!btf->raw_data) {
+        err = -ENOMEM;
+        goto done;
+    }
+done:
+    if (err) {
+        //btf__free(btf);
+        return ERR_PTR(err);
+    }
+
+    return btf;
+}
+
+btf_t* btf_load_vmlinux(const char* path) {
+    const char* sysfs_btf_path = "sys/kernel/btf/vmlinux";
+}

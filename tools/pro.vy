@@ -1,5 +1,6 @@
 #syscalls;
 
 probe sys_exit_execve {
-    exec[args->ret] |> count();
+    a := 1+ 2;
+    out("%d\n", a);
 }

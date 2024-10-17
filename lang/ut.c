@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <errno.h>
 #include <inttypes.h>
 
 #include "ut.h"
@@ -30,6 +31,17 @@ void vec_push(vec_t *vec, void *elem) {
 		vec->data = realloc(vec->data, sizeof(void *) * vec->cap);
 	}
 	vec->data[vec->len++] = elem;
+}
+
+void vec_free(vec_t* vec) {
+	int i;
+	
+	for (i = 0; i < vec->len; i++) {
+		free(vec->data[i]);
+	}
+
+	free(vec->data);
+	free(vec);
 }
 
 bool vec_contains(vec_t *vec, void *elem) {
@@ -209,4 +221,70 @@ void output_hist(FILE* fp, int log2, int64_t count, int64_t max) {
 	fprintf(fp, "\t%8" PRId64 " ", count);
 	print_bar_ascii(fp, count, max);
     fputc('\n', fp);
+}
+
+static int base_pr(enum print_level level, const char* format, va_list args) {
+	const char* env_var = "VY_LOG_LEVEL";
+	static enum print_level min_level = PRINT_INFO;
+	static bool initialized;
+
+	if (!initialized) {
+		char* verbosity;
+
+		initialized = true;
+		verbosity = getenv(env_var);
+		if (verbosity) {
+			if (strcasecmp(verbosity, "warn") == 0) {
+				min_level = PRINT_WARN;
+			} else if (strcasecmp(verbosity, "debug") == 0) {
+				min_level = PRINT_DEBUG;
+			} else if (strcasecmp(verbosity, "info") == 0) {
+				min_level = PRINT_INFO;
+			} else {
+				fprintf(stderr, "voyant: unrecognized '%s' envvar value: '%s', should be one of 'warn', 'debug', or 'info'.\n",
+					env_var, verbosity);
+			}
+		}
+	}
+
+	if (level > min_level) {
+		return 0;
+	}
+
+	return vfprintf(stderr, format, args);
+}
+
+static ut_print_fn_t __vy_pr = base_pr;
+
+__printf(2, 3)
+void ut_print(enum print_level level, const char* format, ...) {
+	va_list args;
+	int old_errno;
+	ut_print_fn_t print_fn;
+
+	print_fn = __atomic_load_n(&__vy_pr, __ATOMIC_RELAXED);
+	if (!print_fn)
+		return;
+	
+	old_errno = errno;
+	va_start(args, format);
+	__vy_pr(level, format, args);
+	va_end(args);
+
+	errno = old_errno;
+}
+
+char* ut_strerror_r(int err, char* dst, int len) {
+	int ret = strerror_r(err < 0 ? -err : err, dst, len);
+	if (ret == -1)
+		ret = errno;
+	
+	if (ret) {
+		if (ret == EINVAL)
+			snprintf(dst, len, "unknown error (%d)", err < 0 ? err : -err);
+		else
+			snprintf(dst, len, "ERROR: strerror_r(%d)=%d", err, ret);
+		}
+
+	return dst;
 }

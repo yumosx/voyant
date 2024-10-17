@@ -122,12 +122,6 @@ token_t* lexer_next_token(lexer_t *lexer) {
         token->literal = strdup(",");
         read_char(lexer);
         return token;
-
-    case '/':
-        token->type = TOKEN_SLASH;
-        token->literal = strdup("/");
-        read_char(lexer);
-        return token;
     
     case '(':
         token->type = LEFT_PAREN;
@@ -188,7 +182,22 @@ token_t* lexer_next_token(lexer_t *lexer) {
         token->literal = strdup("#");
         read_char(lexer);
         return token;
-    
+
+    case '/':
+        if (lexer->input[lexer->read_pos] == '/') {
+            while (lexer->input[lexer->pos] != '\n') {
+                read_char(lexer);
+            }
+            
+            return lexer_next_token(lexer);
+        }
+        
+        token->type = TOKEN_SLASH;
+        token->literal = strdup("/");
+        read_char(lexer);
+        return token;
+
+
     case '<':
         if (lexer->input[lexer->read_pos] == '=') {
             token->type = TOKEN_LE;
