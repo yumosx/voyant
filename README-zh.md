@@ -24,6 +24,14 @@ make
 ./voyant main.y
 ```
 
+### 前置检查
+```shell
+#检查时候有vmlinux
+ls -la /sys/kernel/btf/vmlinux
+```
+
+
+
 ### tracepoint
 
 目前我们程序只支持挂载到内核的跟踪程序上, 这是因为选择跟踪点挂载程序更加的稳定

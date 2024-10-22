@@ -17,6 +17,18 @@ noreturn void verror(char *fmt, ...) {
 	exit(1);
 }
 
+long get_error(const void* ptr) {
+	if (!IS_ERR_OR_NULL(ptr)) {
+		return 0;
+	}
+
+	if (IS_ERR(ptr)) {
+		errno = -PTR_ERR(ptr);
+	}
+
+	return -errno;
+}
+
 vec_t *vec_new() {
 	vec_t *vec = vmalloc(sizeof(vec));
 	vec->data = vmalloc(sizeof(void *) * 16);
@@ -287,4 +299,38 @@ char* ut_strerror_r(int err, char* dst, int len) {
 		}
 
 	return dst;
+}
+
+
+void *ut_add_mem(void **data, size_t *cap_cnt, size_t elem_sz,
+		     size_t cur_cnt, size_t max_cnt, size_t add_cnt)
+{
+	size_t new_cnt;
+	void *new_data;
+
+	if (cur_cnt + add_cnt <= *cap_cnt)
+		return *data + cur_cnt * elem_sz;
+	
+	if (cur_cnt + add_cnt > max_cnt)
+		return NULL;
+
+	new_cnt = *cap_cnt;
+	new_cnt += new_cnt / 4;		  /* expand by 25% */
+	if (new_cnt < 16)		  /* but at least 16 elements */
+		new_cnt = 16;
+	if (new_cnt > max_cnt)		  /* but not exceeding a set limit */
+		new_cnt = max_cnt;
+	if (new_cnt < cur_cnt + add_cnt)  /* also ensure we have enough memory */
+		new_cnt = cur_cnt + add_cnt;
+
+	new_data =  ut_reallocarray(*data, new_cnt, elem_sz);
+	if (!new_data)
+		return NULL;
+
+	/* zero out newly allocated portion of memory */
+	memset(new_data + (*cap_cnt) * elem_sz, 0, (new_cnt - *cap_cnt) * elem_sz);
+
+	*data = new_data;
+	*cap_cnt = new_cnt;
+	return new_data + cur_cnt * elem_sz;
 }

@@ -80,7 +80,7 @@ void run(node_t* node) {
     print_map(st);
 }
 
-int main(int argc, char **argv) {
+int main_(int argc, char **argv) {
     char* filename, *input;
     lexer_t* lexer;
     parser_t* parser;
