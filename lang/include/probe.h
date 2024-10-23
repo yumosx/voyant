@@ -12,6 +12,8 @@ typedef struct profile {
 #define BTF_MAX_NR_TYPES 0x7fffffffU
 #define BTF_MAX_STR_OFFSET 0x7fffffffU
 
+static struct btf_type btf_void;
+
 typedef struct btf_t{
     void* raw_data;
     void* raw_data_swapped;
@@ -82,4 +84,5 @@ extern int bpf_get_kprobe_id(char* name);
 extern int bpf_probe_attach(ebpf_t* e, int id);
 extern int bpf_kprobe_attach(ebpf_t* ctx, int id);
 extern btf_t* btf_load_vmlinux();
+extern int btf_get_field_off(const char *struct_name, const char *field_name);
 #endif

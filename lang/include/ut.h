@@ -61,6 +61,12 @@ static inline void* ut_ptr(void* ret) {
     return IS_ERR(ret) ? NULL : ret;
 }
 
+static inline int libbpf_err(int ret) {
+    if (ret < 0)
+        errno = -ret;
+    
+    return ret;
+}
 
 static inline void *ut_reallocarray(void *ptr, size_t nmemb, size_t size) {
 	size_t total;

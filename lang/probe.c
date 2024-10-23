@@ -745,7 +745,6 @@ static btf_t* btf_parse(const char* path) {
         return ERR_PTR(err);
 }
 
-
 static struct btf_t* vy_btf__parse(const char* path) {
     return ut_err(btf_parse(path));
 }
@@ -772,4 +771,107 @@ btf_t* btf_load_vmlinux() {
 		_pr_debug("loaded kernel BTF from '%s'\n", sysfs_btf_path);
 		return btf;
 	}
+}
+
+
+struct btf_type* btf_type_by_id(const btf_t* btf, __u32 type_id) {
+    if (type_id == 0)
+        return ;
+    if (type_id < btf->start_id)
+        return btf_type_by_id(btf->base_btf, type_id);
+    
+    return btf->types_data + btf->type_offs[type_id-btf->start_id]; 
+}
+
+const struct btf_type* btf__type_by_id(btf_t* btf, __u32 type_id) {
+    if (type_id >= btf->start_id + btf->nr_types)
+        return errno = EINVAL, NULL;
+    
+    return btf_type_by_id(btf, type_id);
+}
+
+static const void* btf_strs_data(const btf_t* btf)
+{
+    return btf->strs_data ? btf->strs_data : NULL;
+}
+
+
+const char* btf__str_by_offset(const btf_t* btf, __u32 offset) {
+    if (offset < btf->start_str_off) {
+        return btf__str_by_offset(btf->base_btf, offset);   
+    } else if (offset - btf->start_str_off < btf->hdr->str_len) {
+        return btf_strs_data(btf) + (offset - btf->start_str_off);
+    } else {
+        return errno = EINVAL, NULL;
+    }
+}
+
+const char* btf__name_by_offset(const btf_t* btf, __u32 offset) {
+    return btf__str_by_offset(btf, offset);
+}
+
+static __s32 btf_find_by_name_kind(
+    const struct btf* btf, int start_id, const char* type_name, __u32 kind) 
+{
+    __u32 i, nr_types = btf__type_cnt(btf);
+    if (kind == BTF_KIND_UNKN || !strcmp(type_name, "void")) {
+        return 0;
+    }
+
+    for (i = start_id; i < nr_types; i++) {
+        const struct btf_type* type = btf__type_by_id(btf, i);
+        const char* name;
+
+        if (btf_kind(type) != kind) {
+            continue;
+        }
+
+        name = btf__name_by_offset(btf, type->name_off);
+        
+        if (name && !strcmp(type_name, name))
+            return i;
+    }
+
+    return libbpf_err(-ENOENT);
+}
+
+__s32 btf__find_by_name_kind(const struct btf *btf, const char *type_name, __u32 kind) {
+	return btf_find_by_name_kind(btf, 1, type_name, kind);
+}
+
+int btf_get_field_off(const char *struct_name, const char *field_name) {
+    int offset = -1;
+    int struct_id;
+    struct btf_member *member;
+    const struct btf_type *type;
+    btf_t* btf;
+
+    btf = btf_load_vmlinux();
+
+    struct_id = btf__find_by_name_kind(btf, struct_name, BTF_KIND_STRUCT);
+    if (struct_id < 0) {
+        verror("can't find structure %s", struct_name);
+    }
+    type = btf__type_by_id(btf, struct_id);
+    if (!type)
+        verror("can t get btf_type for %s", struct_name);
+
+    member = (struct btf_member *)(type + 1);
+    for (size_t i = 0; i < BTF_INFO_VLEN(type->info); ++i, ++member) {
+        const char *cur_name = btf__name_by_offset(btf, member->name_off);
+        if (!cur_name || !vstreq(cur_name, field_name))
+            continue;
+
+        if (BTF_INFO_KFLAG(type->info))
+            offset = BTF_MEMBER_BIT_OFFSET(member->offset);
+        else
+            offset = member->offset;
+
+        break;
+    }
+
+    if (offset < 0 || offset % 8)
+        return -ENOENT;
+
+    return offset / 8;
 }
