@@ -218,7 +218,6 @@ int bpf_read_field(field_t* field) {
     unsigned long offs, size, sign, len = 0;
     char line[0x80];
 
-
     fmt = fopenf("r", "/sys/kernel/debug/tracing/events/%s/format", field->name); 
 
     if (!fmt) {

@@ -80,7 +80,7 @@ void run(node_t* node) {
     print_map(st);
 }
 
-int main_(int argc, char **argv) {
+int main(int argc, char **argv) {
     char* filename, *input;
     lexer_t* lexer;
     parser_t* parser;
@@ -108,11 +108,5 @@ int main_(int argc, char **argv) {
    
     run(node);
     _free(node);
-    return 0;
-}
-
-int main() {
-    int off = btf_get_field_off("task_struct", "tgid");
-    _d("%d\n", off);
     return 0;
 }
