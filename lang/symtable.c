@@ -86,6 +86,7 @@ void var_dec(symtable_t* st, node_t* var) {
     sym_t* sym;
 
     name = var->name;
+    
     sym = symtable_get(st, name);
     
     if (sym) {

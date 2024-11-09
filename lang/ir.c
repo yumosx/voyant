@@ -156,6 +156,11 @@ static reg_t* arg_read(node_t* expr) {
     return ir->r0;
 }
 
+static ir_t* ir_struct(node_t* expr, node_t* dst) {
+    ir_t* ir = ir_new(IR_CAST);
+    ir->value = expr;
+    return ir;
+}
 
 ir_t *store(node_t *dst, reg_t *src) {
     ir_t *ir;
@@ -304,6 +309,9 @@ void dyn_assign(node_t* dst, node_t* src) {
     case TYPE_STR:
         direct_to_stack(dst, src);
         break; 
+    case TYPE_CAST:
+        ir_struct(dst, src);
+        break;
     default:
         break;
     }

@@ -75,6 +75,13 @@ node_t *node_unroll_new(size_t count, node_t *stmts) {
     return n;
 }
 
+node_t* node_cast_new(char* name, char* value) {
+    node_t* n = node_new(NODE_CAST);
+    n->cast.name = name;
+    n->cast.value = value;
+    return n;
+}
+
 node_t *node_dec_new(node_t *var, node_t *expr) {
     node_t *n = node_new(NODE_DEC);
 

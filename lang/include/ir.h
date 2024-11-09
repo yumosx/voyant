@@ -44,6 +44,7 @@ enum{
     IR_ARG,
     IR_COPY,
     IR_READ,
+    IR_CAST,
     IR_PUSH,
     IR_STW,
     IR_LOAD_SPILL,

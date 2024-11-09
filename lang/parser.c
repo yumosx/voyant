@@ -170,8 +170,21 @@ static node_t* parse_dec(parser_t *parser, node_t *var) {
     int seq;
 
     seq = get_token_seq(parser->this_tok->type);
-    advance(parser);
-    expr = parse_expr(parser, seq);
+    
+    if (expect_next_token(parser, LEFT_PAREN)) {
+        advance(parser);
+        char* name = vstr(parser->this_tok->literal);
+
+        advance(parser);
+        advance(parser);
+        advance(parser);
+
+        char* arg_name = vstr(parser->this_tok->literal);
+        expr = node_cast_new(name, arg_name);
+    } else {
+        advance(parser);
+        expr = parse_expr(parser, seq);
+    }
 
     return node_dec_new(var, expr);
 }
@@ -182,8 +195,9 @@ node_t* parse_assign(parser_t *parser, node_t *left) {
 
     seq = get_token_seq(parser->this_tok->type);
     advance(parser);
+    
     right = parse_expr(parser, seq);
-
+    
     return node_assign_new(left, right);
 }
 

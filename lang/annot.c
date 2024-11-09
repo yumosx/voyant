@@ -132,6 +132,32 @@ void annot_probe_args(node_t* expr, ebpf_t* ctx) {
 	}
 }
 
+static inline int is_arg(const char* name) {
+	return (strstr(name, "arg") == name) 
+		&& (strlen(name) == 4)
+		&& (name[3] >= '0' && name[3] <= 9);
+}
+
+void annot_cast(node_t* expr, ebpf_t* ctx) {
+	size_t size;
+	char* arg, name;
+	int num;
+
+	arg = expr->cast.value;
+	num = arg[3];
+
+	expr->annot.size = 0;
+	expr->annot.type = TYPE_CAST;
+	expr->annot.offs = num - '0';
+}
+
+void annot_struct_filed(node_t* expr, ebpf_t* ctx) {
+	//exp: oc->filename
+	sym_t* sym;
+
+	sym = symtable_get(ctx->st, expr->expr.left->name);
+}
+
 void annot_expr(node_t* expr, ebpf_t* ctx) {
 	node_t* left, *right;
 	int opcode;
@@ -219,6 +245,10 @@ void get_annot(node_t *node, ebpf_t *code) {
 		break;
 	case NODE_DEC:
 		annot_dec(node, code);
+		break;
+	case NODE_CAST:
+		annot_cast(node, code);
+		_d("%d\n", node->annot.type == TYPE_CAST);
 		break;
 	case NODE_REC:
 		annot_rec(node, code);

@@ -22,6 +22,7 @@ typedef struct smap_t{
 typedef struct sym {
     sym_type type;
     const char *name;
+    const char  *cast;
     annot_t vannot;
 
     union{

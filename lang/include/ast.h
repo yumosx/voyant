@@ -25,6 +25,7 @@ typedef enum node_type{
     NODE_CALL,
     NODE_STR,
     NODE_INT,
+    NODE_CAST,
 } node_type;
 
 typedef struct node_t node_t;
@@ -108,6 +109,7 @@ typedef enum type_t {
     TYPE_ASSIGN,
     TYPE_CALL,
     TYPE_STR,
+    TYPE_CAST,
     TYPE_INT,
     TYPE_MAP_METHOD,
     TYPE_NULL,
@@ -132,6 +134,10 @@ typedef struct field_t{
     size_t offs;
 } field_t;
 
+typedef struct cast_t{
+    char* name, *value;
+} cast_t;
+
 struct node_t {
     char *name;
     node_type type;
@@ -147,6 +153,7 @@ struct node_t {
         call_t call;
         map_t map;
         rec_t rec;
+        cast_t cast;
         assign_t assign;
         size_t integer;
     };
@@ -168,6 +175,7 @@ extern node_t *node_unroll_new(size_t count, node_t *stmts);
 extern node_t *node_rec_new(node_t *args);
 extern node_t *node_assign_new(node_t *left, node_t *expr);
 extern node_t *node_dec_new(node_t *var, node_t *expr);
+extern node_t *node_cast_new(char* name, char* value);
 extern void free_node(node_t* node);
 
 #endif

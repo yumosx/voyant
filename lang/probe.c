@@ -209,10 +209,6 @@ type_t get_filed_type(char* name, unsigned long size, unsigned long sign) {
     }
 }
 
-int arch_reg_width(void) {
-    return sizeof(uint64_t);
-}
-
 int bpf_read_field(field_t* field) {
     FILE* fmt;
     unsigned long offs, size, sign, len = 0;
@@ -267,6 +263,60 @@ int bpf_read_field(field_t* field) {
     }
 
     return 0;
+}
+
+
+const char *reg_names[] = {
+	"r15",
+	"r14",
+	"r13",
+	"r12",
+	"bp",
+	"bx",
+	"r11",
+	"r10",
+	"r9",
+	"r8",
+	"ax",
+	"cx",
+	"dx",
+	"si",
+	"di",
+	"orig_ax",
+	"ip",
+	"cs",
+	"flags",
+	"sp",
+	"ss",
+	NULL
+};
+
+int arch_reg_width(void) {
+    return sizeof(uint64_t);
+}
+
+int arch_reg_atoi(const char *name) {
+	int reg;
+
+	for (reg = 0; reg_names[reg]; reg++) {
+		if (!strcmp(reg_names[reg], name))
+			return reg;
+	}
+
+	return -ENOENT;
+}
+
+int arch_reg_arg(int num) {
+	switch (num) {
+	case 0: return arch_reg_atoi("di");
+	case 1: return arch_reg_atoi("si");
+	case 2: return arch_reg_atoi("dx");
+	case 3: return arch_reg_atoi("r10");
+	case 4: return arch_reg_atoi("r8");
+	case 5: return arch_reg_atoi("r9");
+	}
+
+	return -ENOSYS;
 }
 
 int bpf_get_probe_id(char* name) {
@@ -789,8 +839,7 @@ const struct btf_type* btf__type_by_id(btf_t* btf, __u32 type_id) {
     return btf_type_by_id(btf, type_id);
 }
 
-static const void* btf_strs_data(const btf_t* btf)
-{
+static const void* btf_strs_data(const btf_t* btf) {
     return btf->strs_data ? btf->strs_data : NULL;
 }
 
