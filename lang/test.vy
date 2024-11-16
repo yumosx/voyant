@@ -1,5 +1,5 @@
-#syscalls;
+#net;
 
-probe sys_enter_execve{
-    out("%s\n", args->filename);
+probe netif_receive_skb {
+	out("%d\n", args->len);
 }

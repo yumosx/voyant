@@ -184,3 +184,14 @@ probe sys_enter_execve {
     }
 }
 ```
+
+### struct fileds
+
+```c
+#kprobe;
+
+probe dev_queue_xmit {
+	sk := (sk_buff*) arg0;
+	out("%d\n", sk->len);
+}
+```

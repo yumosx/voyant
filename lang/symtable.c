@@ -81,7 +81,7 @@ sym_t* symtable_add(symtable_t* st, char* name) {
     return sym;
 }
 
-void var_dec(symtable_t* st, node_t* var) {
+void var_dec(symtable_t* st, node_t* var, node_t* expr) {
     char* name;
     sym_t* sym;
 
@@ -96,6 +96,12 @@ void var_dec(symtable_t* st, node_t* var) {
     sym = symtable_add(st, name);
     sym->type = SYM_VAR;
     sym->vannot = var->annot;
+    
+    if (expr->annot.type == TYPE_CAST) {
+        sym->cast = expr->cast.name;
+        sym->vannot.offs = expr->annot.offs;
+    }
+    
     sym->var = var;    
 }
 
@@ -121,7 +127,7 @@ smap_t* map_create(node_t* map) {
     return smap;
 }
 
-void map_dec(symtable_t* st, node_t* map) {
+void map_dec(symtable_t* st, node_t* map, node_t* expr) {
     sym_t* sym;
     char* name;
     smap_t* smap;

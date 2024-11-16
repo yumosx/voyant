@@ -183,11 +183,11 @@ void copy_data(ebpf_t* ebpf, ir_t* ir) {
     ebpf_value_copy(ebpf, to, from, size);
 }
 
-void read_args(ir_t* ir, ebpf_t* code) {
+void read_trace_args(ir_t* ir, ebpf_t* code) {
     node_t* right, *expr;
     ssize_t addr;
     size_t size, offs;
-    
+
     expr = ir->value;
     right = expr->expr.right;
 
@@ -209,6 +209,52 @@ void read_args(ir_t* ir, ebpf_t* code) {
         break;
     default:
         break;
+    }
+}
+
+void read_kprobe_args(ir_t* ir, ebpf_t* ctx) {
+    ssize_t o, size, addr, offs;
+    sym_t* sym;
+    node_t* node;
+    char* name;
+
+    node = ir->value;
+    name = node->expr.left->name;
+    size = node->annot.size;
+    addr = node->annot.addr;
+    offs = node->annot.offs;
+    
+    sym = symtable_get(ctx->st, name);
+
+    switch (sym->vannot.offs) {
+    case 0:
+        o = btf_get_field_off("pt_regs", "di");
+        break;
+    case 1:
+        o = btf_get_field_off("pt_regs", "si");
+        break;
+    case 2:
+        o = btf_get_field_off("pt_regs", "dx");
+    default:
+        break;
+    }
+
+    ebpf_emit(ctx, LDXDW(BPF_REG_3, o, BPF_REG_9));
+    ebpf_emit(ctx, MOV(BPF_REG_1, BPF_REG_10));
+    ebpf_emit(ctx, ALU_IMM(BPF_ADD, BPF_REG_1, addr));
+    ebpf_emit(ctx, MOV_IMM(BPF_REG_2, size));
+    ebpf_emit(ctx, ALU_IMM(BPF_ADD, BPF_REG_3, offs));
+    ebpf_emit(ctx, CALL(BPF_FUNC_probe_read_kernel));
+
+    ebpf_emit(ctx, LDXDW(gregs[ir->r0->rn], addr, BPF_REG_10));
+}
+
+//todo refactor
+void read_args(ir_t* ir, ebpf_t* code) {
+    if (code->name == NULL) {
+        read_kprobe_args(ir, code);
+    } else {
+        read_trace_args(ir, code);
     }
 }
 

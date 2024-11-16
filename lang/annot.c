@@ -67,7 +67,7 @@ int annot_map_method(node_t* expr, ebpf_t* ctx) {
 	annot_map_args(left, ctx);
 
 	right->parent = left;
-	map_dec(ctx->st, left);
+	map_dec(ctx->st, left, NULL);
 	expr->annot.type = TYPE_MAP_METHOD;
 
 	return err;
@@ -86,13 +86,13 @@ static int annot_dec(node_t *n, ebpf_t *e) {
 	case NODE_VAR:
 		var->annot.type = expr->annot.type;
 		var->annot.size = expr->annot.size;
-		var_dec(e->st, var);
+		var_dec(e->st, var, expr);
 		break;
 	case NODE_MAP:
 		annot_map_args(var, e);
 		var->annot.type = expr->annot.type;
 		var->annot.size = expr->annot.size;
-		map_dec(e->st, var);
+		map_dec(e->st, var, expr);
 		break;
 	default:
 		break;
@@ -152,10 +152,31 @@ void annot_cast(node_t* expr, ebpf_t* ctx) {
 }
 
 void annot_struct_filed(node_t* expr, ebpf_t* ctx) {
-	//exp: oc->filename
 	sym_t* sym;
+	int offs;
+	char* sname, *filed;
 
 	sym = symtable_get(ctx->st, expr->expr.left->name);
+	sname = sym->cast;
+	filed = expr->expr.right->name;
+
+	offs = btf_get_field_off(sname, filed);
+
+	expr->annot.offs = offs;
+	expr->annot.size = 8;
+	expr->annot.type = TYPE_INT;
+}
+
+void annot_accses(node_t* expr, ebpf_t* ctx) {
+	sym_t* sym;
+	
+	sym = symtable_get(ctx->st, expr->expr.left->name);
+	if (!sym) {
+		annot_probe_args(expr, ctx);
+		return;
+	}
+	
+	annot_struct_filed(expr, ctx);
 }
 
 void annot_expr(node_t* expr, ebpf_t* ctx) {
@@ -171,7 +192,7 @@ void annot_expr(node_t* expr, ebpf_t* ctx) {
 		annot_map_method(expr, ctx);
 		break;
 	case OP_ACCESS:
-		annot_probe_args(expr, ctx);
+		annot_accses(expr, ctx);
 		break;
 	default:
 		get_annot(left, ctx);
@@ -248,7 +269,6 @@ void get_annot(node_t *node, ebpf_t *code) {
 		break;
 	case NODE_CAST:
 		annot_cast(node, code);
-		_d("%d\n", node->annot.type == TYPE_CAST);
 		break;
 	case NODE_REC:
 		annot_rec(node, code);
@@ -283,7 +303,11 @@ void assign_dec(node_t *dec, ebpf_t *code) {
 	var = dec->dec.var;
 	expr = dec->dec.expr;
 	sym = symtable_get(code->st, var->name);
-	
+
+	if (expr->type == NODE_CAST) {
+		return;
+	}
+
 	if (var->type == NODE_MAP) {
 		node_t *args;
 		args = var->map.args;
@@ -295,8 +319,6 @@ void assign_dec(node_t *dec, ebpf_t *code) {
 	
 	addr = ebpf_addr_get(var, code);
 	var->annot.addr = addr;
-	
-	
 	sym->vannot.addr = addr;
 
 	assign_data(expr, addr);

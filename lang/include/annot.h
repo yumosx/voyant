@@ -10,7 +10,6 @@
 #include "buffer.h"
 #include "probe.h"
 
-
 extern void get_annot(node_t *n, ebpf_t *e);
 extern void loc_assign(node_t *n, ebpf_t *e);
 extern void sema(node_t *n, ebpf_t *e);

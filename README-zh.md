@@ -30,8 +30,6 @@ make
 ls -la /sys/kernel/btf/vmlinux
 ```
 
-
-
 ### tracepoint
 
 目前我们程序只支持挂载到内核的跟踪程序上, 这是因为选择跟踪点挂载程序更加的稳定
@@ -156,6 +154,7 @@ probe sys_enter_execve {
 
 ### 获取跟踪点函数的参数
 
+通过 `args->filename` 这种方式用来获取对应跟踪点函数的参数值
 ```c
 #syscalls;
 
@@ -164,8 +163,18 @@ probe sys_enter_execve {
     out("%s\n", arg);
 }
 ```
-目前该功能整体上尚未达到完全稳定，但我可以确认，在捕获sys_enter_execve和sys_enter_open系统调用的filename参数方面，其表现是极为可靠的。
 
+相比较于上面这种跟踪点参数获取, kprobe的参数获取方式就比较复杂了, 我们主要使用 vmlinux 和 btf 的方式来完成偏移量的获取，具体的细节这里并不介绍, 
+我们主要介绍一下它的使用方式。
+
+```c
+#kprobe;
+
+probe dev_queue_xmit {
+	sk := (sk_buff*) arg0;
+	out("len: %d\n", sk->len);
+}
+```
 
 ### BEGIN 表达式
 

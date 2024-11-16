@@ -22,7 +22,7 @@ typedef struct smap_t{
 typedef struct sym {
     sym_type type;
     const char *name;
-    const char  *cast;
+    const char *cast;
     annot_t vannot;
 
     union{
@@ -41,8 +41,8 @@ extern symtable_t *symtable_new();
 extern symtable_t *symtable_create(symtable_t *out);
 extern sym_t *symtable_get(symtable_t *st, const char *name);
 extern int sym_transfer(sym_t *st, node_t *n);
-extern void var_dec(symtable_t *st, node_t *var);
-extern void map_dec(symtable_t *st, node_t *map);
+extern void var_dec(symtable_t *st, node_t *var, node_t* expr);
+extern void map_dec(symtable_t *st, node_t *map, node_t* expr);
 extern sym_t *symtable_add(symtable_t *st, char *name);
 extern int sym_ref(symtable_t* st, node_t* node);
 extern int symtable_ref(symtable_t *st, node_t *n);

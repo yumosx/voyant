@@ -1,6 +1,6 @@
 #kprobe;
 
-probe oom_kill_process{
-    oc := (oom_control*) arg1;
-    out("%s", oc->filename);
+probe dev_queue_xmit {
+	sk := (sk_buff*) arg0;
+	out("comm: %s len: %d\n", comm(), sk->len);
 }
