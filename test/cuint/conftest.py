@@ -2,15 +2,15 @@
 
 import os
 import sys
-from subprocess import PIPE, run
+from subprocess import PIPE, STDOUT, run, check_output
 from types import FunctionType
 from pathlib import Path
-
+from test.cuint import SRC
 
 class SG(Exception):
 	pass
 
-class CUintFailure(Exception):
+class CUintTestFailure(Exception):
 	pass
 
 def pytest_pycollect_makeitem(collector, name, obj):
@@ -21,7 +21,6 @@ def pytest_pycollect_makeitem(collector, name, obj):
     ):
         obj.__cunit__ = (str(collector.fspath), name)
 
-
 def cuint(module: str, name: str, full_name: str):
 	def _(*_, **__):
 		test = f"{module}::{name}"
@@ -30,7 +29,10 @@ def cuint(module: str, name: str, full_name: str):
 		result = run([sys.argv[0], "-svv", test], stdout=PIPE, stderr=PIPE, env=env)
 		if result.returncode == 0:
 			return
-		raise CuintTestFailure("\n" + result.stdout.decode())
+		elif result.returncode == -11:
+			binary_name = Path(module).stem.replace("test_", "")
+			raise SG((SRC/binary_name).with_suffix(".so"))	
+		raise CUintTestFailure("\n" + result.stdout.decode())
 	
 	return _
 
@@ -41,3 +43,16 @@ def pytest_collection_modifyitems(session, config, items) -> None:
 	for item in items:
 		if hasattr(item._obj, "__cuint__"):
 			item._obj = cuint(*item._obj.__cuint__, full_name=item.name)
+
+def gdb(cmds: list[str], *args: str) -> str:
+	return check_output(
+		["gdb", "-q", "bash"]
+		+ [_ for cs in (("-ex", _) for _ in cmds) for _ in cs]
+		+ list(args),
+		stderr=STDOUT,
+	).decode()
+
+def bt(binary: Path) -> str:
+	if Path("core").is_file():
+		return gdb(["bt full", "q"], str(binary), "core")
+	return "No core dump available."
