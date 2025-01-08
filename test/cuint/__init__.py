@@ -15,7 +15,7 @@ TEST = HERE.parent
 ROOT = TEST.parent
 SRC = ROOT / "lang"
 
-def CompilationError(Exception):
+class CompilationError(Exception):
 	pass
 
 restrict_re = re.compile(r"__restrict \w+")
@@ -65,11 +65,10 @@ class CModule(ModuleType):
 	def __init__(self, source):
 		super().__init__(source.name, f"Generated from {source.with_suffix('.c')}")
 		self.__binary__ = CDLL(source.with_suffix(".so"))
-		#print(self.__binary__.__dict__)
 		collector = DeclCollector()
 
 		for name, ctypedef in collector.collect(preprocess(source.with_suffix(".h"))).items():
-			parts = name.spilt("_")
+			parts = name.split("_")
 			py_name = "".join((_.capitalize() for _ in parts))
 			setattr(self, py_name, CMetaType(self, ctypedef, None))
 
@@ -80,11 +79,10 @@ class CModule(ModuleType):
 				setattr(self, name, cfunc)
 			except AttributeError:
 				pass
-
-
-	def __getter__(self, name):
-		return getattr(self.__binary__.__dict__)
 	
+	def __getattr__(self, name):
+		return getattr(self.__binary__, name)
+
 	@classmethod
 	def compile(cls, source, cflags=[], ldadd=[]):
 		compile(source.with_suffix(".c"), cflags, ldadd)
@@ -98,8 +96,8 @@ class DeclCollector(c_ast.NodeVisitor):
 	def _get_type(self, node):
 		print(node)
 		return self.types[" ".join(node.type.type.names)]
-
-	def _visit_Typedef(self, node):
+	
+	def visit_Typedef(self, node):
 		if isinstance(node.type.type, c_ast.Struct) and node.type.declname.endswith("_t"):
 			struct = node.type.type
 			self.types[node.type.declname[:-2]] = CTypeDef(
@@ -110,11 +108,12 @@ class DeclCollector(c_ast.NodeVisitor):
 	def visit_Decl(self, node):
 		if "extern" in node.storage:
 			return
+		
 		if isinstance(node.type, c_ast.FuncDecl):
 			func_name = node.name
 			ret_type = node.type.type
 			rtype = None
-
+			
 			if isinstance(ret_type, c_ast.PtrDecl):
 				if "".join(ret_type.type.type.names) == "char":
 					rtype = c_char_p
@@ -138,7 +137,7 @@ class DeclCollector(c_ast.NodeVisitor):
 				)
 			else:
 				self.functions.append(CFunctionDef(func_name, args, rtype))
-
+	
 	def collect(self, decl):
 		parser = c_parser.CParser()
 		try:
@@ -155,7 +154,7 @@ class DeclCollector(c_ast.NodeVisitor):
 				else:
 					print(f"{i+1:5d} \033[33;1m{lines[line]}\033[0m")
 					print(" " * (col + 5) + "\033[31;1m<<^\033[0m")
-				raise
+			raise
 		self.visit(ast)
 		return {
 			k: v
@@ -181,11 +180,12 @@ class CType(Structure):
 		self.__cself__ = self.new(*args, **kwargs)
 
 	def __del__(self):
-		if len(self.destory.__cmethod__.__args__) == 1:
-			self.destory()
+		if len(self.destroy.__cmethod__.__args__) == 1:
+			self.destroy()
 	
 	def __repr__(self):
-		return f"<(self.name) CObject at {self.__cself__}>"
+		return f"<{self.name} CObject at {self.__cself__}>"
+
 
 class CFunction:
 	def __init__(self, cfuncdef, cfunc):
@@ -197,14 +197,16 @@ class CFunction:
 			self.__cfunc__.restype = cfuncdef.rtype
 
 		self._posonly = all(_ is None for _ in self.__args__)	
+	
 	def check_args(self, args, kwargs):
 		if self._posonly and kwargs:
 			raise ValueError(f"{self} takes only positional arguments")
 		nargs = len(args) + len(kwargs)
 		if nargs != len(self.__args__):
 			raise TypeError(
-				f"{self} takes exactly {len(self.__args__)} arguments ({nargs}) given)"
+				f"{self} takes exactly {len(self.__args__)} arguments ({nargs} given)"
 			)	
+	
 	def __call__(self, *args, **kwargs):
 		self.check_args(args, kwargs)
 		return self.__cfunc__(*args, **kwargs)
@@ -212,12 +214,11 @@ class CFunction:
 	def __repr__(self):
 		return f"<CFunction '{self.__name__}'>"
 
-
 class CMethod(CFunction):
 	def __init__(self, cfuncdef, cfunc, ctype):
 		super().__init__(cfuncdef, cfunc)
 		self.__ctype__ = ctype
-	
+
 	def __get__(self, obj, objtype=None):
 		def _(*args, **kwargs):
 			cargs = [obj.__cself__, *args]
@@ -226,6 +227,7 @@ class CMethod(CFunction):
 		_.__cmethod__ = self
 
 		return _
+
 	def __repr__(self):
 		return f"<CMethod '{self.__name__}' of CType '{self.__ctype__.__name__}'>"
 
@@ -236,13 +238,13 @@ class CStaticMethod(CFunction):
 	def __repr__(self):
 		return f"<CStaticMethod '{self.__name__}' of CType '{self.__ctype__.__name__}'>"
 
-class CMetaType(type(type(Structure))):
+class CMetaType(type(Structure)):
 	def __new__(cls, cmodule, ctypedef, _ = None):
 		ctype = super().__new__(
 			cls,
 			ctypedef.name,
 			(CType,),
-			{"__module__": cmodule},
+			{"__cmodule__": cmodule},
 		)
 		constructor = getattr(cmodule.__binary__, f"{ctypedef.name[:-2]}_new")
 		ctype.new = CStaticMethod(ctypedef.constructor, constructor, ctype)
