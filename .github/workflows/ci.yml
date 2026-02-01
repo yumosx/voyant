@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build-and-test:
+    name: Build and Test with ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        include:
+          - compiler: gcc
+            cc: gcc
+          - compiler: clang
+            cc: clang
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install eBPF dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc clang libbpf-dev libelf-dev linux-headers-generic
+
+    - name: Build project
+      working-directory: ./lang
+      env:
+        CC: ${{ matrix.cc }}
+      run: |
+        make clean
+        make
+
+    - name: Run tests
+      working-directory: ./lang
+      env:
+        CC: ${{ matrix.cc }}
+      run: make test
+
+    - name: Check build artifacts
+      working-directory: ./lang
+      run: |
+        if [ ! -f voyant ]; then
+          echo "Error: voyant binary not found"
+          exit 1
+        fi
+        echo "Build successful: voyant binary exists"
+
+  code-style:
+    name: Code Style Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format
+
+    - name: Check code formatting
+      working-directory: ./lang
+      run: |
+        find . -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install cppcheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cppcheck
+
+    - name: Run cppcheck
+      working-directory: ./lang
+      run: |
+        cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem include/ *.c
+
+  memory-check:
+    name: Memory Check with Valgrind
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y valgrind
+
+    - name: Build with debug symbols
+      working-directory: ./lang
+      run: |
+        make clean
+        CFLAGS="-Wall -g -O0" make
+
+    - name: Run tests with Valgrind
+      working-directory: ./lang
+      run: |
+        make test
+        valgrind --leak-check=full --error-exitcode=1 ./test.exe
