@@ -60,13 +60,13 @@ typedef struct lexer_t {
     char *input;
 } lexer_t;
 
-char *read_ident(lexer_t *lexer);
-token_type get_type(char *string);
+char *scan_identifier(lexer_t *lexer);
+token_type classify_token_type(char *string);
 lexer_t *lexer_init(char *string);
 token_t *lexer_next_token(lexer_t *lexer);
 
-void free_token(token_t *tok);
-void free_lexer(lexer_t *lex);
+void token_destroy(token_t *tok);
+void lexer_destroy(lexer_t *lex);
 
 const char *token_to_str(token_type type);
 

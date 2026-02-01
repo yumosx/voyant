@@ -62,10 +62,10 @@ void test_suite_print_results(test_suite_t* suite) {
         
         if (result->passed) {
             suite->passed++;
-            printf("[PASS] %s\n", result->test_name);
+            printf("[PASS] %s\n", result->name);
         } else {
             suite->failed++;
-            printf("[FAIL] %s\n", result->test_name);
+            printf("[FAIL] %s\n", result->name);
             printf("       %s:%d: %s\n", result->file, result->line, result->message);
         }
     }

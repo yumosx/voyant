@@ -18,7 +18,7 @@ static bool expect(parser_t *parser, token_type type) {
 
 static void advance(parser_t *parser) {
     if (parser->this_tok != NULL)
-        free_token(parser->this_tok);
+        token_destroy(parser->this_tok);
 
     parser->this_tok = parser->next_tok;
     parser->next_tok = lexer_next_token(parser->lexer);
@@ -517,7 +517,7 @@ node_t* parse_program(parser_t* parser) {
 }
 
 void free_parser(parser_t *parser) {
-    free_lexer(parser->lexer);
-    free_token(parser->this_tok);
-    free_token(parser->next_tok);
+    lexer_destroy(parser->lexer);
+    token_destroy(parser->this_tok);
+    token_destroy(parser->next_tok);
 }

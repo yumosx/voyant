@@ -10,7 +10,7 @@
 #define TEST_MAX_MSG_LEN 1024
 
 typedef struct test_result {
-    char test_name[TEST_MAX_NAME_LEN];
+    char name[TEST_MAX_NAME_LEN];
     bool passed;
     char message[TEST_MAX_MSG_LEN];
     const char* file;
@@ -35,13 +35,15 @@ extern test_suite_t* g_current_suite;
 
 #define TEST_CASE(test_name) \
     do { \
-        test_result_t result; \
-        memset(&result, 0, sizeof(result)); \
-        strncpy(result.test_name, #test_name, TEST_MAX_NAME_LEN - 1); \
-        result.file = __FILE__; \
-        result.line = __LINE__; \
-        result.passed = true; \
-        g_current_suite->results[g_current_suite->result_count] = result; \
+        test_result_t* result = &g_current_suite->results[g_current_suite->result_count]; \
+        memset(result, 0, sizeof(test_result_t)); \
+        do { \
+            const char* __test_name_str = #test_name; \
+            strncpy(result->name, __test_name_str, TEST_MAX_NAME_LEN - 1); \
+        } while(0); \
+        result->file = __FILE__; \
+        result->line = __LINE__; \
+        result->passed = true; \
         g_current_suite->result_count++; \
         test_##test_name(g_current_suite); \
     } while(0)
