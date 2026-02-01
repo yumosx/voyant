@@ -29,10 +29,12 @@ long get_error(const void *ptr) {
   return -errno;
 }
 
+#define VEC_INITIAL_CAPACITY 16
+
 vec_t *vec_new() {
-  vec_t *vec = vmalloc(sizeof(vec));
-  vec->data = vmalloc(sizeof(void *) * 16);
-  vec->cap = 16;
+  vec_t *vec = vmalloc(sizeof(vec_t));
+  vec->data = vmalloc(sizeof(void *) * VEC_INITIAL_CAPACITY);
+  vec->cap = VEC_INITIAL_CAPACITY;
   vec->len = 0;
   return vec;
 }
@@ -40,7 +42,11 @@ vec_t *vec_new() {
 void vec_push(vec_t *vec, void *elem) {
   if (vec->len == vec->cap) {
     vec->cap *= 2;
-    vec->data = realloc(vec->data, sizeof(void *) * vec->cap);
+    void *new_data = realloc(vec->data, sizeof(void *) * vec->cap);
+    if (!new_data) {
+      verror("vec_push: failed to expand vector to capacity %d", vec->cap);
+    }
+    vec->data = new_data;
   }
   vec->data[vec->len++] = elem;
 }
@@ -78,133 +84,137 @@ bool vec_union(vec_t *vec, void *elem) {
 
 FILE *fopenf(const char *mode, const char *fmt, ...) {
   va_list ap;
-  FILE *fp;
+  FILE *file;
   char *path;
   va_start(ap, fmt);
   vasprintf(&path, fmt, ap);
   va_end(ap);
-  fp = fopen(path, mode);
+  file = fopen(path, mode);
   free(path);
-  return fp;
+  return file;
 }
 
-void *vmalloc(size_t len) {
-  void *obj = malloc(len);
-  if (!obj) {
-    fprintf(stderr, "\n malloc failed\n");
-    exit(1);
+void *vmalloc(size_t size) {
+  void *ptr = malloc(size);
+  if (!ptr) {
+    verror("malloc failed: requested %zu bytes", size);
   }
-  return obj;
+  return ptr;
 }
 
 void *vrealloc(void *ptr, size_t size) {
-  void *obj = realloc(ptr, size);
+  void *new_ptr = realloc(ptr, size);
 
-  if (!obj) {
-    fprintf(stderr, "\n Rand out of memory (realloc)\n");
-    exit(1);
+  if (!new_ptr && size > 0) {
+    verror("realloc failed: requested %zu bytes", size);
   }
-  return obj;
+  return new_ptr;
 }
 
 void *vcalloc(size_t num, size_t size) {
-  void *obj = calloc(num, size);
-  if (!obj) {
-    fprintf(stderr, "\n Rand out of memory (calloc)\n");
-    exit(1);
+  void *ptr = calloc(num, size);
+  if (!ptr) {
+    verror("calloc failed: requested %zu elements of %zu bytes", num, size);
   }
-  return obj;
+  return ptr;
 }
 
 char *vstr(char *str) {
-  char *p = vmalloc(strlen(str) + 1);
-  strcpy(p, str);
-  return p;
+  size_t len = strlen(str);
+  char *copy = vmalloc(len + 1);
+  strncpy(copy, str, len + 1);
+  return copy;
 }
 
 bool vstreq(char *s1, char *s2) { return strcmp(s1, s2) == 0; }
 
 char *str_escape(char *str) {
-  char *in, *out;
+  size_t len = strlen(str);
+  char *escaped = vmalloc(len + 1);
+  char *src = str;
+  char *dst = escaped;
 
-  for (in = out = str; *in; in++, out++) {
-    if (*in != '\\')
+  while (*src) {
+    if (*src != '\\') {
+      *dst++ = *src++;
       continue;
-    in++;
-    switch (*in) {
+    }
+    src++;
+    switch (*src) {
     case 'n':
-      *out = '\n';
+      *dst++ = '\n';
       break;
     case 'r':
-      *out = '\r';
+      *dst++ = '\r';
       break;
     case 't':
-      *out = '\t';
+      *dst++ = '\t';
       break;
     case '\\':
-      *out = '\\';
+      *dst++ = '\\';
       break;
     default:
+      *dst++ = *src;
       break;
     }
+    src++;
   }
-  if (out < in)
-    *out = '\0';
-  return str;
+  *dst = '\0';
+  return escaped;
 }
 
 char *read_file(char *filename) {
-  char *input = (char *)calloc(BUFSIZ, sizeof(char));
-  assert(input != NULL);
-  uint32_t size = 0, read;
+  FILE *file = fopen(filename, "r");
 
-  FILE *f = fopen(filename, "r");
-
-  if (!f) {
+  if (!file) {
     verror("Could not open \"%s\" for reading", filename);
-    exit(1);
   }
 
-  while ((read = fread(input, sizeof(char), BUFSIZ, f)) > 0) {
-    size += read;
+  fseek(file, 0, SEEK_END);
+  long file_size = ftell(file);
+  fseek(file, 0, SEEK_SET);
 
-    if (read >= BUFSIZ) {
-      input = vrealloc(input, size + BUFSIZ);
-      assert(input != NULL);
-    }
+  char *content = vmalloc(file_size + 1);
+  size_t bytes_read = fread(content, 1, file_size, file);
+
+  if (bytes_read != (size_t)file_size) {
+    verror("Failed to read complete file \"%s\"", filename);
   }
-  input[size] = '\0';
 
-  fclose(f);
-  return input;
+  content[bytes_read] = '\0';
+  fclose(file);
+
+  return content;
 }
 
+#define BAR_WIDTH 32
+
 void print_bar_ascii(FILE *fp, int64_t count, int64_t max) {
-  int w = (((float)count / (float)max) * 32.0) + 0.5;
+  int bar_length = (((float)count / (float)max) * BAR_WIDTH) + 0.5;
   int i;
 
   fputc('|', fp);
 
-  for (i = 0; i < 32; i++, w--)
-    fputc((w > 0) ? '@' : ' ', fp);
+  for (i = 0; i < BAR_WIDTH; i++, bar_length--)
+    fputc((bar_length > 0) ? '@' : ' ', fp);
 
   fputc('|', fp);
 }
 
-static int quantize_normalize(int log2, char *const **suffix) {
-  static const char *s[] = {NULL, "k", "M", "G", "T", "P", "Z"};
+static int quantize_normalize(int log2, const char **suffix) {
+  static const char *suffixes[] = {NULL, "k", "M", "G", "T", "P", "Z"};
   int i;
 
   for (i = 0; log2 >= 10; i++, log2 -= 10)
     ;
-  *suffix = s[i];
+  *suffix = suffixes[i];
 
   return (1 << log2);
 }
 
 void output_hist(FILE *fp, int log2, int64_t count, int64_t max) {
-  int lo, hi;
-  const char *ls, *hs;
+  int lower_bound, upper_bound;
+  const char *lower_suffix, *upper_suffix;
 
   switch (log2) {
   case -1:
@@ -217,14 +227,15 @@ void output_hist(FILE *fp, int log2, int64_t count, int64_t max) {
     fputs("\t           1", fp);
     break;
   default:
-    lo = quantize_normalize(log2 - 1, &ls);
-    hi = quantize_normalize(log2, &hs);
+    lower_bound = quantize_normalize(log2 - 1, &lower_suffix);
+    upper_bound = quantize_normalize(log2, &upper_suffix);
 
-    if (!hs)
-      fprintf(fp, "\t[%4d, %4d]", lo, hi - 1);
+    if (!upper_suffix)
+      fprintf(fp, "\t[%4d, %4d]", lower_bound, upper_bound - 1);
     else
-      fprintf(fp, "\t[%*d%s, %*d%s)", ls ? 3 : 4, lo, ls ?: "", hs ? 3 : 4, hi,
-              hs ?: "");
+      fprintf(fp, "\t[%*d%s, %*d%s)", lower_suffix ? 3 : 4, lower_bound,
+              lower_suffix ?: "", upper_suffix ? 3 : 4, upper_bound,
+              upper_suffix ?: "");
   }
 
   fprintf(fp, "\t%8" PRId64 " ", count);
@@ -269,31 +280,31 @@ static ut_print_fn_t __vy_pr = base_pr;
 
 __printf(2, 3) void ut_print(enum print_level level, const char *format, ...) {
   va_list args;
-  int old_errno;
+  int saved_errno;
   ut_print_fn_t print_fn;
 
   print_fn = __atomic_load_n(&__vy_pr, __ATOMIC_RELAXED);
   if (!print_fn)
     return;
 
-  old_errno = errno;
+  saved_errno = errno;
   va_start(args, format);
   __vy_pr(level, format, args);
   va_end(args);
 
-  errno = old_errno;
+  errno = saved_errno;
 }
 
 char *ut_strerror_r(int err, char *dst, int len) {
-  int ret = strerror_r(err < 0 ? -err : err, dst, len);
-  if (ret == -1)
-    ret = errno;
+  int result = strerror_r(err < 0 ? -err : err, dst, len);
+  if (result == -1)
+    result = errno;
 
-  if (ret) {
-    if (ret == EINVAL)
+  if (result) {
+    if (result == EINVAL)
       snprintf(dst, len, "unknown error (%d)", err < 0 ? err : -err);
     else
-      snprintf(dst, len, "ERROR: strerror_r(%d)=%d", err, ret);
+      snprintf(dst, len, "ERROR: strerror_r(%d)=%d", err, result);
   }
 
   return dst;
@@ -311,19 +322,18 @@ void *ut_add_mem(void **data, size_t *cap_cnt, size_t elem_sz, size_t cur_cnt,
     return NULL;
 
   new_cnt = *cap_cnt;
-  new_cnt += new_cnt / 4; /* expand by 25% */
-  if (new_cnt < 16)       /* but at least 16 elements */
+  new_cnt += new_cnt / 4;
+  if (new_cnt < 16)
     new_cnt = 16;
-  if (new_cnt > max_cnt) /* but not exceeding a set limit */
+  if (new_cnt > max_cnt)
     new_cnt = max_cnt;
-  if (new_cnt < cur_cnt + add_cnt) /* also ensure we have enough memory */
+  if (new_cnt < cur_cnt + add_cnt)
     new_cnt = cur_cnt + add_cnt;
 
   new_data = ut_reallocarray(*data, new_cnt, elem_sz);
   if (!new_data)
     return NULL;
 
-  /* zero out newly allocated portion of memory */
   memset(new_data + (*cap_cnt) * elem_sz, 0, (new_cnt - *cap_cnt) * elem_sz);
 
   *data = new_data;
