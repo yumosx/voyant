@@ -83,16 +83,16 @@ static seq_t get_token_seq(token_type type) {
   case TOKEN_SLASH:
     return PRODUCT;
 
-  case LEFT_PAREN:
+  case TOKEN_LEFT_PAREN:
     return CALL;
 
-  case LEFT_BRACKET:
+  case TOKEN_LEFT_BRACKET:
     return INDEX;
 
   case TOKEN_ASSIGN:
     return ASSIGN;
 
-  case TOKEN_DEC:
+  case TOKEN_DECLARE:
     return DEC;
 
   case TOKEN_PIPE:
@@ -171,7 +171,7 @@ static node_t *parse_dec(parser_t *parser, node_t *var) {
 
   seq = get_token_seq(parser->this_tok->type);
 
-  if (expect_next_token(parser, LEFT_PAREN)) {
+  if (expect_next_token(parser, TOKEN_LEFT_PAREN)) {
     advance(parser);
     char *name = vstr(parser->this_tok->literal);
 
@@ -230,7 +230,7 @@ node_t *parse_call_args(parser_t *parser) {
     n = n->next;
   }
 
-  if (!expect_next_token(parser, RIGHT_PAREN)) {
+  if (!expect_next_token(parser, TOKEN_RIGHT_PAREN)) {
     verror("expect a right paren");
     return NULL;
   }
@@ -241,7 +241,7 @@ node_t *parse_call_args(parser_t *parser) {
 node_t *parse_call_expr(parser_t *parser, node_t *left) {
   left->type = NODE_CALL;
 
-  if (expect(parser, RIGHT_PAREN)) {
+  if (expect(parser, TOKEN_RIGHT_PAREN)) {
     advance(parser);
     return left;
   }
@@ -263,7 +263,7 @@ node_t *parse_map_args(parser_t *p) {
     n = n->next;
   }
 
-  if (!expect_next_token(p, RIGHT_BRACKET)) {
+  if (!expect_next_token(p, TOKEN_RIGHT_BRACKET)) {
     return NULL;
   }
 
@@ -282,7 +282,7 @@ node_t *parse_unroll_stmts(parser_t *p) {
   node_t *stmts;
   size_t count = 0;
 
-  if (!expect_next_token(p, LEFT_PAREN)) {
+  if (!expect_next_token(p, TOKEN_LEFT_PAREN)) {
     return NULL;
   }
 
@@ -293,7 +293,7 @@ node_t *parse_unroll_stmts(parser_t *p) {
   }
   advance(p);
 
-  if (!expect_next_token(p, RIGHT_PAREN)) {
+  if (!expect_next_token(p, TOKEN_RIGHT_PAREN)) {
     return NULL;
   }
   advance(p);
@@ -305,7 +305,7 @@ node_t *parse_unroll_stmts(parser_t *p) {
 node_t *parse_if_stmts(parser_t *p) {
   node_t *cond, *stmts;
 
-  if (!expect_next_token(p, LEFT_PAREN)) {
+  if (!expect_next_token(p, TOKEN_LEFT_PAREN)) {
     return NULL;
   }
 
@@ -358,15 +358,15 @@ node_t *parse_expr(parser_t *p, seq_t s) {
       advance(p);
       left = parse_infix_expr(p, left);
       break;
-    case LEFT_PAREN:
+    case TOKEN_LEFT_PAREN:
       advance(p);
       left = parse_call_expr(p, left);
       break;
-    case LEFT_BRACKET:
+    case TOKEN_LEFT_BRACKET:
       advance(p);
       left = parse_map_expr(p, left);
       break;
-    case TOKEN_DEC:
+    case TOKEN_DECLARE:
       advance(p);
       left = parse_dec(p, left);
       break;
@@ -392,7 +392,7 @@ node_t *parse_block_stmts(parser_t *p) {
 
   advance(p);
 
-  while (!expect(p, RIGHT_BLOCK) && !expect(p, END_OF_FILE)) {
+  while (!expect(p, TOKEN_RIGHT_BRACE) && !expect(p, TOKEN_EOF)) {
     node_t *stmts = parse_expr(p, LOWEST);
 
     if (stmts != NULL) {
@@ -502,7 +502,7 @@ node_t *parse_program(parser_t *parser) {
   head = node;
   head->name = name;
 
-  while (parser->next_tok->type != END_OF_FILE) {
+  while (parser->next_tok->type != TOKEN_EOF) {
     node_t *script = parse_script(parser, name);
     if (script) {
       node->next = script;

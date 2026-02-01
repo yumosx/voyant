@@ -44,7 +44,7 @@ void test_single_char_tokens(test_suite_t* suite) {
     lexer = lexer_init("(");
     token = lexer_next_token(lexer);
     
-    ASSERT_EQ(LEFT_PAREN, token->type);
+    ASSERT_EQ(TOKEN_LEFT_PAREN, token->type);
     ASSERT_STR_EQ("(", token->literal);
     
     token_destroy(token);
@@ -53,7 +53,7 @@ void test_single_char_tokens(test_suite_t* suite) {
     lexer = lexer_init(")");
     token = lexer_next_token(lexer);
     
-    ASSERT_EQ(RIGHT_PAREN, token->type);
+    ASSERT_EQ(TOKEN_RIGHT_PAREN, token->type);
     ASSERT_STR_EQ(")", token->literal);
     
     token_destroy(token);
@@ -62,7 +62,7 @@ void test_single_char_tokens(test_suite_t* suite) {
     lexer = lexer_init("[");
     token = lexer_next_token(lexer);
     
-    ASSERT_EQ(LEFT_BRACKET, token->type);
+    ASSERT_EQ(TOKEN_LEFT_BRACKET, token->type);
     ASSERT_STR_EQ("[", token->literal);
     
     token_destroy(token);
@@ -71,7 +71,7 @@ void test_single_char_tokens(test_suite_t* suite) {
     lexer = lexer_init("]");
     token = lexer_next_token(lexer);
     
-    ASSERT_EQ(RIGHT_BRACKET, token->type);
+    ASSERT_EQ(TOKEN_RIGHT_BRACKET, token->type);
     ASSERT_STR_EQ("]", token->literal);
     
     token_destroy(token);
@@ -80,7 +80,7 @@ void test_single_char_tokens(test_suite_t* suite) {
     lexer = lexer_init("{");
     token = lexer_next_token(lexer);
     
-    ASSERT_EQ(LEFT_BLOCK, token->type);
+    ASSERT_EQ(TOKEN_LEFT_BRACE, token->type);
     ASSERT_STR_EQ("{", token->literal);
     
     token_destroy(token);
@@ -89,7 +89,7 @@ void test_single_char_tokens(test_suite_t* suite) {
     lexer = lexer_init("}");
     token = lexer_next_token(lexer);
     
-    ASSERT_EQ(RIGHT_BLOCK, token->type);
+    ASSERT_EQ(TOKEN_RIGHT_BRACE, token->type);
     ASSERT_STR_EQ("}", token->literal);
     
     token_destroy(token);
@@ -217,7 +217,7 @@ void test_two_char_tokens(test_suite_t* suite) {
     lexer = lexer_init(":=");
     token = lexer_next_token(lexer);
     
-    ASSERT_EQ(TOKEN_DEC, token->type);
+    ASSERT_EQ(TOKEN_DECLARE, token->type);
     ASSERT_STR_EQ(":=", token->literal);
     
     token_destroy(token);
@@ -449,7 +449,7 @@ void test_eof(test_suite_t* suite) {
     lexer_t *lexer = lexer_init("");
     token_t *token = lexer_next_token(lexer);
     
-    ASSERT_EQ(END_OF_FILE, token->type);
+    ASSERT_EQ(TOKEN_EOF, token->type);
     ASSERT_STR_EQ("", token->literal);
     
     token_destroy(token);
@@ -460,7 +460,7 @@ void test_eof(test_suite_t* suite) {
     token_destroy(token);
     
     token = lexer_next_token(lexer);
-    ASSERT_EQ(END_OF_FILE, token->type);
+    ASSERT_EQ(TOKEN_EOF, token->type);
     ASSERT_STR_EQ("", token->literal);
     
     token_destroy(token);

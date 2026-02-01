@@ -11,25 +11,25 @@
   TYPE(TOKEN_IDENT, "Ident")                                                   \
   TYPE(TOKEN_STRING, "String")                                                 \
   TYPE(TOKEN_PROBE, "Probe")                                                   \
-  TYPE(TOKEN_PROFI, "Kprobe")                                                  \
+  TYPE(TOKEN_KPROBE, "Kprobe")                                                 \
   TYPE(TOKEN_BEGIN, "Begin")                                                   \
   TYPE(TOKEN_END, "End")                                                       \
   TYPE(TOKEN_SLASH, "Slash")                                                   \
   TYPE(TOKEN_COLON, "Colon")                                                   \
   TYPE(TOKEN_COMMA, "Comma")                                                   \
-  TYPE(LEFT_BRACKET, "Left Bracket")                                           \
-  TYPE(RIGHT_BRACKET, "Right Bracket")                                         \
-  TYPE(LEFT_BLOCK, "Left Block")                                               \
-  TYPE(RIGHT_BLOCK, "Right Block")                                             \
+  TYPE(TOKEN_LEFT_BRACKET, "Left Bracket")                                     \
+  TYPE(TOKEN_RIGHT_BRACKET, "Right Bracket")                                   \
+  TYPE(TOKEN_LEFT_BRACE, "Left Brace")                                         \
+  TYPE(TOKEN_RIGHT_BRACE, "Right Brace")                                       \
   TYPE(TOKEN_UNDERLINE, "Underline")                                           \
-  TYPE(LEFT_PAREN, "Left Paren")                                               \
-  TYPE(RIGHT_PAREN, "Right Paren")                                             \
+  TYPE(TOKEN_LEFT_PAREN, "Left Paren")                                         \
+  TYPE(TOKEN_RIGHT_PAREN, "Right Paren")                                       \
   TYPE(TOKEN_ASSIGN, "Assign")                                                 \
   TYPE(TOKEN_EQ, "Equal")                                                      \
   TYPE(TOKEN_SEMICOLON, "Semicolon")                                           \
   TYPE(TOKEN_IF, "If")                                                         \
   TYPE(TOKEN_UNROLL, "Unroll")                                                 \
-  TYPE(TOKEN_DEC, "Dec")                                                       \
+  TYPE(TOKEN_DECLARE, "Declare")                                               \
   TYPE(TOKEN_PLUS, "Plus")                                                     \
   TYPE(TOKEN_STAR, "Star")                                                     \
   TYPE(TOKEN_SUB, "Sub")                                                       \
@@ -40,7 +40,7 @@
   TYPE(TOKEN_HASH, "Hash")                                                     \
   TYPE(TOKEN_ACCESS, "Access")                                                 \
   TYPE(TOKEN_PIPE, "Pipe")                                                     \
-  TYPE(END_OF_FILE, "End of File")
+  TYPE(TOKEN_EOF, "End of File")
 
 #define TYPE(_type, _typestr) _type,
 typedef enum token_type { TOKEN_TYPE_TABLE } token_type;

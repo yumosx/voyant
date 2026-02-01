@@ -141,22 +141,22 @@ token_t *lexer_next_token(lexer_t *lexer) {
     return make_token(lexer, TOKEN_COMMA, ",");
 
   case '(':
-    return make_token(lexer, LEFT_PAREN, "(");
+    return make_token(lexer, TOKEN_LEFT_PAREN, "(");
 
   case ')':
-    return make_token(lexer, RIGHT_PAREN, ")");
+    return make_token(lexer, TOKEN_RIGHT_PAREN, ")");
 
   case '[':
-    return make_token(lexer, LEFT_BRACKET, "[");
+    return make_token(lexer, TOKEN_LEFT_BRACKET, "[");
 
   case ']':
-    return make_token(lexer, RIGHT_BRACKET, "]");
+    return make_token(lexer, TOKEN_RIGHT_BRACKET, "]");
 
   case '{':
-    return make_token(lexer, LEFT_BLOCK, "{");
+    return make_token(lexer, TOKEN_LEFT_BRACE, "{");
 
   case '}':
-    return make_token(lexer, RIGHT_BLOCK, "}");
+    return make_token(lexer, TOKEN_RIGHT_BRACE, "}");
 
   case ';':
     return make_token(lexer, TOKEN_SEMICOLON, ";");
@@ -211,14 +211,14 @@ token_t *lexer_next_token(lexer_t *lexer) {
 
   case ':':
     if (lexer->input[lexer->read_pos] == '=') {
-      return make_two_char_token(lexer, TOKEN_DEC, ":=");
+      return make_two_char_token(lexer, TOKEN_DECLARE, ":=");
     }
     return make_token(lexer, TOKEN_COLON, ":");
 
   case 0: {
     token_t *token = vmalloc(sizeof(*token));
     token->literal = "";
-    token->type = END_OF_FILE;
+    token->type = TOKEN_EOF;
     return token;
   }
   default:
@@ -244,7 +244,7 @@ const char *token_to_str(token_type type) {
 }
 
 void token_destroy(token_t *tok) {
-  if (tok->type != END_OF_FILE) {
+  if (tok->type != TOKEN_EOF) {
     free(tok->literal);
   }
   free(tok);
