@@ -30,4 +30,7 @@ ct:
 clean:
 	rm -f $(OBJS) voyant
 
-.PHONY: all clean test ct
+fmt:
+	clang-format -i $(SRCS) $(HEADERS)
+
+.PHONY: all clean test ct fmt

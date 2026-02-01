@@ -6,9 +6,9 @@
 
 #include "ast.h"
 #include "bpflib.h"
-#include "symtable.h"
 #include "buffer.h"
 #include "probe.h"
+#include "symtable.h"
 
 extern void get_annot(node_t *n, ebpf_t *e);
 extern void loc_assign(node_t *n, ebpf_t *e);
